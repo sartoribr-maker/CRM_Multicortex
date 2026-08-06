@@ -1,57 +1,47 @@
 import { useEffect, useState } from 'react';
-import type { ApiHealthResponse } from '@multicortex/shared';
-import { fetchHealth } from './lib/api';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import LoginPage from './pages/LoginPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import HomePage from './pages/HomePage';
+import { ProtectedRoute } from './routes/ProtectedRoute';
+import { attemptSilentRefresh } from './lib/api';
 import logo from './assets/logo.png';
 
-type HealthState =
-  | { status: 'loading' }
-  | { status: 'success'; data: ApiHealthResponse }
-  | { status: 'error'; message: string };
+function BootSplash() {
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <img src={logo} alt="Multicortex" className="h-12 animate-pulse" />
+    </div>
+  );
+}
 
 function App() {
-  const [health, setHealth] = useState<HealthState>({ status: 'loading' });
+  const [isBootstrapped, setIsBootstrapped] = useState(false);
 
   useEffect(() => {
-    fetchHealth()
-      .then((data) => setHealth({ status: 'success', data }))
-      .catch((error: Error) => setHealth({ status: 'error', message: error.message }));
+    attemptSilentRefresh().finally(() => setIsBootstrapped(true));
   }, []);
 
+  if (!isBootstrapped) {
+    return <BootSplash />;
+  }
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-8 px-4">
-      <img src={logo} alt="Multicortex" className="h-16" />
-
-      <div className="w-full max-w-md rounded-card bg-surface p-6 shadow-md">
-        <h1 className="font-heading text-xl font-bold text-brand-purple-dark">
-          Multicortex CRM
-        </h1>
-        <p className="mt-1 text-sm text-ink/70">
-          Fase 0 — verificação de integração frontend ↔ backend
-        </p>
-
-        <div className="mt-4 rounded-card border border-surface-muted p-4">
-          {health.status === 'loading' && (
-            <p className="text-sm text-ink/70">Consultando API…</p>
-          )}
-          {health.status === 'success' && (
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-success" />
-              <p className="text-sm text-ink">
-                Backend OK — status{' '}
-                <span className="font-semibold text-success">{health.data.status}</span> em{' '}
-                {new Date(health.data.timestamp).toLocaleString('pt-BR')}
-              </p>
-            </div>
-          )}
-          {health.status === 'error' && (
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-danger" />
-              <p className="text-sm text-danger">Falha ao conectar: {health.message}</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <HomePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 

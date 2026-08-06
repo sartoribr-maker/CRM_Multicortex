@@ -2,7 +2,7 @@
 
 Plataforma de CRM da Multicortex: funil de vendas em Kanban, gestão de oportunidades, parceiros, tarefas e dashboard executivo.
 
-> Este README é expandido a cada fase de execução. Estado atual: **Fase 0 — Setup do projeto**.
+> Este README é expandido a cada fase de execução. Estado atual: **Fase 1 — Autenticação e usuários**.
 
 ## Stack
 
@@ -49,6 +49,27 @@ CRM/
 
 Para derrubar o ambiente: `docker compose -f infra/docker-compose.yml down` (adicione `-v` para também apagar o volume de dados do Postgres).
 
+Após subir o ambiente pela primeira vez, aplique a migration e o seed (usuários/perfis de exemplo):
+
+```bash
+docker compose --env-file .env -f infra/docker-compose.yml exec -w /app/apps/backend backend npx prisma migrate dev
+docker compose --env-file .env -f infra/docker-compose.yml exec -w /app/apps/backend backend npx prisma db seed
+```
+
+## Login de demonstração (seed da Fase 1)
+
+Todos os usuários abaixo usam a senha `Senha@123`:
+
+| E-mail | Perfil |
+|---|---|
+| admin@multicortex.com.br | Administrador (acesso total) |
+| gestor@multicortex.com.br | Gestor Comercial |
+| vendedor@multicortex.com.br | Vendedor |
+| parceiro@multicortex.com.br | Parceiro |
+| visualizador@multicortex.com.br | Visualizador |
+
+O fluxo "esqueci minha senha" ainda não envia e-mail de verdade (SMTP entra na Fase 6+) — o link de redefinição é impresso no log do container `backend`.
+
 ## Variáveis de ambiente
 
 Ver `.env.example` na raiz. Nesta fase são utilizadas:
@@ -59,10 +80,12 @@ Ver `.env.example` na raiz. Nesta fase são utilizadas:
 | `DATABASE_URL` | connection string usada pelo Prisma |
 | `BACKEND_PORT` | porta da API NestJS (padrão `3333`) |
 | `FRONTEND_PORT` | porta do Vite dev server (padrão `5173`) |
-| `FRONTEND_URL` | usada pelo backend para configurar CORS |
+| `FRONTEND_URL` | usada pelo backend para configurar CORS e montar o link de reset de senha |
 | `APP_DOMAIN` | domínio da aplicação (relevante a partir da Fase 10, deploy) |
+| `JWT_SECRET` | segredo de assinatura do access token JWT |
+| `JWT_ACCESS_EXPIRES_IN` / `JWT_REFRESH_EXPIRES_IN` | validade do access token (padrão `15m`) e do refresh token (padrão `7d`) |
 
-As variáveis de autenticação (`JWT_*`), storage e SMTP estão documentadas no `.env.example` para as fases futuras, mas ainda não são utilizadas.
+O refresh token não é um JWT: é um valor aleatório opaco, guardado com hash (SHA-256) no banco, entregue ao navegador em um cookie `httpOnly`. Variáveis de storage e SMTP estão documentadas no `.env.example` para as fases futuras, mas ainda não são utilizadas.
 
 ## Desenvolvimento sem Docker (opcional)
 
@@ -78,7 +101,7 @@ Requer um PostgreSQL local acessível conforme `DATABASE_URL` no `.env`.
 ## Roteiro de fases
 
 0. ✅ Setup do projeto (monorepo, Docker, Prisma+Postgres, hello world front↔back)
-1. Autenticação e usuários (User/Role/Permission, JWT, login)
+1. ✅ Autenticação e usuários (User/Role/Permission, JWT + refresh, RBAC, login/esqueci-senha)
 2. Módulo de configurações base (Stages, ProjectType, Priority, DealSize, Source, CustomFields)
 3. Módulo de Leads/Oportunidades
 4. Kanban (drag-and-drop, filtros, detalhe do lead)

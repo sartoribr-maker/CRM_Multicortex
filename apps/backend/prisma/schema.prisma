@@ -1,7 +1,6 @@
-// Fase 0: schema minimo, apenas provando a conexao com o PostgreSQL.
-// As entidades de negocio (User, Role, Permission, Lead, etc.) entram nas
-// Fases 1 e 2, conforme o plano de execucao do Multicortex CRM, substituindo
-// o modelo placeholder abaixo.
+// Fase 1: modelos de autenticacao e RBAC (User/Role/Permission).
+// As demais entidades de negocio (Lead, Stage, Partner, Task, etc.) entram
+// nas proximas fases, conforme o plano de execucao do Multicortex CRM.
 
 generator client {
   provider      = "prisma-client-js"
@@ -13,8 +12,121 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Placeholder da Fase 0 - remover quando as entidades de negocio forem criadas.
-model SystemStatus {
-  id        String   @id @default(uuid())
-  checkedAt DateTime @default(now())
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)
+
+  users       User[]
+  permissions RolePermission[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String  @id @default(uuid())
+  key         String  @unique
+  module      String
+  description String?
+
+  roles RolePermission[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String @id @default(uuid())
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  avatarUrl    String?
+  position     String?
+  phone        String?
+  status       UserStatus @default(ACTIVE)
+
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  refreshTokens      RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ip        String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("password_reset_tokens")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  action       String
+  actorUserId  String?
+  targetType   String?
+  targetId     String?
+  metadata     Json?
+
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
 }

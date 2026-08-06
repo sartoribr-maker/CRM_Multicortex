@@ -59,12 +59,20 @@ const ROLE_DEFINITIONS: Array<{
   {
     name: 'Gestor Comercial',
     description: 'Visão de toda a equipe, gestão de leads e parceiros.',
-    permissions: [PERMISSIONS.USERS_VIEW, PERMISSIONS.ROLES_VIEW],
+    permissions: [
+      PERMISSIONS.USERS_VIEW,
+      PERMISSIONS.ROLES_VIEW,
+      PERMISSIONS.LEADS_VIEW,
+      PERMISSIONS.LEADS_VIEW_ALL,
+      PERMISSIONS.LEADS_CREATE,
+      PERMISSIONS.LEADS_EDIT,
+      PERMISSIONS.LEADS_DELETE,
+    ],
   },
   {
     name: 'Vendedor',
     description: 'Visão dos próprios leads e tarefas.',
-    permissions: [],
+    permissions: [PERMISSIONS.LEADS_VIEW, PERMISSIONS.LEADS_CREATE, PERMISSIONS.LEADS_EDIT],
   },
   {
     name: 'Parceiro',
@@ -74,7 +82,76 @@ const ROLE_DEFINITIONS: Array<{
   {
     name: 'Visualizador',
     description: 'Acesso somente leitura ao dashboard e relatórios.',
-    permissions: [PERMISSIONS.USERS_VIEW, PERMISSIONS.ROLES_VIEW],
+    permissions: [
+      PERMISSIONS.USERS_VIEW,
+      PERMISSIONS.ROLES_VIEW,
+      PERMISSIONS.LEADS_VIEW,
+      PERMISSIONS.LEADS_VIEW_ALL,
+    ],
+  },
+];
+
+const LEAD_DEFINITIONS = [
+  {
+    name: 'Implantação CRM - Acme Ltda',
+    companyName: 'Acme Ltda',
+    ownerEmail: 'vendedor@multicortex.com.br',
+    stageName: 'Qualificação',
+    priorityName: 'Alta',
+    dealSizeName: 'Médio',
+    sourceName: 'Site',
+    projectTypeName: 'Implementação',
+    estimatedValue: 35_000,
+    periodicity: 'PONTUAL' as const,
+  },
+  {
+    name: 'Consultoria de Processos - Beta Corp',
+    companyName: 'Beta Corp',
+    ownerEmail: 'gestor@multicortex.com.br',
+    stageName: 'Diagnóstico/Reunião',
+    priorityName: 'Média',
+    dealSizeName: 'Grande',
+    sourceName: 'Indicação',
+    projectTypeName: 'Consultoria',
+    estimatedValue: 80_000,
+    periodicity: 'PONTUAL' as const,
+  },
+  {
+    name: 'Licenciamento Anual - Gamma SA',
+    companyName: 'Gamma SA',
+    ownerEmail: 'admin@multicortex.com.br',
+    stageName: 'Proposta Enviada',
+    priorityName: 'Urgente',
+    dealSizeName: 'Enterprise',
+    sourceName: 'Parceiro',
+    projectTypeName: 'Licenciamento',
+    estimatedValue: 250_000,
+    periodicity: 'ANUAL' as const,
+  },
+  {
+    name: 'Suporte Mensal - Delta ME',
+    companyName: 'Delta ME',
+    ownerEmail: 'vendedor@multicortex.com.br',
+    stageName: 'Ganho (Projeto Ativo)',
+    priorityName: 'Baixa',
+    dealSizeName: 'Pequeno',
+    sourceName: 'Outbound',
+    projectTypeName: 'Suporte/Manutenção',
+    estimatedValue: 5_000,
+    periodicity: 'MENSAL' as const,
+  },
+  {
+    name: 'Projeto Piloto - Epsilon Tech',
+    companyName: 'Epsilon Tech',
+    ownerEmail: 'gestor@multicortex.com.br',
+    stageName: 'Perdido',
+    priorityName: 'Média',
+    dealSizeName: 'Médio',
+    sourceName: 'Evento',
+    projectTypeName: 'Consultoria',
+    estimatedValue: 40_000,
+    periodicity: 'PONTUAL' as const,
+    lossReason: 'Optou por concorrente',
   },
 ];
 
@@ -171,6 +248,59 @@ async function main() {
     if (!existing) {
       await prisma.projectType.create({ data: projectType });
     }
+  }
+
+  console.log('Seed: leads de exemplo...');
+  for (const leadDef of LEAD_DEFINITIONS) {
+    const existing = await prisma.lead.findFirst({ where: { name: leadDef.name } });
+    if (existing) continue;
+
+    const [owner, stage, priority, dealSize, source, projectType] = await Promise.all([
+      prisma.user.findUniqueOrThrow({ where: { email: leadDef.ownerEmail } }),
+      prisma.stage.findFirstOrThrow({ where: { name: leadDef.stageName } }),
+      prisma.priority.findFirstOrThrow({ where: { name: leadDef.priorityName } }),
+      prisma.dealSize.findFirstOrThrow({ where: { name: leadDef.dealSizeName } }),
+      prisma.source.findFirstOrThrow({ where: { name: leadDef.sourceName } }),
+      prisma.projectType.findFirstOrThrow({ where: { name: leadDef.projectTypeName } }),
+    ]);
+
+    const status = stage.isWonStage ? 'WON' : stage.isLostStage ? 'LOST' : 'OPEN';
+
+    const lead = await prisma.lead.create({
+      data: {
+        name: leadDef.name,
+        companyName: leadDef.companyName,
+        ownerId: owner.id,
+        stageId: stage.id,
+        priorityId: priority.id,
+        dealSizeId: dealSize.id,
+        sourceId: source.id,
+        projectTypeId: projectType.id,
+        estimatedValue: leadDef.estimatedValue,
+        periodicity: leadDef.periodicity,
+        status,
+        lossReason: leadDef.lossReason,
+      },
+    });
+
+    await prisma.stageHistoryEntry.create({
+      data: {
+        leadId: lead.id,
+        fromStageId: null,
+        toStageId: stage.id,
+        changedByUserId: owner.id,
+        timeInPreviousStageSeconds: null,
+      },
+    });
+
+    await prisma.leadActivity.create({
+      data: {
+        leadId: lead.id,
+        type: 'CREATED',
+        message: `Lead criado na etapa "${stage.name}".`,
+        actorUserId: owner.id,
+      },
+    });
   }
 
   console.log('Seed concluído. Senha padrão para todos os usuários de exemplo: ' + SEED_PASSWORD);

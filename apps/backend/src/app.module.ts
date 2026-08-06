@@ -14,6 +14,9 @@ import { DealSizesModule } from './settings/deal-sizes/deal-sizes.module';
 import { SourcesModule } from './settings/sources/sources.module';
 import { ProjectTypesModule } from './settings/project-types/project-types.module';
 import { CustomFieldsModule } from './settings/custom-fields/custom-fields.module';
+import { StorageModule } from './storage/storage.module';
+import { LeadsModule } from './leads/leads.module';
+import { AttachmentsModule } from './leads/attachments/attachments.module';
 
 @Module({
   imports: [
@@ -33,6 +36,9 @@ import { CustomFieldsModule } from './settings/custom-fields/custom-fields.modul
     SourcesModule,
     ProjectTypesModule,
     CustomFieldsModule,
+    StorageModule,
+    LeadsModule,
+    AttachmentsModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

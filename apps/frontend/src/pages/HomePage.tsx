@@ -8,6 +8,7 @@ export default function HomePage() {
   const clearSession = useAuthStore((s) => s.clearSession);
   const navigate = useNavigate();
   const canManageSettings = user?.permissions.includes('settings.manage') ?? false;
+  const canViewLeads = user?.permissions.includes('leads.view') ?? false;
 
   async function handleLogout() {
     await apiFetch('/auth/logout', { method: 'POST' });
@@ -22,6 +23,14 @@ export default function HomePage() {
           <img src={logo} alt="Multicortex" className="h-8" />
         </div>
         <div className="flex items-center gap-2">
+          {canViewLeads && (
+            <Link
+              to="/leads"
+              className="rounded-card border border-white/30 px-3 py-1.5 text-sm transition hover:bg-white/10"
+            >
+              Leads
+            </Link>
+          )}
           {canManageSettings && (
             <Link
               to="/settings"

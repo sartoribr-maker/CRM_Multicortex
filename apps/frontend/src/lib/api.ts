@@ -48,7 +48,10 @@ export async function apiFetch(
   const token = useAuthStore.getState().accessToken;
   const headers = new Headers(options.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);
-  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  if (options.body && !isFormData && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,

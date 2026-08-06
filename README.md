@@ -2,7 +2,7 @@
 
 Plataforma de CRM da Multicortex: funil de vendas em Kanban, gestão de oportunidades, parceiros, tarefas e dashboard executivo.
 
-> Este README é expandido a cada fase de execução. Estado atual: **Fase 2 — Módulo de configurações base**.
+> Este README é expandido a cada fase de execução. Estado atual: **Fase 3 — Módulo de Leads/Oportunidades**.
 
 ## Stack
 
@@ -83,6 +83,18 @@ O Administrador tem acesso a **Configurações** (botão no header da home) para
 
 Todas as 6 já vêm com dados de exemplo pelo seed (etapas sugeridas na seção 7 do documento, prioridades, portes, origens e tipos de projeto comuns). "Arquivar" é soft delete (`deletedAt`) — o item some das listagens padrão mas pode ser consultado com `?includeArchived=true`. Leitura (`GET`) é liberada para qualquer usuário autenticado; criar/editar/arquivar/reordenar exige a permissão `settings.manage` (só o perfil Administrador tem, por padrão).
 
+## Leads/Oportunidades (Fase 3)
+
+Entidade central do CRM, acessível pelo botão **Leads** no header (visível para quem tem `leads.view`). Cobre CRUD completo, campos customizados, upload de anexos e timeline de atividades — o board Kanban com drag-and-drop fica para a Fase 4; por ora a visão é em lista/tabela com filtros.
+
+- **Visibilidade por dono**: quem não tem `leads.view.all` (Vendedor) só vê/edita os próprios leads; Gestor Comercial, Administrador e Visualizador veem todos.
+- **Transição de etapa**: ao mudar a etapa de um lead (`PATCH /leads/:id`), o backend registra o histórico (`StageHistoryEntry`, com tempo gasto na etapa anterior), sincroniza `status` (`OPEN/WON/LOST`) conforme as flags da etapa, e **exige `lossReason`** ao mover para uma etapa de perda.
+- **Timeline** (`LeadActivity`): toda criação, edição, mudança de etapa, comentário e upload de anexo vira uma entrada na aba "Linha do Tempo" do lead.
+- **Anexos**: armazenados localmente em disco (volume `backend_uploads`) atrás de uma interface `StorageProvider`, pronta para trocar por S3/R2 na infra de produção sem mudar o resto do código. Limite de 15MB, allowlist de tipos (imagens, PDF, Office, texto, zip).
+- **Campos customizados**: os `CustomField` cadastrados em Configurações aparecem automaticamente no formulário do lead (`showInForm`) e ficam salvos por lead em `CustomFieldValue`.
+
+Seed inclui 5 leads de exemplo distribuídos em etapas diferentes (incluindo um Ganho e um Perdido), para a lista já nascer com dados reais.
+
 ## Variáveis de ambiente
 
 Ver `.env.example` na raiz. Nesta fase são utilizadas:
@@ -97,6 +109,8 @@ Ver `.env.example` na raiz. Nesta fase são utilizadas:
 | `APP_DOMAIN` | domínio da aplicação (relevante a partir da Fase 10, deploy) |
 | `JWT_SECRET` | segredo de assinatura do access token JWT |
 | `JWT_ACCESS_EXPIRES_IN` / `JWT_REFRESH_EXPIRES_IN` | validade do access token (padrão `15m`) e do refresh token (padrão `7d`) |
+| `STORAGE_DRIVER` | driver de armazenamento de anexos (`local` por ora; `s3`/`r2` em produção futura) |
+| `STORAGE_LOCAL_PATH` | caminho no container onde os anexos ficam gravados (montado como volume `backend_uploads`) |
 
 O refresh token não é um JWT: é um valor aleatório opaco, guardado com hash (SHA-256) no banco, entregue ao navegador em um cookie `httpOnly`. Variáveis de storage e SMTP estão documentadas no `.env.example` para as fases futuras, mas ainda não são utilizadas.
 
@@ -116,7 +130,7 @@ Requer um PostgreSQL local acessível conforme `DATABASE_URL` no `.env`.
 0. ✅ Setup do projeto (monorepo, Docker, Prisma+Postgres, hello world front↔back)
 1. ✅ Autenticação e usuários (User/Role/Permission, JWT + refresh, RBAC, login/esqueci-senha)
 2. ✅ Módulo de configurações base (Stages, ProjectType, Priority, DealSize, Source, CustomFields)
-3. Módulo de Leads/Oportunidades
+3. ✅ Módulo de Leads/Oportunidades (CRUD, campos customizados, anexos, timeline)
 4. Kanban (drag-and-drop, filtros, detalhe do lead)
 5. Parceiros
 6. Tarefas

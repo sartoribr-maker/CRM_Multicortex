@@ -81,6 +81,11 @@ model User {
   refreshTokens      RefreshToken[]
   passwordResetTokens PasswordResetToken[]
 
+  ownedLeads         Lead[]               @relation("LeadOwner")
+  stageHistoryChanges StageHistoryEntry[]
+  uploadedAttachments Attachment[]
+  leadActivities     LeadActivity[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   createdBy String?
@@ -127,6 +132,10 @@ model Stage {
   isWonStage  Boolean @default(false)
   isLostStage Boolean @default(false)
 
+  leads             Lead[]
+  stageHistoryFrom  StageHistoryEntry[] @relation("StageHistoryFrom")
+  stageHistoryTo    StageHistoryEntry[] @relation("StageHistoryTo")
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   createdBy String?
@@ -140,6 +149,8 @@ model Priority {
   name  String
   color String
   order Int    @default(0)
+
+  leads Lead[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -157,6 +168,8 @@ model DealSize {
   minValue Decimal? @db.Decimal(14, 2)
   maxValue Decimal? @db.Decimal(14, 2)
 
+  leads Lead[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   createdBy String?
@@ -169,6 +182,8 @@ model Source {
   id          String  @id @default(uuid())
   name        String
   description String?
+
+  leads Lead[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -183,6 +198,8 @@ model ProjectType {
   name        String
   description String?
   category    String?
+
+  leads Lead[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -214,12 +231,172 @@ model CustomField {
   showInFilters    Boolean         @default(false)
   order            Int             @default(0)
 
+  values CustomFieldValue[]
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   createdBy String?
   deletedAt DateTime?
 
   @@map("custom_fields")
+}
+
+// Fase 3: Lead/Oportunidade, a entidade central do CRM (secao 5, item 5).
+
+enum LeadPeriodicity {
+  PONTUAL
+  MENSAL
+  TRIMESTRAL
+  ANUAL
+  RECORRENTE
+}
+
+enum LeadStatus {
+  OPEN
+  WON
+  LOST
+}
+
+model Lead {
+  id String @id @default(uuid())
+  name String
+
+  companyName     String?
+  companyDocument String?
+  companySegment  String?
+
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+
+  projectTypeId String?
+  projectType   ProjectType? @relation(fields: [projectTypeId], references: [id])
+
+  stageId String
+  stage   Stage  @relation(fields: [stageId], references: [id])
+
+  priorityId String?
+  priority   Priority? @relation(fields: [priorityId], references: [id])
+
+  dealSizeId String?
+  dealSize   DealSize? @relation(fields: [dealSizeId], references: [id])
+
+  sourceId String?
+  source   Source? @relation(fields: [sourceId], references: [id])
+
+  successProbability Int?
+  estimatedValue      Decimal?        @db.Decimal(14, 2)
+  periodicity         LeadPeriodicity @default(PONTUAL)
+  expectedCloseDate   DateTime?
+
+  ownerId String
+  owner   User   @relation("LeadOwner", fields: [ownerId], references: [id])
+
+  description String?
+
+  status     LeadStatus @default(OPEN)
+  lossReason String?
+
+  stageEnteredAt DateTime @default(now())
+
+  customFieldValues CustomFieldValue[]
+  stageHistory      StageHistoryEntry[]
+  attachments       Attachment[]
+  activities        LeadActivity[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@map("leads")
+}
+
+model CustomFieldValue {
+  id String @id @default(uuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  customFieldId String
+  customField   CustomField @relation(fields: [customFieldId], references: [id])
+
+  value Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([leadId, customFieldId])
+  @@map("custom_field_values")
+}
+
+model StageHistoryEntry {
+  id String @id @default(uuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  fromStageId String?
+  fromStage   Stage?  @relation("StageHistoryFrom", fields: [fromStageId], references: [id])
+
+  toStageId String
+  toStage   Stage  @relation("StageHistoryTo", fields: [toStageId], references: [id])
+
+  changedByUserId String
+  changedByUser   User   @relation(fields: [changedByUserId], references: [id])
+
+  timeInPreviousStageSeconds Int?
+  reason                     String?
+
+  createdAt DateTime @default(now())
+
+  @@map("stage_history_entries")
+}
+
+model Attachment {
+  id String @id @default(uuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  fileName   String
+  mimeType   String
+  sizeBytes  Int
+  storageKey String
+
+  uploadedByUserId String
+  uploadedByUser   User   @relation(fields: [uploadedByUserId], references: [id])
+
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  @@map("attachments")
+}
+
+enum LeadActivityType {
+  CREATED
+  FIELD_UPDATED
+  STAGE_CHANGED
+  COMMENT
+  ATTACHMENT_ADDED
+}
+
+model LeadActivity {
+  id String @id @default(uuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  type     LeadActivityType
+  message  String
+  metadata Json?
+
+  actorUserId String?
+  actorUser   User?   @relation(fields: [actorUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("lead_activities")
 }
 
 model AuditLog {

@@ -19,7 +19,7 @@ WORKDIR /app/apps/backend
 RUN npx prisma generate
 
 WORKDIR /app
-RUN chown -R node:node /app
+RUN mkdir -p /app/storage && chown -R node:node /app
 EXPOSE 3333
 
 CMD ["npm", "run", "start:dev", "--workspace=@multicortex/backend"]

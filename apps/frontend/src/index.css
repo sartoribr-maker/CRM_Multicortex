@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-brand-purple: #74529f;
+  --color-brand-purple-dark: #523e86;
+  --color-brand-orange: #f68e35;
+  --color-brand-blue: #4a80c0;
+  --color-brand-blue-dark: #2e507e;
+  --color-brand-cyan: #52c9e9;
+  --color-success: #42ad83;
+  --color-success-light: #85c557;
+  --color-warning: #eac634;
+  --color-danger: #ef325a;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f5f5f5;
+  --color-ink: #363435;
+}
+
+/* Estrutura pronta para modo escuro futuro (Fase 9+) */
+.dark {
+  --color-surface: #1f1c2c;
+  --color-surface-muted: #2a2638;
+  --color-ink: #f5f5f5;
+}
+
+body {
+  background-color: var(--color-surface-muted);
+  color: var(--color-ink);
+}

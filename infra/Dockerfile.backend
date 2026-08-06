@@ -1,0 +1,24 @@
+FROM node:20-alpine
+
+RUN apk add --no-cache openssl
+
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+COPY apps/backend/package.json apps/backend/package.json
+COPY packages/shared/package.json packages/shared/package.json
+
+RUN npm install
+
+COPY packages/shared packages/shared
+RUN npm run build --workspace=@multicortex/shared
+
+COPY apps/backend apps/backend
+
+WORKDIR /app/apps/backend
+RUN npx prisma generate
+
+WORKDIR /app
+EXPOSE 3333
+
+CMD ["npm", "run", "start:dev", "--workspace=@multicortex/backend"]

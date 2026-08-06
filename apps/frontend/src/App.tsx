@@ -4,7 +4,9 @@ import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import HomePage from './pages/HomePage';
+import SettingsPage from './pages/settings/SettingsPage';
 import { ProtectedRoute } from './routes/ProtectedRoute';
+import { RequirePermission } from './routes/RequirePermission';
 import { attemptSilentRefresh } from './lib/api';
 import logo from './assets/logo.png';
 
@@ -37,6 +39,16 @@ function App() {
         element={
           <ProtectedRoute>
             <HomePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <RequirePermission permission="settings.manage">
+              <SettingsPage />
+            </RequirePermission>
           </ProtectedRoute>
         }
       />

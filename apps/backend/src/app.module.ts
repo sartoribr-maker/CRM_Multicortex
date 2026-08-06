@@ -8,6 +8,12 @@ import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
+import { StagesModule } from './settings/stages/stages.module';
+import { PrioritiesModule } from './settings/priorities/priorities.module';
+import { DealSizesModule } from './settings/deal-sizes/deal-sizes.module';
+import { SourcesModule } from './settings/sources/sources.module';
+import { ProjectTypesModule } from './settings/project-types/project-types.module';
+import { CustomFieldsModule } from './settings/custom-fields/custom-fields.module';
 
 @Module({
   imports: [
@@ -21,6 +27,12 @@ import { RolesModule } from './roles/roles.module';
     AuthModule,
     UsersModule,
     RolesModule,
+    StagesModule,
+    PrioritiesModule,
+    DealSizesModule,
+    SourcesModule,
+    ProjectTypesModule,
+    CustomFieldsModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

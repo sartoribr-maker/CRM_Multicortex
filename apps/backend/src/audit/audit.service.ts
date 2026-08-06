@@ -15,7 +15,11 @@ export type AuditAction =
   | 'ROLE_CREATED'
   | 'ROLE_UPDATED'
   | 'ROLE_DELETED'
-  | 'ROLE_PERMISSIONS_CHANGED';
+  | 'ROLE_PERMISSIONS_CHANGED'
+  | 'SETTINGS_ITEM_CREATED'
+  | 'SETTINGS_ITEM_UPDATED'
+  | 'SETTINGS_ITEM_ARCHIVED'
+  | 'SETTINGS_ITEM_REORDERED';
 
 interface RecordParams {
   action: AuditAction;

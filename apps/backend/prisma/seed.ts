@@ -6,6 +6,46 @@ const prisma = new PrismaClient();
 
 const SEED_PASSWORD = 'Senha@123';
 
+const STAGE_DEFINITIONS = [
+  { name: 'Lead Captado', order: 1, color: '#74529F' },
+  { name: 'Qualificação', order: 2, color: '#4A80C0' },
+  { name: 'Diagnóstico/Reunião', order: 3, color: '#52C9E9' },
+  { name: 'Proposta Enviada', order: 4, color: '#F68E35' },
+  { name: 'Negociação', order: 5, color: '#EAC634' },
+  { name: 'Ganho (Projeto Ativo)', order: 6, color: '#42AD83', isWonStage: true },
+  { name: 'Perdido', order: 7, color: '#EF325A', isLostStage: true },
+];
+
+const PRIORITY_DEFINITIONS = [
+  { name: 'Baixa', order: 1, color: '#85C557' },
+  { name: 'Média', order: 2, color: '#EAC634' },
+  { name: 'Alta', order: 3, color: '#F68E35' },
+  { name: 'Urgente', order: 4, color: '#EF325A' },
+];
+
+const DEAL_SIZE_DEFINITIONS = [
+  { name: 'Pequeno', order: 1, color: '#52C9E9', minValue: 0, maxValue: 10_000 },
+  { name: 'Médio', order: 2, color: '#4A80C0', minValue: 10_000, maxValue: 50_000 },
+  { name: 'Grande', order: 3, color: '#74529F', minValue: 50_000, maxValue: 200_000 },
+  { name: 'Enterprise', order: 4, color: '#523E86', minValue: 200_000, maxValue: null },
+];
+
+const SOURCE_DEFINITIONS = [
+  { name: 'Indicação', description: 'Indicado por cliente ou parceiro' },
+  { name: 'Site', description: 'Formulário ou chat do site institucional' },
+  { name: 'Evento', description: 'Feiras, palestras e eventos do setor' },
+  { name: 'Parceiro', description: 'Trazido por um parceiro comercial' },
+  { name: 'Outbound', description: 'Prospecção ativa da equipe comercial' },
+  { name: 'Outro', description: 'Origem não mapeada nas demais categorias' },
+];
+
+const PROJECT_TYPE_DEFINITIONS = [
+  { name: 'Consultoria', description: 'Projetos de consultoria especializada' },
+  { name: 'Implementação', description: 'Implantação de sistema/solução' },
+  { name: 'Licenciamento', description: 'Venda de licenças de software' },
+  { name: 'Suporte/Manutenção', description: 'Contratos recorrentes de suporte' },
+];
+
 const ROLE_DEFINITIONS: Array<{
   name: string;
   description: string;
@@ -91,6 +131,46 @@ async function main() {
         roleId: role.id,
       },
     });
+  }
+
+  console.log('Seed: etapas do funil...');
+  for (const stage of STAGE_DEFINITIONS) {
+    const existing = await prisma.stage.findFirst({ where: { name: stage.name } });
+    if (!existing) {
+      await prisma.stage.create({ data: stage });
+    }
+  }
+
+  console.log('Seed: prioridades...');
+  for (const priority of PRIORITY_DEFINITIONS) {
+    const existing = await prisma.priority.findFirst({ where: { name: priority.name } });
+    if (!existing) {
+      await prisma.priority.create({ data: priority });
+    }
+  }
+
+  console.log('Seed: portes de negócio...');
+  for (const dealSize of DEAL_SIZE_DEFINITIONS) {
+    const existing = await prisma.dealSize.findFirst({ where: { name: dealSize.name } });
+    if (!existing) {
+      await prisma.dealSize.create({ data: dealSize });
+    }
+  }
+
+  console.log('Seed: origens de lead...');
+  for (const source of SOURCE_DEFINITIONS) {
+    const existing = await prisma.source.findFirst({ where: { name: source.name } });
+    if (!existing) {
+      await prisma.source.create({ data: source });
+    }
+  }
+
+  console.log('Seed: tipos de projeto...');
+  for (const projectType of PROJECT_TYPE_DEFINITIONS) {
+    const existing = await prisma.projectType.findFirst({ where: { name: projectType.name } });
+    if (!existing) {
+      await prisma.projectType.create({ data: projectType });
+    }
   }
 
   console.log('Seed concluído. Senha padrão para todos os usuários de exemplo: ' + SEED_PASSWORD);

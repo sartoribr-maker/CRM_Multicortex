@@ -1,6 +1,7 @@
 // Fase 1: modelos de autenticacao e RBAC (User/Role/Permission).
-// As demais entidades de negocio (Lead, Stage, Partner, Task, etc.) entram
-// nas proximas fases, conforme o plano de execucao do Multicortex CRM.
+// Fase 2: tabelas de dominio configuraveis (Stage, Priority, DealSize,
+// Source, ProjectType, CustomField) que alimentam Leads/Kanban nas
+// proximas fases, em vez de enums fixos no codigo (secao 5 do documento).
 
 generator client {
   provider      = "prisma-client-js"
@@ -116,6 +117,109 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@map("password_reset_tokens")
+}
+
+model Stage {
+  id          String  @id @default(uuid())
+  name        String
+  order       Int     @default(0)
+  color       String
+  isWonStage  Boolean @default(false)
+  isLostStage Boolean @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@map("stages")
+}
+
+model Priority {
+  id    String @id @default(uuid())
+  name  String
+  color String
+  order Int    @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@map("priorities")
+}
+
+model DealSize {
+  id       String   @id @default(uuid())
+  name     String
+  color    String
+  order    Int      @default(0)
+  minValue Decimal? @db.Decimal(14, 2)
+  maxValue Decimal? @db.Decimal(14, 2)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@map("deal_sizes")
+}
+
+model Source {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@map("sources")
+}
+
+model ProjectType {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  category    String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@map("project_types")
+}
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  SINGLE_SELECT
+  MULTI_SELECT
+  BOOLEAN
+  CURRENCY
+}
+
+model CustomField {
+  id               String          @id @default(uuid())
+  name             String
+  type             CustomFieldType
+  targetEntity     String          @default("LEAD")
+  options          Json?
+  isRequired       Boolean         @default(false)
+  showInForm       Boolean         @default(true)
+  showInKanbanCard Boolean         @default(false)
+  showInFilters    Boolean         @default(false)
+  order            Int             @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@map("custom_fields")
 }
 
 model AuditLog {

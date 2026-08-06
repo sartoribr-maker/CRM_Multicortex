@@ -1,10 +1,5 @@
 import { randomBytes, createHash } from 'crypto';
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -21,6 +16,7 @@ interface AuthenticatedUser {
   id: string;
   name: string;
   email: string;
+  avatarUrl: string | null;
   role: { id: string; name: string };
   permissions: string[];
 }
@@ -58,11 +54,14 @@ export class AuthService {
     });
   }
 
-  private toAuthenticatedUser(user: NonNullable<Awaited<ReturnType<typeof this.loadUserWithPermissions>>>): AuthenticatedUser {
+  private toAuthenticatedUser(
+    user: NonNullable<Awaited<ReturnType<typeof this.loadUserWithPermissions>>>,
+  ): AuthenticatedUser {
     return {
       id: user.id,
       name: user.name,
       email: user.email,
+      avatarUrl: user.avatarUrl,
       role: { id: user.role.id, name: user.role.name },
       permissions: user.role.permissions.map((rp) => rp.permission.key),
     };
@@ -116,7 +115,10 @@ export class AuthService {
     return value * unitMs;
   }
 
-  private async issueRefreshToken(userId: string, meta: RequestMeta): Promise<{ raw: string; expiresAt: Date }> {
+  private async issueRefreshToken(
+    userId: string,
+    meta: RequestMeta,
+  ): Promise<{ raw: string; expiresAt: Date }> {
     const raw = randomBytes(REFRESH_TOKEN_BYTES).toString('hex');
     const expiresInStr = this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '7d');
     const expiresAt = new Date(Date.now() + this.parseExpiresInToMs(expiresInStr));

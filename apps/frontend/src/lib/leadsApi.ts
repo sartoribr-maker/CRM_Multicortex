@@ -25,11 +25,17 @@ export interface LeadFormPayload {
   priorityId?: string;
   dealSizeId?: string;
   sourceId?: string;
+  partnerId?: string;
   successProbability?: number;
   estimatedValue?: number;
   periodicity?: string;
   expectedCloseDate?: string;
   ownerId?: string;
+  ownerIds?: string[];
+  actionDescription?: string;
+  createTask?: boolean;
+  taskDueDate?: string;
+  taskPriority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   description?: string;
   lossReason?: string;
   customFieldValues?: CustomFieldValueInput[];
@@ -44,6 +50,7 @@ export interface LeadListFilters {
   priorityId?: string;
   dealSizeId?: string;
   sourceId?: string;
+  partnerId?: string;
   projectTypeId?: string;
   status?: string;
 }
@@ -69,7 +76,8 @@ export const leadsApi = {
   update: (id: string, payload: Partial<LeadFormPayload>) =>
     apiJson<LeadDetail>(`/leads/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
 
-  archive: (id: string) => apiJson<{ success: boolean }>(`/leads/${id}/archive`, { method: 'POST' }),
+  archive: (id: string) =>
+    apiJson<{ success: boolean }>(`/leads/${id}/archive`, { method: 'POST' }),
 
   listActivities: (id: string) => apiJson<LeadActivity[]>(`/leads/${id}/activities`),
 

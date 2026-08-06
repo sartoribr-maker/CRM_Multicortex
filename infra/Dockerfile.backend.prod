@@ -1,0 +1,35 @@
+FROM node:20-alpine AS builder
+
+RUN apk add --no-cache openssl
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY apps/backend/package.json apps/backend/package.json
+COPY apps/frontend/package.json apps/frontend/package.json
+COPY packages/shared/package.json packages/shared/package.json
+RUN npm ci
+
+COPY packages/shared packages/shared
+COPY apps/backend apps/backend
+RUN npm run build --workspace=@multicortex/shared \
+  && npm run prisma:generate --workspace=@multicortex/backend \
+  && npm run build --workspace=@multicortex/backend \
+  && npm prune --omit=dev
+
+FROM node:20-alpine AS runtime
+
+RUN apk add --no-cache openssl curl
+ENV NODE_ENV=production
+WORKDIR /app
+
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/packages/shared ./packages/shared
+COPY --from=builder --chown=node:node /app/apps/backend/package.json ./apps/backend/package.json
+COPY --from=builder --chown=node:node /app/apps/backend/dist ./apps/backend/dist
+COPY --from=builder --chown=node:node /app/apps/backend/prisma ./apps/backend/prisma
+COPY --chown=node:node infra/backend-entrypoint.sh /usr/local/bin/backend-entrypoint
+RUN chmod +x /usr/local/bin/backend-entrypoint && mkdir -p /app/storage && chown node:node /app/storage
+
+USER node
+EXPOSE 3333
+ENTRYPOINT ["backend-entrypoint"]

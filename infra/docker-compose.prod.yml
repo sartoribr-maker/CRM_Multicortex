@@ -1,0 +1,71 @@
+name: multicortex-crm
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  backend:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend.prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      BACKEND_PORT: 3333
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      FRONTEND_URL: ${FRONTEND_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_PATH: /app/storage
+    volumes:
+      - backend_prod_uploads:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:3333/api/v1/health']
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    networks: [internal]
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.frontend.prod
+      args:
+        VITE_API_URL: /api/v1
+    restart: unless-stopped
+    ports:
+      - '${HTTP_PORT:-80}:80'
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+      - public
+
+volumes:
+  postgres_prod_data:
+  backend_prod_uploads:
+
+networks:
+  internal:
+    internal: true
+  public:

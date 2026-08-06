@@ -3,6 +3,7 @@ import { LeadPeriodicity } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  ArrayMinSize,
   IsDateString,
   IsEmail,
   IsEnum,
@@ -79,6 +80,11 @@ export class CreateLeadDto {
   @IsUUID()
   sourceId?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  partnerId?: string;
+
   @ApiPropertyOptional({ minimum: 0, maximum: 100 })
   @IsOptional()
   @IsInt()
@@ -106,6 +112,13 @@ export class CreateLeadDto {
   @IsOptional()
   @IsUUID()
   ownerId?: string;
+
+  @ApiPropertyOptional({ type: [String], description: 'Responsáveis pela oportunidade' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  ownerIds?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()

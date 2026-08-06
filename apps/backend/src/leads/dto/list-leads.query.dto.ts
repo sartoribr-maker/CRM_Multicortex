@@ -52,6 +52,11 @@ export class ListLeadsQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()
+  partnerId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
   projectTypeId?: string;
 
   @ApiPropertyOptional({ enum: LeadStatus })

@@ -22,6 +22,8 @@ export default {
         danger: 'var(--color-danger)',
         surface: 'var(--color-surface)',
         'surface-muted': 'var(--color-surface-muted)',
+        'app-bg': 'var(--color-app-bg)',
+        sidebar: 'var(--color-sidebar)',
         ink: 'var(--color-ink)',
       },
       fontFamily: {

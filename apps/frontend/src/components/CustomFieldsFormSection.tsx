@@ -9,7 +9,7 @@ interface CustomFieldsFormSectionProps {
 }
 
 const inputClass =
-  'w-full rounded-card border border-surface-muted bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple';
+  'form-control';
 
 export function CustomFieldsFormSection({ values, onChange }: CustomFieldsFormSectionProps) {
   const [fields, setFields] = useState<CustomField[]>([]);
@@ -36,8 +36,9 @@ export function CustomFieldsFormSection({ values, onChange }: CustomFieldsFormSe
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-card border border-surface-muted p-4">
-      <h3 className="text-sm font-semibold text-ink">Campos customizados</h3>
+    <section className="form-section">
+      <div className="form-section-header"><h3 className="font-heading text-base font-bold text-slate-800">Campos personalizados</h3><p className="mt-1 text-xs text-slate-400">Informações adicionais configuradas para sua operação.</p></div>
+      <div className="form-section-body">
 
       {fields.map((field) => {
         const value = getValue(field.id);
@@ -59,7 +60,7 @@ export function CustomFieldsFormSection({ values, onChange }: CustomFieldsFormSe
         if (field.type === 'SINGLE_SELECT') {
           return (
             <div key={field.id}>
-              <label className="mb-1 block text-sm font-medium text-ink">{label}</label>
+              <label className="form-label">{label}</label>
               <select
                 required={field.isRequired}
                 className={inputClass}
@@ -83,7 +84,7 @@ export function CustomFieldsFormSection({ values, onChange }: CustomFieldsFormSe
           const selected = Array.isArray(value) ? (value as string[]) : [];
           return (
             <div key={field.id}>
-              <label className="mb-1 block text-sm font-medium text-ink">{label}</label>
+              <label className="form-label">{label}</label>
               <div className="flex flex-wrap gap-3">
                 {(field.options ?? []).map((option) => (
                   <label key={option} className="flex items-center gap-1.5 text-sm text-ink">
@@ -108,7 +109,7 @@ export function CustomFieldsFormSection({ values, onChange }: CustomFieldsFormSe
         if (field.type === 'DATE') {
           return (
             <div key={field.id}>
-              <label className="mb-1 block text-sm font-medium text-ink">{label}</label>
+              <label className="form-label">{label}</label>
               <input
                 type="date"
                 required={field.isRequired}
@@ -123,7 +124,7 @@ export function CustomFieldsFormSection({ values, onChange }: CustomFieldsFormSe
         if (field.type === 'NUMBER' || field.type === 'CURRENCY') {
           return (
             <div key={field.id}>
-              <label className="mb-1 block text-sm font-medium text-ink">{label}</label>
+              <label className="form-label">{label}</label>
               <input
                 type="number"
                 required={field.isRequired}
@@ -137,7 +138,7 @@ export function CustomFieldsFormSection({ values, onChange }: CustomFieldsFormSe
 
         return (
           <div key={field.id}>
-            <label className="mb-1 block text-sm font-medium text-ink">{label}</label>
+            <label className="form-label">{label}</label>
             <input
               type="text"
               required={field.isRequired}
@@ -147,7 +148,7 @@ export function CustomFieldsFormSection({ values, onChange }: CustomFieldsFormSe
             />
           </div>
         );
-      })}
-    </div>
+      })}</div>
+    </section>
   );
 }

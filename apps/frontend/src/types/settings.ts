@@ -33,6 +33,13 @@ export interface Source {
   deletedAt: string | null;
 }
 
+export interface Segment {
+  id: string;
+  name: string;
+  description: string | null;
+  deletedAt: string | null;
+}
+
 export interface ProjectType {
   id: string;
   name: string;
@@ -42,13 +49,7 @@ export interface ProjectType {
 }
 
 export type CustomFieldType =
-  | 'TEXT'
-  | 'NUMBER'
-  | 'DATE'
-  | 'SINGLE_SELECT'
-  | 'MULTI_SELECT'
-  | 'BOOLEAN'
-  | 'CURRENCY';
+  'TEXT' | 'NUMBER' | 'DATE' | 'SINGLE_SELECT' | 'MULTI_SELECT' | 'BOOLEAN' | 'CURRENCY';
 
 export const CUSTOM_FIELD_TYPE_LABELS: Record<CustomFieldType, string> = {
   TEXT: 'Texto',

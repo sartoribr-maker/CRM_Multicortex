@@ -11,6 +11,16 @@ export const PERMISSIONS = {
   LEADS_CREATE: 'leads.create',
   LEADS_EDIT: 'leads.edit',
   LEADS_DELETE: 'leads.delete',
+  PARTNERS_VIEW: 'partners.view',
+  PARTNERS_CREATE: 'partners.create',
+  PARTNERS_EDIT: 'partners.edit',
+  PARTNERS_DELETE: 'partners.delete',
+  TASKS_VIEW: 'tasks.view',
+  TASKS_VIEW_ALL: 'tasks.view.all',
+  TASKS_CREATE: 'tasks.create',
+  TASKS_EDIT: 'tasks.edit',
+  TASKS_DELETE: 'tasks.delete',
+  DASHBOARD_VIEW: 'dashboard.view',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -28,4 +38,14 @@ export const PERMISSION_CATALOG: Array<{ key: PermissionKey; module: string; des
   { key: PERMISSIONS.LEADS_CREATE, module: 'leads', description: 'Criar leads' },
   { key: PERMISSIONS.LEADS_EDIT, module: 'leads', description: 'Editar leads' },
   { key: PERMISSIONS.LEADS_DELETE, module: 'leads', description: 'Arquivar leads' },
+  { key: PERMISSIONS.PARTNERS_VIEW, module: 'partners', description: 'Visualizar parceiros' },
+  { key: PERMISSIONS.PARTNERS_CREATE, module: 'partners', description: 'Criar parceiros' },
+  { key: PERMISSIONS.PARTNERS_EDIT, module: 'partners', description: 'Editar parceiros' },
+  { key: PERMISSIONS.PARTNERS_DELETE, module: 'partners', description: 'Inativar parceiros' },
+  { key: PERMISSIONS.TASKS_VIEW, module: 'tasks', description: 'Visualizar as próprias tarefas' },
+  { key: PERMISSIONS.TASKS_VIEW_ALL, module: 'tasks', description: 'Visualizar tarefas de toda a equipe' },
+  { key: PERMISSIONS.TASKS_CREATE, module: 'tasks', description: 'Criar tarefas' },
+  { key: PERMISSIONS.TASKS_EDIT, module: 'tasks', description: 'Editar e concluir tarefas' },
+  { key: PERMISSIONS.TASKS_DELETE, module: 'tasks', description: 'Arquivar tarefas' },
+  { key: PERMISSIONS.DASHBOARD_VIEW, module: 'dashboard', description: 'Visualizar indicadores executivos' },
 ];

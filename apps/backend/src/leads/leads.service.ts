@@ -14,8 +14,13 @@ const LEAD_LIST_INCLUDE = {
   priority: true,
   dealSize: true,
   source: true,
+  partner: true,
   projectType: true,
-  owner: { select: { id: true, name: true, email: true } },
+  owner: { select: { id: true, name: true, email: true, avatarUrl: true } },
+  assignees: {
+    include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
+    orderBy: { assignedAt: 'asc' },
+  },
 } satisfies Prisma.LeadInclude;
 
 const LEAD_DETAIL_INCLUDE = {
@@ -35,18 +40,27 @@ export class LeadsService {
   }
 
   private ownershipFilter(currentUser: JwtPayload): Prisma.LeadWhereInput {
-    return this.canViewAll(currentUser) ? {} : { ownerId: currentUser.sub };
+    return this.canViewAll(currentUser)
+      ? {}
+      : {
+          OR: [{ ownerId: currentUser.sub }, { assignees: { some: { userId: currentUser.sub } } }],
+        };
   }
 
   async findAll(query: ListLeadsQueryDto, currentUser: JwtPayload) {
     const where: Prisma.LeadWhereInput = {
       deletedAt: null,
-      ...this.ownershipFilter(currentUser),
-      ...(query.ownerId ? { ownerId: query.ownerId } : {}),
+      AND: [
+        this.ownershipFilter(currentUser),
+        query.ownerId
+          ? { OR: [{ ownerId: query.ownerId }, { assignees: { some: { userId: query.ownerId } } }] }
+          : {},
+      ],
       ...(query.stageId ? { stageId: query.stageId } : {}),
       ...(query.priorityId ? { priorityId: query.priorityId } : {}),
       ...(query.dealSizeId ? { dealSizeId: query.dealSizeId } : {}),
       ...(query.sourceId ? { sourceId: query.sourceId } : {}),
+      ...(query.partnerId ? { partnerId: query.partnerId } : {}),
       ...(query.projectTypeId ? { projectTypeId: query.projectTypeId } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.createdFrom || query.createdTo
@@ -123,12 +137,19 @@ export class LeadsService {
       if (!field) {
         throw new BadRequestException(`Campo customizado ${entry.customFieldId} não encontrado.`);
       }
-      this.assertValueMatchesType(field.name, field.type, field.options as string[] | null, entry.value);
+      this.assertValueMatchesType(
+        field.name,
+        field.type,
+        field.options as string[] | null,
+        entry.value,
+      );
     }
 
     if (enforceRequired) {
       const providedIds = new Set((values ?? []).map((v) => v.customFieldId));
-      const missing = activeFields.filter((field) => field.isRequired && !providedIds.has(field.id));
+      const missing = activeFields.filter(
+        (field) => field.isRequired && !providedIds.has(field.id),
+      );
       if (missing.length > 0) {
         throw new BadRequestException(
           `Campos customizados obrigatórios ausentes: ${missing.map((f) => f.name).join(', ')}`,
@@ -164,7 +185,8 @@ export class LeadsService {
         if (typeof value !== 'string' || !(options ?? []).includes(value)) throw invalid();
         break;
       case CustomFieldType.MULTI_SELECT:
-        if (!Array.isArray(value) || !value.every((v) => (options ?? []).includes(v))) throw invalid();
+        if (!Array.isArray(value) || !value.every((v) => (options ?? []).includes(v)))
+          throw invalid();
         break;
     }
   }
@@ -174,14 +196,22 @@ export class LeadsService {
 
     const stage = dto.stageId
       ? await this.prisma.stage.findFirst({ where: { id: dto.stageId, deletedAt: null } })
-      : await this.prisma.stage.findFirst({ where: { deletedAt: null }, orderBy: { order: 'asc' } });
+      : await this.prisma.stage.findFirst({
+          where: { deletedAt: null },
+          orderBy: { order: 'asc' },
+        });
 
     if (!stage) {
-      throw new BadRequestException('Nenhuma etapa do funil disponível. Cadastre etapas em Configurações.');
+      throw new BadRequestException(
+        'Nenhuma etapa do funil disponível. Cadastre etapas em Configurações.',
+      );
     }
 
     const status = stage.isWonStage ? 'WON' : stage.isLostStage ? 'LOST' : 'OPEN';
-    const ownerId = dto.ownerId ?? currentUser.sub;
+    const requestedOwnerIds = [
+      ...new Set(dto.ownerIds?.length ? dto.ownerIds : [dto.ownerId ?? currentUser.sub]),
+    ];
+    const ownerId = requestedOwnerIds[0];
 
     const lead = await this.prisma.$transaction(async (tx) => {
       const created = await tx.lead.create({
@@ -198,6 +228,7 @@ export class LeadsService {
           priorityId: dto.priorityId,
           dealSizeId: dto.dealSizeId,
           sourceId: dto.sourceId,
+          partnerId: dto.partnerId,
           successProbability: dto.successProbability,
           estimatedValue: dto.estimatedValue,
           periodicity: dto.periodicity,
@@ -208,6 +239,14 @@ export class LeadsService {
           createdBy: currentUser.sub,
         },
         include: LEAD_DETAIL_INCLUDE,
+      });
+
+      await tx.leadAssignee.createMany({
+        data: requestedOwnerIds.map((userId) => ({
+          leadId: created.id,
+          userId,
+          assignedBy: currentUser.sub,
+        })),
       });
 
       await tx.stageHistoryEntry.create({
@@ -262,25 +301,42 @@ export class LeadsService {
       description: dto.description,
       lossReason: dto.lossReason,
       ...(dto.expectedCloseDate ? { expectedCloseDate: new Date(dto.expectedCloseDate) } : {}),
-      ...(dto.projectTypeId !== undefined ? { projectType: { connect: { id: dto.projectTypeId } } } : {}),
+      ...(dto.projectTypeId !== undefined
+        ? { projectType: { connect: { id: dto.projectTypeId } } }
+        : {}),
       ...(dto.priorityId !== undefined ? { priority: { connect: { id: dto.priorityId } } } : {}),
       ...(dto.dealSizeId !== undefined ? { dealSize: { connect: { id: dto.dealSizeId } } } : {}),
       ...(dto.sourceId !== undefined ? { source: { connect: { id: dto.sourceId } } } : {}),
-      ...(dto.ownerId !== undefined ? { owner: { connect: { id: dto.ownerId } } } : {}),
+      ...(dto.partnerId !== undefined ? { partner: { connect: { id: dto.partnerId } } } : {}),
+      ...(dto.ownerIds?.length
+        ? { owner: { connect: { id: dto.ownerIds[0] } } }
+        : dto.ownerId !== undefined
+          ? { owner: { connect: { id: dto.ownerId } } }
+          : {}),
     };
 
     await this.prisma.$transaction(async (tx) => {
       if (dto.stageId && dto.stageId !== existing.stageId) {
+        if (!dto.actionDescription?.trim()) {
+          throw new BadRequestException('Descreva a ação realizada ao alterar a etapa.');
+        }
+        if (dto.createTask && (!dto.taskDueDate || !dto.taskPriority)) {
+          throw new BadRequestException('Informe o prazo e a prioridade das tarefas.');
+        }
         const newStage = await tx.stage.findFirst({ where: { id: dto.stageId, deletedAt: null } });
         if (!newStage) {
           throw new BadRequestException('Etapa de destino não encontrada.');
         }
         if (newStage.isLostStage && !dto.lossReason) {
-          throw new BadRequestException('Informe o motivo da perda ao mover o lead para esta etapa.');
+          throw new BadRequestException(
+            'Informe o motivo da perda ao mover o lead para esta etapa.',
+          );
         }
 
         const now = new Date();
-        const secondsInPrevious = Math.round((now.getTime() - existing.stageEnteredAt.getTime()) / 1000);
+        const secondsInPrevious = Math.round(
+          (now.getTime() - existing.stageEnteredAt.getTime()) / 1000,
+        );
 
         await tx.stageHistoryEntry.create({
           data: {
@@ -289,7 +345,7 @@ export class LeadsService {
             toStageId: newStage.id,
             changedByUserId: currentUser.sub,
             timeInPreviousStageSeconds: secondsInPrevious,
-            reason: dto.lossReason,
+            reason: dto.actionDescription.trim(),
           },
         });
 
@@ -297,10 +353,34 @@ export class LeadsService {
         data.stageEnteredAt = now;
         data.status = newStage.isWonStage ? 'WON' : newStage.isLostStage ? 'LOST' : 'OPEN';
 
-        stageChangeMessage = `Etapa alterada para "${newStage.name}".`;
+        stageChangeMessage = `Etapa alterada para "${newStage.name}". Ação: ${dto.actionDescription.trim()}`;
+      }
+
+      if (dto.ownerIds?.length) {
+        const ownerIds = [...new Set(dto.ownerIds)];
+        await tx.leadAssignee.deleteMany({ where: { leadId: id } });
+        await tx.leadAssignee.createMany({
+          data: ownerIds.map((userId) => ({ leadId: id, userId, assignedBy: currentUser.sub })),
+        });
       }
 
       await tx.lead.update({ where: { id }, data });
+
+      if (stageChangeMessage && dto.createTask && dto.taskDueDate && dto.taskPriority) {
+        const taskOwnerIds = [...new Set(dto.ownerIds?.length ? dto.ownerIds : [existing.ownerId])];
+        await tx.task.createMany({
+          data: taskOwnerIds.map((assigneeId) => ({
+            title: dto.actionDescription!.trim(),
+            description: `Tarefa criada pela movimentação da oportunidade "${dto.name ?? existing.name}".`,
+            status: 'TODO',
+            priority: dto.taskPriority!,
+            dueDate: new Date(dto.taskDueDate!),
+            leadId: id,
+            assigneeId,
+            createdByUserId: currentUser.sub,
+          })),
+        });
+      }
 
       if (dto.customFieldValues?.length) {
         for (const entry of dto.customFieldValues) {
@@ -327,7 +407,16 @@ export class LeadsService {
     }
 
     const changedFields = Object.keys(dto).filter(
-      (key) => key !== 'stageId' && key !== 'lossReason' && key !== 'customFieldValues',
+      (key) =>
+        ![
+          'stageId',
+          'lossReason',
+          'customFieldValues',
+          'actionDescription',
+          'createTask',
+          'taskDueDate',
+          'taskPriority',
+        ].includes(key),
     );
     if (changedFields.length > 0) {
       await this.leadActivityService.record({

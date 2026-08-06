@@ -1,0 +1,13 @@
+{
+  "name": "Multicortex CRM",
+  "short_name": "Multicortex",
+  "description": "Gestão de relacionamentos, oportunidades e atividades comerciais.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f7fb",
+  "theme_color": "#30224a",
+  "orientation": "any",
+  "icons": [
+    { "src": "/favicon.svg?v=2", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

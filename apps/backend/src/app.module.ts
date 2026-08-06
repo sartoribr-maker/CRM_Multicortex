@@ -12,11 +12,15 @@ import { StagesModule } from './settings/stages/stages.module';
 import { PrioritiesModule } from './settings/priorities/priorities.module';
 import { DealSizesModule } from './settings/deal-sizes/deal-sizes.module';
 import { SourcesModule } from './settings/sources/sources.module';
+import { SegmentsModule } from './settings/segments/segments.module';
 import { ProjectTypesModule } from './settings/project-types/project-types.module';
 import { CustomFieldsModule } from './settings/custom-fields/custom-fields.module';
 import { StorageModule } from './storage/storage.module';
 import { LeadsModule } from './leads/leads.module';
 import { AttachmentsModule } from './leads/attachments/attachments.module';
+import { PartnersModule } from './partners/partners.module';
+import { TasksModule } from './tasks/tasks.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -34,11 +38,15 @@ import { AttachmentsModule } from './leads/attachments/attachments.module';
     PrioritiesModule,
     DealSizesModule,
     SourcesModule,
+    SegmentsModule,
     ProjectTypesModule,
     CustomFieldsModule,
     StorageModule,
     LeadsModule,
     AttachmentsModule,
+    PartnersModule,
+    TasksModule,
+    DashboardModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

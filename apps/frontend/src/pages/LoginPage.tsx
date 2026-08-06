@@ -11,7 +11,7 @@ interface LoginResponse {
 }
 
 const inputClass =
-  'w-full rounded-card border border-surface-muted bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple';
+  'form-control';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -46,7 +46,7 @@ export default function LoginPage() {
     <AuthLayout title="Entrar" subtitle="Acesse o Multicortex CRM">
       <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
         <div>
-          <label htmlFor="email" className="mb-1 block text-sm font-medium text-ink">
+          <label htmlFor="email" className="form-label">
             E-mail
           </label>
           <input
@@ -61,7 +61,7 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <label htmlFor="password" className="mb-1 block text-sm font-medium text-ink">
+          <label htmlFor="password" className="form-label">
             Senha
           </label>
           <input
@@ -82,7 +82,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="mt-2 rounded-card bg-brand-purple px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-purple-dark disabled:opacity-60"
+          className="btn-primary mt-2 w-full"
         >
           {isSubmitting ? 'Entrando…' : 'Entrar'}
         </button>

@@ -1,5 +1,13 @@
 import { apiJson } from './api';
-import type { CustomField, DealSize, Priority, ProjectType, Source, Stage } from '../types/settings';
+import type {
+  CustomField,
+  DealSize,
+  Priority,
+  ProjectType,
+  Segment,
+  Source,
+  Stage,
+} from '../types/settings';
 
 function makeCrud<T>(basePath: string) {
   return {
@@ -25,5 +33,6 @@ export const stagesApi = withReorder(makeCrud<Stage>('/stages'), '/stages');
 export const prioritiesApi = withReorder(makeCrud<Priority>('/priorities'), '/priorities');
 export const dealSizesApi = makeCrud<DealSize>('/deal-sizes');
 export const sourcesApi = makeCrud<Source>('/sources');
+export const segmentsApi = makeCrud<Segment>('/segments');
 export const projectTypesApi = makeCrud<ProjectType>('/project-types');
 export const customFieldsApi = makeCrud<CustomField>('/custom-fields');

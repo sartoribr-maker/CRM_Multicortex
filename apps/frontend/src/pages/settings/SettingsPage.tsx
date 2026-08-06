@@ -1,64 +1,61 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import logo from '../../assets/logo.png';
+import { AppShell, PageHeader } from '../../components/AppShell';
 import { ColorOrderedListPanel } from './ColorOrderedListPanel';
 import { SimpleCatalogPanel } from './SimpleCatalogPanel';
 import { CustomFieldsPanel } from './CustomFieldsPanel';
-import { stagesApi, prioritiesApi, dealSizesApi, sourcesApi, projectTypesApi } from '../../lib/settingsApi';
-import type { DealSize, Priority, ProjectType, Source, Stage } from '../../types/settings';
+import {
+  stagesApi,
+  prioritiesApi,
+  dealSizesApi,
+  sourcesApi,
+  segmentsApi,
+  projectTypesApi,
+} from '../../lib/settingsApi';
+import type { DealSize, Priority, ProjectType, Segment, Source, Stage } from '../../types/settings';
 
-type TabKey = 'stages' | 'priorities' | 'dealSizes' | 'sources' | 'projectTypes' | 'customFields';
+export type SettingsSection =
+  'stages' | 'priorities' | 'dealSizes' | 'sources' | 'segments' | 'projectTypes' | 'customFields';
 
-const TABS: Array<{ key: TabKey; label: string }> = [
-  { key: 'stages', label: 'Etapas do Funil' },
-  { key: 'priorities', label: 'Prioridades' },
-  { key: 'dealSizes', label: 'Porte do Negócio' },
-  { key: 'sources', label: 'Origem do Lead' },
-  { key: 'projectTypes', label: 'Tipos de Projeto' },
-  { key: 'customFields', label: 'Campos Customizados' },
-];
+const SECTIONS: Record<SettingsSection, { title: string; description: string }> = {
+  stages: {
+    title: 'Etapas do Funil',
+    description: 'Configure as colunas e regras de fechamento do pipeline comercial.',
+  },
+  priorities: {
+    title: 'Prioridades',
+    description: 'Configure os níveis de urgência das oportunidades.',
+  },
+  dealSizes: {
+    title: 'Portes do Negócio',
+    description: 'Configure as faixas de valor usadas na classificação comercial.',
+  },
+  sources: {
+    title: 'Origens do Lead',
+    description: 'Configure os canais de entrada das oportunidades.',
+  },
+  segments: {
+    title: 'Segmentos de Mercado',
+    description: 'Mantenha as opções disponíveis no cadastro de empresas e oportunidades.',
+  },
+  projectTypes: {
+    title: 'Tipos de Projeto',
+    description: 'Configure as categorias de produtos e projetos vendidos.',
+  },
+  customFields: {
+    title: 'Campos Personalizados',
+    description: 'Configure informações adicionais para o cadastro de leads.',
+  },
+};
 
-export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>('stages');
+export default function SettingsPage({ section }: { section: SettingsSection }) {
+  const page = SECTIONS[section];
 
   return (
-    <div className="min-h-screen bg-surface-muted">
-      <header className="flex items-center justify-between bg-brand-purple-dark px-6 py-4 text-white">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="Multicortex" className="h-8" />
-        </div>
-        <Link
-          to="/"
-          className="rounded-card border border-white/30 px-3 py-1.5 text-sm transition hover:bg-white/10"
-        >
-          Voltar
-        </Link>
-      </header>
+    <AppShell>
+      <div className="mx-auto max-w-6xl">
+        <PageHeader eyebrow="Configurações" title={page.title} description={page.description} />
 
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        <h1 className="font-heading text-2xl font-bold text-brand-purple-dark">Configurações</h1>
-        <p className="mt-1 text-sm text-ink/70">
-          Gerencie as listas usadas pelo funil de vendas e pelo cadastro de leads.
-        </p>
-
-        <div className="mt-6 flex flex-wrap gap-1 border-b border-surface-muted">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`rounded-t-card px-4 py-2 text-sm font-medium transition ${
-                activeTab === tab.key
-                  ? 'border-b-2 border-brand-purple text-brand-purple-dark'
-                  : 'text-ink/60 hover:text-ink'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-6 rounded-card bg-surface p-6 shadow-sm">
-          {activeTab === 'stages' && (
+        <div className="card p-5 md:p-7">
+          {section === 'stages' && (
             <ColorOrderedListPanel<Stage>
               title="Etapas do Funil"
               description="Colunas do Kanban de vendas, na ordem em que aparecem."
@@ -87,14 +84,18 @@ export default function SettingsPage() {
               )}
               renderExtraColumns={(item) => (
                 <>
-                  {item.isWonStage && <span className="text-xs font-semibold text-success">GANHO</span>}
-                  {item.isLostStage && <span className="text-xs font-semibold text-danger">PERDIDO</span>}
+                  {item.isWonStage && (
+                    <span className="text-xs font-semibold text-success">GANHO</span>
+                  )}
+                  {item.isLostStage && (
+                    <span className="text-xs font-semibold text-danger">PERDIDO</span>
+                  )}
                 </>
               )}
             />
           )}
 
-          {activeTab === 'priorities' && (
+          {section === 'priorities' && (
             <ColorOrderedListPanel<Priority>
               title="Prioridades"
               description="Nível de urgência atribuído a cada oportunidade."
@@ -104,7 +105,7 @@ export default function SettingsPage() {
             />
           )}
 
-          {activeTab === 'dealSizes' && (
+          {section === 'dealSizes' && (
             <ColorOrderedListPanel<DealSize>
               title="Porte do Negócio"
               description="Faixas de valor estimado usadas para classificar oportunidades."
@@ -114,14 +115,18 @@ export default function SettingsPage() {
               renderExtraFormFields={(draft, setDraft) => (
                 <div className="flex gap-3">
                   <div className="flex-1">
-                    <label className="mb-1 block text-sm font-medium text-ink">Valor mínimo (R$)</label>
+                    <label className="mb-1 block text-sm font-medium text-ink">
+                      Valor mínimo (R$)
+                    </label>
                     <input
                       type="number"
                       min={0}
                       className="w-full rounded-card border border-surface-muted bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple"
                       value={draft.minValue ?? ''}
                       onChange={(e) =>
-                        setDraft({ minValue: e.target.value === '' ? null : Number(e.target.value) })
+                        setDraft({
+                          minValue: e.target.value === '' ? null : Number(e.target.value),
+                        })
                       }
                     />
                   </div>
@@ -135,7 +140,9 @@ export default function SettingsPage() {
                       className="w-full rounded-card border border-surface-muted bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple"
                       value={draft.maxValue ?? ''}
                       onChange={(e) =>
-                        setDraft({ maxValue: e.target.value === '' ? null : Number(e.target.value) })
+                        setDraft({
+                          maxValue: e.target.value === '' ? null : Number(e.target.value),
+                        })
                       }
                     />
                   </div>
@@ -150,7 +157,7 @@ export default function SettingsPage() {
             />
           )}
 
-          {activeTab === 'sources' && (
+          {section === 'sources' && (
             <SimpleCatalogPanel<Source>
               title="Origem do Lead"
               description="De onde o lead veio (indicação, site, evento, etc.)."
@@ -160,7 +167,17 @@ export default function SettingsPage() {
             />
           )}
 
-          {activeTab === 'projectTypes' && (
+          {section === 'segments' && (
+            <SimpleCatalogPanel<Segment>
+              title="Segmentos de Mercado"
+              description="Principais setores de atuação dos clientes e prospects."
+              itemNoun="segmento"
+              api={segmentsApi}
+              emptyDraft={{ name: '', description: '' }}
+            />
+          )}
+
+          {section === 'projectTypes' && (
             <SimpleCatalogPanel<ProjectType>
               title="Tipos de Projeto"
               description="Categorias de projeto/produto vendido."
@@ -170,9 +187,9 @@ export default function SettingsPage() {
             />
           )}
 
-          {activeTab === 'customFields' && <CustomFieldsPanel />}
+          {section === 'customFields' && <CustomFieldsPanel />}
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

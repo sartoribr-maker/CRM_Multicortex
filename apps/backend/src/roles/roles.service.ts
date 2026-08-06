@@ -75,7 +75,9 @@ export class RolesService {
   }
 
   async update(id: string, dto: UpdateRoleDto, actorUserId: string) {
-    await this.findOne(id);
+    const existing = await this.prisma.role.findFirst({ where: { id, deletedAt: null } });
+    if (!existing) throw new NotFoundException('Perfil não encontrado.');
+    if (existing.isSystem) throw new ForbiddenException('Perfis padrão do sistema são somente leitura.');
     try {
       const role = await this.prisma.role.update({
         where: { id },
@@ -126,10 +128,16 @@ export class RolesService {
     if (!role) {
       throw new NotFoundException('Perfil não encontrado.');
     }
+    if (role.isSystem) {
+      throw new ForbiddenException('As permissões dos perfis padrão são gerenciadas pelo sistema.');
+    }
 
     const permissions = await this.prisma.permission.findMany({
       where: { key: { in: permissionKeys }, deletedAt: null },
     });
+    if (permissions.length !== new Set(permissionKeys).size) {
+      throw new NotFoundException('Uma ou mais permissões informadas não existem.');
+    }
 
     await this.prisma.$transaction([
       this.prisma.rolePermission.deleteMany({ where: { roleId: id } }),

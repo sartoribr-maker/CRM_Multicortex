@@ -82,9 +82,12 @@ model User {
   passwordResetTokens PasswordResetToken[]
 
   ownedLeads         Lead[]               @relation("LeadOwner")
+  leadAssignments    LeadAssignee[]
   stageHistoryChanges StageHistoryEntry[]
   uploadedAttachments Attachment[]
   leadActivities     LeadActivity[]
+  assignedTasks      Task[]               @relation("TaskAssignee")
+  createdTasks       Task[]               @relation("TaskCreator")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -92,6 +95,57 @@ model User {
   deletedAt DateTime?
 
   @@map("users")
+}
+
+enum PartnerType {
+  REFERRAL
+  TECHNOLOGY
+  CONSULTING
+  CHANNEL
+  OTHER
+}
+
+enum PartnerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Partner {
+  id                   String        @id @default(uuid())
+  name                 String
+  legalName            String?
+  type                 PartnerType   @default(REFERRAL)
+  document             String?       @unique
+  contactName          String?
+  email                String?
+  phone                String?
+  website              String?
+  commissionPercentage Decimal?      @db.Decimal(5, 2)
+  status               PartnerStatus @default(ACTIVE)
+  notes                String?
+
+  leads Lead[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@map("partners")
 }
 
 model RefreshToken {
@@ -193,6 +247,19 @@ model Source {
   @@map("sources")
 }
 
+model Segment {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@map("segments")
+}
+
 model ProjectType {
   id          String  @id @default(uuid())
   name        String
@@ -284,6 +351,9 @@ model Lead {
   sourceId String?
   source   Source? @relation(fields: [sourceId], references: [id])
 
+  partnerId String?
+  partner   Partner? @relation(fields: [partnerId], references: [id])
+
   successProbability Int?
   estimatedValue      Decimal?        @db.Decimal(14, 2)
   periodicity         LeadPeriodicity @default(PONTUAL)
@@ -303,6 +373,8 @@ model Lead {
   stageHistory      StageHistoryEntry[]
   attachments       Attachment[]
   activities        LeadActivity[]
+  tasks             Task[]
+  assignees         LeadAssignee[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -310,6 +382,45 @@ model Lead {
   deletedAt DateTime?
 
   @@map("leads")
+}
+
+model LeadAssignee {
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+  assignedBy String?
+
+  @@id([leadId, userId])
+  @@index([userId])
+  @@map("lead_assignees")
+}
+
+model Task {
+  id          String       @id @default(uuid())
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime
+  completedAt DateTime?
+
+  leadId String?
+  lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  assigneeId String
+  assignee   User   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  createdByUserId String
+  createdByUser   User   @relation("TaskCreator", fields: [createdByUserId], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([assigneeId, status, dueDate])
+  @@map("tasks")
 }
 
 model CustomFieldValue {

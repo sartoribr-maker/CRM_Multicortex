@@ -1,4 +1,6 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { Readable } from 'stream';
+import { extname } from 'path';
 import * as bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,6 +8,7 @@ import { AuditService } from '../audit/audit.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ListUsersQueryDto } from './dto/list-users.query.dto';
+import { STORAGE_PROVIDER, type StorageProvider } from '../storage/storage-provider.interface';
 
 const SAFE_USER_SELECT = {
   id: true,
@@ -26,6 +29,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
   ) {}
 
   async findAll(query: ListUsersQueryDto) {
@@ -148,6 +152,10 @@ export class UsersService {
   async setStatus(id: string, status: 'ACTIVE' | 'INACTIVE', actorUserId: string) {
     await this.findOne(id);
 
+    if (id === actorUserId && status === 'INACTIVE') {
+      throw new ConflictException('Você não pode inativar a própria conta.');
+    }
+
     const user = await this.prisma.user.update({
       where: { id },
       data: { status },
@@ -190,5 +198,91 @@ export class UsersService {
       targetId: id,
       metadata: { passwordReset: true },
     });
+  }
+
+  async uploadAvatar(id: string, file: Express.Multer.File, actorUserId: string) {
+    const existing = await this.findOne(id);
+    const saved = await this.storage.save({
+      buffer: file.buffer,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+    });
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: { avatarUrl: saved.storageKey },
+      select: SAFE_USER_SELECT,
+    });
+    if (existing.avatarUrl) await this.storage.delete(existing.avatarUrl);
+    await this.auditService.record({
+      action: 'USER_UPDATED',
+      actorUserId,
+      targetType: 'User',
+      targetId: id,
+      metadata: { avatarUpdated: true },
+    });
+    return user;
+  }
+
+  async getAvatar(id: string): Promise<{ stream: Readable; mimeType: string }> {
+    const user = await this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      select: { avatarUrl: true },
+    });
+    if (!user?.avatarUrl) throw new NotFoundException('Foto do usuário não encontrada.');
+    const mimeType =
+      { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' }[
+        extname(user.avatarUrl).toLowerCase()
+      ] ?? 'application/octet-stream';
+    return { stream: await this.storage.getStream(user.avatarUrl), mimeType };
+  }
+
+  async remove(id: string, actorUserId: string): Promise<void> {
+    if (id === actorUserId) {
+      throw new ConflictException('Você não pode excluir a própria conta.');
+    }
+    const user = await this.findOne(id);
+    const [
+      ownedLeads,
+      assignments,
+      stageChanges,
+      attachments,
+      activities,
+      assignedTasks,
+      createdTasks,
+    ] = await Promise.all([
+      this.prisma.lead.count({ where: { ownerId: id } }),
+      this.prisma.leadAssignee.count({ where: { userId: id } }),
+      this.prisma.stageHistoryEntry.count({ where: { changedByUserId: id } }),
+      this.prisma.attachment.count({ where: { uploadedByUserId: id } }),
+      this.prisma.leadActivity.count({ where: { actorUserId: id } }),
+      this.prisma.task.count({ where: { assigneeId: id } }),
+      this.prisma.task.count({ where: { createdByUserId: id } }),
+    ]);
+    const linkedRecords =
+      ownedLeads +
+      assignments +
+      stageChanges +
+      attachments +
+      activities +
+      assignedTasks +
+      createdTasks;
+    if (linkedRecords > 0) {
+      throw new ConflictException(
+        'Este usuário possui registros vinculados e não pode ser excluído. Inative-o para preservar o histórico.',
+      );
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.auditLog.create({
+        data: {
+          action: 'USER_DELETED',
+          actorUserId,
+          targetType: 'User',
+          targetId: id,
+          metadata: { name: user.name, email: user.email },
+        },
+      });
+      await tx.user.delete({ where: { id } });
+    });
+    if (user.avatarUrl) await this.storage.delete(user.avatarUrl);
   }
 }

@@ -46,6 +46,12 @@ const PROJECT_TYPE_DEFINITIONS = [
   { name: 'Suporte/Manutenção', description: 'Contratos recorrentes de suporte' },
 ];
 
+const PARTNER_DEFINITIONS = [
+  { name: 'Nexus Tecnologia', legalName: 'Nexus Tecnologia Ltda', type: 'TECHNOLOGY' as const, document: '12.345.678/0001-90', contactName: 'Marina Costa', email: 'marina@nexustech.com.br', phone: '(11) 98888-1200', website: 'https://nexustech.com.br', commissionPercentage: 8 },
+  { name: 'Orbe Consultoria', legalName: 'Orbe Consultoria Empresarial Ltda', type: 'CONSULTING' as const, document: '23.456.789/0001-01', contactName: 'Rafael Lima', email: 'rafael@orbeconsultoria.com.br', phone: '(21) 97777-3400', commissionPercentage: 10 },
+  { name: 'Conecta Negócios', type: 'REFERRAL' as const, contactName: 'Camila Souza', email: 'camila@conectanegocios.com.br', phone: '(31) 96666-5600', commissionPercentage: 5 },
+];
+
 const ROLE_DEFINITIONS: Array<{
   name: string;
   description: string;
@@ -67,17 +73,27 @@ const ROLE_DEFINITIONS: Array<{
       PERMISSIONS.LEADS_CREATE,
       PERMISSIONS.LEADS_EDIT,
       PERMISSIONS.LEADS_DELETE,
+      PERMISSIONS.PARTNERS_VIEW,
+      PERMISSIONS.PARTNERS_CREATE,
+      PERMISSIONS.PARTNERS_EDIT,
+      PERMISSIONS.PARTNERS_DELETE,
+      PERMISSIONS.TASKS_VIEW,
+      PERMISSIONS.TASKS_VIEW_ALL,
+      PERMISSIONS.TASKS_CREATE,
+      PERMISSIONS.TASKS_EDIT,
+      PERMISSIONS.TASKS_DELETE,
+      PERMISSIONS.DASHBOARD_VIEW,
     ],
   },
   {
     name: 'Vendedor',
     description: 'Visão dos próprios leads e tarefas.',
-    permissions: [PERMISSIONS.LEADS_VIEW, PERMISSIONS.LEADS_CREATE, PERMISSIONS.LEADS_EDIT],
+    permissions: [PERMISSIONS.LEADS_VIEW, PERMISSIONS.LEADS_CREATE, PERMISSIONS.LEADS_EDIT, PERMISSIONS.PARTNERS_VIEW, PERMISSIONS.PARTNERS_CREATE, PERMISSIONS.TASKS_VIEW, PERMISSIONS.TASKS_CREATE, PERMISSIONS.TASKS_EDIT, PERMISSIONS.DASHBOARD_VIEW],
   },
   {
     name: 'Parceiro',
     description: 'Acesso restrito aos leads indicados pelo próprio parceiro.',
-    permissions: [],
+    permissions: [PERMISSIONS.DASHBOARD_VIEW],
   },
   {
     name: 'Visualizador',
@@ -87,6 +103,10 @@ const ROLE_DEFINITIONS: Array<{
       PERMISSIONS.ROLES_VIEW,
       PERMISSIONS.LEADS_VIEW,
       PERMISSIONS.LEADS_VIEW_ALL,
+      PERMISSIONS.PARTNERS_VIEW,
+      PERMISSIONS.TASKS_VIEW,
+      PERMISSIONS.TASKS_VIEW_ALL,
+      PERMISSIONS.DASHBOARD_VIEW,
     ],
   },
 ];
@@ -127,6 +147,7 @@ const LEAD_DEFINITIONS = [
     projectTypeName: 'Licenciamento',
     estimatedValue: 250_000,
     periodicity: 'ANUAL' as const,
+    partnerName: 'Nexus Tecnologia',
   },
   {
     name: 'Suporte Mensal - Delta ME',
@@ -250,18 +271,25 @@ async function main() {
     }
   }
 
+  console.log('Seed: parceiros...');
+  for (const partner of PARTNER_DEFINITIONS) {
+    const existing = await prisma.partner.findFirst({ where: { name: partner.name } });
+    if (!existing) await prisma.partner.create({ data: partner });
+  }
+
   console.log('Seed: leads de exemplo...');
   for (const leadDef of LEAD_DEFINITIONS) {
     const existing = await prisma.lead.findFirst({ where: { name: leadDef.name } });
     if (existing) continue;
 
-    const [owner, stage, priority, dealSize, source, projectType] = await Promise.all([
+    const [owner, stage, priority, dealSize, source, projectType, partner] = await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { email: leadDef.ownerEmail } }),
       prisma.stage.findFirstOrThrow({ where: { name: leadDef.stageName } }),
       prisma.priority.findFirstOrThrow({ where: { name: leadDef.priorityName } }),
       prisma.dealSize.findFirstOrThrow({ where: { name: leadDef.dealSizeName } }),
       prisma.source.findFirstOrThrow({ where: { name: leadDef.sourceName } }),
       prisma.projectType.findFirstOrThrow({ where: { name: leadDef.projectTypeName } }),
+      leadDef.partnerName ? prisma.partner.findFirst({ where: { name: leadDef.partnerName } }) : Promise.resolve(null),
     ]);
 
     const status = stage.isWonStage ? 'WON' : stage.isLostStage ? 'LOST' : 'OPEN';
@@ -276,6 +304,7 @@ async function main() {
         dealSizeId: dealSize.id,
         sourceId: source.id,
         projectTypeId: projectType.id,
+        partnerId: partner?.id,
         estimatedValue: leadDef.estimatedValue,
         periodicity: leadDef.periodicity,
         status,
@@ -301,6 +330,20 @@ async function main() {
         actorUserId: owner.id,
       },
     });
+  }
+
+  console.log('Seed: tarefas de exemplo...');
+  const taskOwner = await prisma.user.findUniqueOrThrow({ where: { email: 'vendedor@multicortex.com.br' } });
+  const taskCreator = await prisma.user.findUniqueOrThrow({ where: { email: 'gestor@multicortex.com.br' } });
+  const taskLead = await prisma.lead.findFirst({ where: { name: 'Implantação CRM - Acme Ltda' } });
+  const taskDefinitions = [
+    { title: 'Agendar reunião de diagnóstico', description: 'Alinhar disponibilidade com o decisor e preparar roteiro.', priority: 'HIGH' as const, dueDate: new Date(Date.now() + 2 * 86400000), leadId: taskLead?.id },
+    { title: 'Enviar apresentação institucional', priority: 'MEDIUM' as const, dueDate: new Date(Date.now() + 86400000), leadId: taskLead?.id },
+    { title: 'Revisar proposta comercial', priority: 'URGENT' as const, status: 'IN_PROGRESS' as const, dueDate: new Date(Date.now() - 86400000) },
+  ];
+  for (const task of taskDefinitions) {
+    const existing = await prisma.task.findFirst({ where: { title: task.title } });
+    if (!existing) await prisma.task.create({ data: { ...task, assigneeId: taskOwner.id, createdByUserId: taskCreator.id } });
   }
 
   console.log('Seed concluído. Senha padrão para todos os usuários de exemplo: ' + SEED_PASSWORD);

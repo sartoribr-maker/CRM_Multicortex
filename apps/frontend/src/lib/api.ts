@@ -2,7 +2,11 @@ import type { ApiHealthResponse } from '@multicortex/shared';
 import { useAuthStore } from '../store/useAuthStore';
 import type { AuthUser } from '../types/auth';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3333/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1';
+
+export function apiAssetUrl(path: string): string {
+  return `${API_BASE_URL}${path}`;
+}
 
 interface RefreshResponse {
   accessToken: string | null;
@@ -73,8 +77,9 @@ export async function apiFetch(
 export async function apiJson<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await apiFetch(path, options);
   if (!response.ok) {
-    const body = await response.json().catch(() => ({}) as { message?: string });
-    throw new Error(body.message ?? `Erro ${response.status}`);
+    const body = await response.json().catch(() => ({}) as { message?: string | string[] });
+    const message = Array.isArray(body.message) ? body.message.join('. ') : body.message;
+    throw new Error(message ?? `Erro ${response.status}`);
   }
   if (response.status === 204) {
     return undefined as T;

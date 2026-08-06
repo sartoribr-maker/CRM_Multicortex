@@ -1,9 +1,13 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { customFieldsApi } from '../../lib/settingsApi';
-import { CUSTOM_FIELD_TYPE_LABELS, type CustomField, type CustomFieldType } from '../../types/settings';
+import { Icon } from '../../components/Icon';
+import {
+  CUSTOM_FIELD_TYPE_LABELS,
+  type CustomField,
+  type CustomFieldType,
+} from '../../types/settings';
 
-const inputClass =
-  'w-full rounded-card border border-surface-muted bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple';
+const inputClass = 'form-control';
 
 const EMPTY_DRAFT: Partial<CustomField> = {
   name: '',
@@ -47,7 +51,15 @@ export function CustomFieldsPanel() {
   }
 
   function startEdit(item: CustomField) {
-    setDraft(item);
+    setDraft({
+      name: item.name,
+      type: item.type,
+      options: item.options,
+      isRequired: item.isRequired,
+      showInForm: item.showInForm,
+      showInKanbanCard: item.showInKanbanCard,
+      showInFilters: item.showInFilters,
+    });
     setOptionsText((item.options ?? []).join(', '));
     setEditingId(item.id);
   }
@@ -63,7 +75,12 @@ export function CustomFieldsPanel() {
     setError(null);
 
     const payload: Partial<CustomField> = {
-      ...draft,
+      name: draft.name,
+      type: draft.type,
+      isRequired: draft.isRequired,
+      showInForm: draft.showInForm,
+      showInKanbanCard: draft.showInKanbanCard,
+      showInFilters: draft.showInFilters,
       options: SELECT_TYPES.includes(draft.type as CustomFieldType)
         ? optionsText
             .split(',')
@@ -109,11 +126,9 @@ export function CustomFieldsPanel() {
           </p>
         </div>
         {editingId === null && (
-          <button
-            onClick={startCreate}
-            className="whitespace-nowrap rounded-card bg-brand-purple px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-purple-dark"
-          >
-            + Novo campo
+          <button onClick={startCreate} className="btn-primary">
+            <Icon name="plus" className="h-4 w-4" />
+            Novo campo
           </button>
         )}
       </div>
@@ -125,7 +140,7 @@ export function CustomFieldsPanel() {
       {editingId !== null && (
         <form
           onSubmit={handleSubmit}
-          className="mt-4 flex flex-col gap-3 rounded-card border border-surface-muted p-4"
+          className="mt-5 flex flex-col gap-4 rounded-2xl border border-brand-purple/15 bg-purple-50/30 p-5"
         >
           <div className="flex gap-3">
             <div className="flex-1">
@@ -204,28 +219,29 @@ export function CustomFieldsPanel() {
           </div>
 
           <div className="flex gap-2">
-            <button
-              type="submit"
-              className="rounded-card bg-brand-purple px-4 py-2 text-sm font-semibold text-white hover:bg-brand-purple-dark"
-            >
+            <button type="submit" className="btn-primary">
               Salvar
             </button>
-            <button
-              type="button"
-              onClick={cancelEdit}
-              className="rounded-card border border-surface-muted px-4 py-2 text-sm text-ink hover:bg-surface-muted"
-            >
+            <button type="button" onClick={cancelEdit} className="btn-secondary">
               Cancelar
             </button>
           </div>
         </form>
       )}
 
-      <div className="mt-4 overflow-x-auto">
+      <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
         {isLoading ? (
           <p className="text-sm text-ink/60">Carregando…</p>
         ) : (
-          <table className="w-full text-left text-sm">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Tipo</th>
+                <th>Exibição</th>
+                <th className="text-right">Ações</th>
+              </tr>
+            </thead>
             <tbody>
               {items.map((item) => (
                 <tr key={item.id} className="border-b border-surface-muted last:border-0">
@@ -237,17 +253,15 @@ export function CustomFieldsPanel() {
                     {item.showInFilters && <span>Nos filtros</span>}
                   </td>
                   <td className="py-2 text-right">
-                    <button
-                      onClick={() => startEdit(item)}
-                      className="mr-3 text-sm text-brand-blue hover:text-brand-blue-dark"
-                    >
-                      Editar
+                    <button title="Editar" onClick={() => startEdit(item)} className="icon-button">
+                      <Icon name="edit" className="h-4 w-4" />
                     </button>
                     <button
+                      title="Arquivar"
                       onClick={() => handleArchive(item.id)}
-                      className="text-sm text-danger hover:text-danger/80"
+                      className="icon-button hover:!bg-red-50 hover:!text-red-600"
                     >
-                      Arquivar
+                      <Icon name="archive" className="h-4 w-4" />
                     </button>
                   </td>
                 </tr>

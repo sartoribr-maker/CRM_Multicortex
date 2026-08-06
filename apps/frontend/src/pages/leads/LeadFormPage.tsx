@@ -1,17 +1,26 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import logo from '../../assets/logo.png';
+import { useNavigate, useParams } from 'react-router-dom';
+import { AppShell, PageHeader } from '../../components/AppShell';
+import { Icon } from '../../components/Icon';
 import { leadsApi, type CustomFieldValueInput, type LeadFormPayload } from '../../lib/leadsApi';
-import { stagesApi, prioritiesApi, dealSizesApi, sourcesApi, projectTypesApi } from '../../lib/settingsApi';
+import {
+  stagesApi,
+  prioritiesApi,
+  dealSizesApi,
+  sourcesApi,
+  segmentsApi,
+  projectTypesApi,
+} from '../../lib/settingsApi';
 import { usersApi, type UserOption } from '../../lib/usersApi';
+import { partnersApi } from '../../lib/partnersApi';
+import type { Partner } from '../../types/partners';
 import { useAuthStore } from '../../store/useAuthStore';
 import { CustomFieldsFormSection } from '../../components/CustomFieldsFormSection';
 import { LEAD_PERIODICITY_LABELS, type LeadPeriodicity } from '../../types/leads';
-import type { DealSize, Priority, ProjectType, Source, Stage } from '../../types/settings';
+import type { DealSize, Priority, ProjectType, Segment, Source, Stage } from '../../types/settings';
 
-const inputClass =
-  'w-full rounded-card border border-surface-muted bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple';
-const labelClass = 'mb-1 block text-sm font-medium text-ink';
+const inputClass = 'form-control';
+const labelClass = 'form-label';
 
 export default function LeadFormPage() {
   const { id } = useParams();
@@ -24,12 +33,15 @@ export default function LeadFormPage() {
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [dealSizes, setDealSizes] = useState<DealSize[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
+  const [segments, setSegments] = useState<Segment[]>([]);
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [partners, setPartners] = useState<Partner[]>([]);
 
   const [form, setForm] = useState<LeadFormPayload>({ name: '' });
   const [customFieldValues, setCustomFieldValues] = useState<CustomFieldValueInput[]>([]);
   const [selectedStage, setSelectedStage] = useState<Stage | null>(null);
+  const [initialStageId, setInitialStageId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditing);
@@ -39,9 +51,13 @@ export default function LeadFormPage() {
     prioritiesApi.list().then(setPriorities);
     dealSizesApi.list().then(setDealSizes);
     sourcesApi.list().then(setSources);
+    segmentsApi.list().then(setSegments);
     projectTypesApi.list().then(setProjectTypes);
+    partnersApi
+      .options()
+      .then(setPartners)
+      .catch(() => setPartners([]));
     if (canViewAll) usersApi.list().then(setUsers);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -62,13 +78,16 @@ export default function LeadFormPage() {
           priorityId: lead.priority?.id,
           dealSizeId: lead.dealSize?.id,
           sourceId: lead.source?.id,
+          partnerId: lead.partner?.id,
           successProbability: lead.successProbability ?? undefined,
           estimatedValue: lead.estimatedValue ? Number(lead.estimatedValue) : undefined,
           periodicity: lead.periodicity,
           expectedCloseDate: lead.expectedCloseDate?.slice(0, 10),
           ownerId: lead.owner.id,
+          ownerIds: lead.assignees.map((assignment) => assignment.user.id),
           description: lead.description ?? undefined,
         });
+        setInitialStageId(lead.stage.id);
         setCustomFieldValues(
           lead.customFieldValues.map((v) => ({ customFieldId: v.customFieldId, value: v.value })),
         );
@@ -85,6 +104,10 @@ export default function LeadFormPage() {
   function updateField<K extends keyof LeadFormPayload>(key: K, value: LeadFormPayload[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+
+  const selectedSource = sources.find((source) => source.id === form.sourceId);
+  const isPartnerSource = selectedSource?.name.trim().toLocaleLowerCase('pt-BR') === 'parceiro';
+  const isStageChanging = isEditing && Boolean(form.stageId && form.stageId !== initialStageId);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -109,42 +132,48 @@ export default function LeadFormPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-app-bg">
         <p className="text-sm text-ink/60">Carregando…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-surface-muted">
-      <header className="flex items-center justify-between bg-brand-purple-dark px-6 py-4 text-white">
-        <img src={logo} alt="Multicortex" className="h-8" />
-        <Link
-          to={isEditing ? `/leads/${id}` : '/leads'}
-          className="rounded-card border border-white/30 px-3 py-1.5 text-sm transition hover:bg-white/10"
-        >
-          Cancelar
-        </Link>
-      </header>
-
-      <main className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="font-heading text-2xl font-bold text-brand-purple-dark">
-          {isEditing ? 'Editar Lead' : 'Novo Lead'}
-        </h1>
-
-        <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-6">
-          <section className="flex flex-col gap-4 rounded-card bg-surface p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-ink">Dados gerais</h2>
-            <div>
-              <label className={labelClass}>Nome do lead/oportunidade *</label>
-              <input
-                required
-                className={inputClass}
-                value={form.name}
-                onChange={(e) => updateField('name', e.target.value)}
-              />
+    <AppShell>
+      <div className="mx-auto max-w-5xl">
+        <PageHeader
+          eyebrow="Leads e oportunidades"
+          title={isEditing ? 'Editar oportunidade' : 'Nova oportunidade'}
+          description="Preencha as informações abaixo para manter o funil comercial organizado."
+          actions={
+            <button
+              type="button"
+              onClick={() => navigate(isEditing ? `/leads/${id}` : '/leads')}
+              className="btn-secondary"
+            >
+              <Icon name="x" className="h-4 w-4" />
+              Cancelar
+            </button>
+          }
+        />
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <section className="form-section">
+            <div className="form-section-header">
+              <h2 className="font-heading text-base font-bold text-slate-800">Dados gerais</h2>
+              <p className="mt-1 text-xs text-slate-400">
+                Identificação principal da oportunidade e da empresa.
+              </p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="form-section-body">
+              <div className="md:col-span-2">
+                <label className={labelClass}>Nome do lead/oportunidade *</label>
+                <input
+                  required
+                  className={inputClass}
+                  value={form.name}
+                  onChange={(e) => updateField('name', e.target.value)}
+                />
+              </div>
               <div>
                 <label className={labelClass}>Empresa</label>
                 <input
@@ -161,20 +190,32 @@ export default function LeadFormPage() {
                   onChange={(e) => updateField('companyDocument', e.target.value)}
                 />
               </div>
-            </div>
-            <div>
-              <label className={labelClass}>Segmento</label>
-              <input
-                className={inputClass}
-                value={form.companySegment ?? ''}
-                onChange={(e) => updateField('companySegment', e.target.value)}
-              />
+              <div className="md:col-span-2">
+                <label className={labelClass}>Segmento</label>
+                <select
+                  className={inputClass}
+                  value={form.companySegment ?? ''}
+                  onChange={(e) => updateField('companySegment', e.target.value)}
+                >
+                  <option value="">Selecione…</option>
+                  {segments.map((segment) => (
+                    <option key={segment.id} value={segment.name}>
+                      {segment.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </section>
 
-          <section className="flex flex-col gap-4 rounded-card bg-surface p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-ink">Contato</h2>
-            <div className="grid grid-cols-3 gap-4">
+          <section className="form-section">
+            <div className="form-section-header">
+              <h2 className="font-heading text-base font-bold text-slate-800">Contato</h2>
+              <p className="mt-1 text-xs text-slate-400">
+                Dados da pessoa responsável pelo contato comercial.
+              </p>
+            </div>
+            <div className="form-section-body lg:grid-cols-3">
               <div>
                 <label className={labelClass}>Nome</label>
                 <input
@@ -203,9 +244,14 @@ export default function LeadFormPage() {
             </div>
           </section>
 
-          <section className="flex flex-col gap-4 rounded-card bg-surface p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-ink">Classificação</h2>
-            <div className="grid grid-cols-2 gap-4">
+          <section className="form-section">
+            <div className="form-section-header">
+              <h2 className="font-heading text-base font-bold text-slate-800">Classificação</h2>
+              <p className="mt-1 text-xs text-slate-400">
+                Organização do lead no funil e na carteira comercial.
+              </p>
+            </div>
+            <div className="form-section-body">
               <div>
                 <label className={labelClass}>Etapa</label>
                 <select
@@ -256,7 +302,14 @@ export default function LeadFormPage() {
                 <select
                   className={inputClass}
                   value={form.sourceId ?? ''}
-                  onChange={(e) => updateField('sourceId', e.target.value || undefined)}
+                  onChange={(e) => {
+                    const sourceId = e.target.value || undefined;
+                    updateField('sourceId', sourceId);
+                    const source = sources.find((item) => item.id === sourceId);
+                    if (source?.name.trim().toLocaleLowerCase('pt-BR') !== 'parceiro') {
+                      updateField('partnerId', undefined);
+                    }
+                  }}
                 >
                   <option value="">—</option>
                   {sources.map((s) => (
@@ -281,41 +334,131 @@ export default function LeadFormPage() {
                   ))}
                 </select>
               </div>
+              <div>
+                <label className={labelClass}>Parceiro indicador</label>
+                <select
+                  disabled={!isPartnerSource}
+                  className={`${inputClass} disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400`}
+                  value={form.partnerId ?? ''}
+                  onChange={(e) => updateField('partnerId', e.target.value || undefined)}
+                >
+                  <option value="">
+                    {isPartnerSource ? 'Selecione o parceiro…' : 'Disponível para origem Parceiro'}
+                  </option>
+                  {partners.map((partner) => (
+                    <option key={partner.id} value={partner.id}>
+                      {partner.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {canViewAll && (
-                <div>
-                  <label className={labelClass}>Responsável</label>
-                  <select
+                <div className="md:col-span-2">
+                  <label className={labelClass}>Responsáveis</label>
+                  <div className="grid max-h-40 gap-2 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2">
+                    {users.map((responsible) => {
+                      const checked = form.ownerIds?.includes(responsible.id) ?? false;
+                      return (
+                        <label
+                          key={responsible.id}
+                          className="flex cursor-pointer items-center gap-2 rounded-lg p-2 text-sm hover:bg-purple-50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) =>
+                              updateField(
+                                'ownerIds',
+                                event.target.checked
+                                  ? [...(form.ownerIds ?? []), responsible.id]
+                                  : (form.ownerIds ?? []).filter((id) => id !== responsible.id),
+                              )
+                            }
+                          />
+                          <span>{responsible.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {isStageChanging && (
+                <div className="md:col-span-2 rounded-xl border border-brand-purple/20 bg-purple-50/50 p-4">
+                  <label className={labelClass}>Ação realizada nesta movimentação *</label>
+                  <textarea
+                    required
                     className={inputClass}
-                    value={form.ownerId ?? ''}
-                    onChange={(e) => updateField('ownerId', e.target.value || undefined)}
-                  >
-                    <option value="">Eu mesmo</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name}
-                      </option>
-                    ))}
-                  </select>
+                    rows={3}
+                    value={form.actionDescription ?? ''}
+                    onChange={(event) => updateField('actionDescription', event.target.value)}
+                  />
+                  <label className="mt-3 flex items-center gap-2 text-sm font-medium">
+                    <input
+                      type="checkbox"
+                      checked={form.createTask ?? false}
+                      onChange={(event) => updateField('createTask', event.target.checked)}
+                    />
+                    Criar uma tarefa para cada responsável
+                  </label>
+                  {form.createTask && (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className={labelClass}>Prazo *</label>
+                        <input
+                          required
+                          type="datetime-local"
+                          className={inputClass}
+                          value={form.taskDueDate ?? ''}
+                          onChange={(event) => updateField('taskDueDate', event.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Prioridade *</label>
+                        <select
+                          required
+                          className={inputClass}
+                          value={form.taskPriority ?? 'MEDIUM'}
+                          onChange={(event) =>
+                            updateField(
+                              'taskPriority',
+                              event.target.value as LeadFormPayload['taskPriority'],
+                            )
+                          }
+                        >
+                          <option value="LOW">Baixa</option>
+                          <option value="MEDIUM">Média</option>
+                          <option value="HIGH">Alta</option>
+                          <option value="URGENT">Urgente</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {selectedStage?.isLostStage && (
+                <div className="md:col-span-2">
+                  <label className={labelClass}>Motivo da perda *</label>
+                  <input
+                    required
+                    className={inputClass}
+                    value={form.lossReason ?? ''}
+                    onChange={(e) => updateField('lossReason', e.target.value)}
+                  />
                 </div>
               )}
             </div>
-
-            {selectedStage?.isLostStage && (
-              <div>
-                <label className={labelClass}>Motivo da perda *</label>
-                <input
-                  required
-                  className={inputClass}
-                  value={form.lossReason ?? ''}
-                  onChange={(e) => updateField('lossReason', e.target.value)}
-                />
-              </div>
-            )}
           </section>
 
-          <section className="flex flex-col gap-4 rounded-card bg-surface p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-ink">Negócio</h2>
-            <div className="grid grid-cols-3 gap-4">
+          <section className="form-section">
+            <div className="form-section-header">
+              <h2 className="font-heading text-base font-bold text-slate-800">
+                Informações do negócio
+              </h2>
+              <p className="mt-1 text-xs text-slate-400">
+                Valores, estimativas e detalhes para apoiar a negociação.
+              </p>
+            </div>
+            <div className="form-section-body lg:grid-cols-3">
               <div>
                 <label className={labelClass}>Valor estimado (R$)</label>
                 <input
@@ -324,7 +467,10 @@ export default function LeadFormPage() {
                   className={inputClass}
                   value={form.estimatedValue ?? ''}
                   onChange={(e) =>
-                    updateField('estimatedValue', e.target.value === '' ? undefined : Number(e.target.value))
+                    updateField(
+                      'estimatedValue',
+                      e.target.value === '' ? undefined : Number(e.target.value),
+                    )
                   }
                 />
               </div>
@@ -358,24 +504,24 @@ export default function LeadFormPage() {
                   ))}
                 </select>
               </div>
-            </div>
-            <div>
-              <label className={labelClass}>Previsão de fechamento</label>
-              <input
-                type="date"
-                className={inputClass}
-                value={form.expectedCloseDate ?? ''}
-                onChange={(e) => updateField('expectedCloseDate', e.target.value || undefined)}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Descrição / notas</label>
-              <textarea
-                rows={3}
-                className={inputClass}
-                value={form.description ?? ''}
-                onChange={(e) => updateField('description', e.target.value)}
-              />
+              <div>
+                <label className={labelClass}>Previsão de fechamento</label>
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={form.expectedCloseDate ?? ''}
+                  onChange={(e) => updateField('expectedCloseDate', e.target.value || undefined)}
+                />
+              </div>
+              <div className="md:col-span-2 lg:col-span-3">
+                <label className={labelClass}>Descrição / notas</label>
+                <textarea
+                  rows={3}
+                  className={inputClass}
+                  value={form.description ?? ''}
+                  onChange={(e) => updateField('description', e.target.value)}
+                />
+              </div>
             </div>
           </section>
 
@@ -385,17 +531,21 @@ export default function LeadFormPage() {
             <p className="rounded-card bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>
           )}
 
-          <div className="flex gap-2">
+          <div className="sticky bottom-4 z-20 flex justify-end gap-2 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur">
             <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-card bg-brand-purple px-5 py-2 text-sm font-semibold text-white hover:bg-brand-purple-dark disabled:opacity-60"
+              type="button"
+              onClick={() => navigate(isEditing ? `/leads/${id}` : '/leads')}
+              className="btn-secondary"
             >
+              Cancelar
+            </button>
+            <button type="submit" disabled={isSubmitting} className="btn-primary min-w-[130px]">
+              <Icon name="view" className="h-4 w-4" />
               {isSubmitting ? 'Salvando…' : 'Salvar'}
             </button>
           </div>
         </form>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

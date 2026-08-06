@@ -39,7 +39,11 @@ export interface LeadListItem {
   dealSize: RefColorName | null;
   source: RefName | null;
   projectType: RefName | null;
-  owner: { id: string; name: string; email: string };
+  partner: RefName | null;
+  owner: { id: string; name: string; email: string; avatarUrl: string | null };
+  assignees: Array<{
+    user: { id: string; name: string; email: string; avatarUrl: string | null };
+  }>;
   stageEnteredAt: string;
   createdAt: string;
   updatedAt: string;
@@ -72,7 +76,8 @@ export interface LeadDetail extends LeadListItem {
   customFieldValues: CustomFieldValueEntry[];
 }
 
-export type LeadActivityType = 'CREATED' | 'FIELD_UPDATED' | 'STAGE_CHANGED' | 'COMMENT' | 'ATTACHMENT_ADDED';
+export type LeadActivityType =
+  'CREATED' | 'FIELD_UPDATED' | 'STAGE_CHANGED' | 'COMMENT' | 'ATTACHMENT_ADDED';
 
 export const LEAD_ACTIVITY_LABELS: Record<LeadActivityType, string> = {
   CREATED: 'Criação',

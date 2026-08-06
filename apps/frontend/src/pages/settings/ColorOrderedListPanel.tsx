@@ -1,4 +1,5 @@
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
+import { Icon } from '../../components/Icon';
 
 interface BaseColorItem {
   id: string;
@@ -26,8 +27,7 @@ interface ColorOrderedListPanelProps<T extends BaseColorItem> {
   renderExtraColumns?: (item: T) => ReactNode;
 }
 
-const inputClass =
-  'w-full rounded-card border border-surface-muted bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple';
+const inputClass = 'form-control';
 
 export function ColorOrderedListPanel<T extends BaseColorItem>({
   title,
@@ -44,6 +44,14 @@ export function ColorOrderedListPanel<T extends BaseColorItem>({
   const [editingId, setEditingId] = useState<string | 'new' | null>(null);
   const [draft, setDraft] = useState<Partial<T>>(emptyDraft);
 
+  function editablePayload(source: Partial<T>): Partial<T> {
+    return Object.keys(emptyDraft).reduce<Partial<T>>((payload, key) => {
+      const typedKey = key as keyof T;
+      payload[typedKey] = source[typedKey];
+      return payload;
+    }, {});
+  }
+
   async function refresh() {
     setIsLoading(true);
     try {
@@ -58,7 +66,6 @@ export function ColorOrderedListPanel<T extends BaseColorItem>({
 
   useEffect(() => {
     refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function startCreate() {
@@ -67,7 +74,7 @@ export function ColorOrderedListPanel<T extends BaseColorItem>({
   }
 
   function startEdit(item: T) {
-    setDraft(item);
+    setDraft(editablePayload(item));
     setEditingId(item.id);
   }
 
@@ -81,9 +88,9 @@ export function ColorOrderedListPanel<T extends BaseColorItem>({
     setError(null);
     try {
       if (editingId === 'new') {
-        await api.create(draft);
+        await api.create(editablePayload(draft));
       } else if (editingId) {
-        await api.update(editingId, draft);
+        await api.update(editingId, editablePayload(draft));
       }
       cancelEdit();
       await refresh();
@@ -127,11 +134,9 @@ export function ColorOrderedListPanel<T extends BaseColorItem>({
           <p className="text-sm text-ink/70">{description}</p>
         </div>
         {editingId === null && (
-          <button
-            onClick={startCreate}
-            className="whitespace-nowrap rounded-card bg-brand-purple px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-purple-dark"
-          >
-            + Nova {itemNoun}
+          <button onClick={startCreate} className="btn-primary">
+            <Icon name="plus" className="h-4 w-4" />
+            Nova {itemNoun}
           </button>
         )}
       </div>
@@ -143,7 +148,7 @@ export function ColorOrderedListPanel<T extends BaseColorItem>({
       {editingId !== null && (
         <form
           onSubmit={handleSubmit}
-          className="mt-4 flex flex-col gap-3 rounded-card border border-surface-muted p-4"
+          className="mt-5 flex flex-col gap-4 rounded-2xl border border-brand-purple/15 bg-purple-50/30 p-5"
         >
           <div className="flex gap-3">
             <div className="flex-1">
@@ -170,28 +175,30 @@ export function ColorOrderedListPanel<T extends BaseColorItem>({
           {renderExtraFormFields?.(draft, (patch) => setDraft({ ...draft, ...patch }))}
 
           <div className="flex gap-2">
-            <button
-              type="submit"
-              className="rounded-card bg-brand-purple px-4 py-2 text-sm font-semibold text-white hover:bg-brand-purple-dark"
-            >
+            <button type="submit" className="btn-primary">
               Salvar
             </button>
-            <button
-              type="button"
-              onClick={cancelEdit}
-              className="rounded-card border border-surface-muted px-4 py-2 text-sm text-ink hover:bg-surface-muted"
-            >
+            <button type="button" onClick={cancelEdit} className="btn-secondary">
               Cancelar
             </button>
           </div>
         </form>
       )}
 
-      <div className="mt-4 overflow-x-auto">
+      <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
         {isLoading ? (
           <p className="text-sm text-ink/60">Carregando…</p>
         ) : (
-          <table className="w-full text-left text-sm">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Cor</th>
+                <th>Nome</th>
+                {renderExtraColumns && <th>Classificação</th>}
+                <th className="text-right">Ordem</th>
+                <th className="text-right">Ações</th>
+              </tr>
+            </thead>
             <tbody>
               {items.map((item, index) => (
                 <tr key={item.id} className="border-b border-surface-muted last:border-0">
@@ -226,17 +233,15 @@ export function ColorOrderedListPanel<T extends BaseColorItem>({
                     )}
                   </td>
                   <td className="py-2 text-right">
-                    <button
-                      onClick={() => startEdit(item)}
-                      className="mr-3 text-sm text-brand-blue hover:text-brand-blue-dark"
-                    >
-                      Editar
+                    <button title="Editar" onClick={() => startEdit(item)} className="icon-button">
+                      <Icon name="edit" className="h-4 w-4" />
                     </button>
                     <button
+                      title="Arquivar"
                       onClick={() => handleArchive(item.id)}
-                      className="text-sm text-danger hover:text-danger/80"
+                      className="icon-button hover:!bg-red-50 hover:!text-red-600"
                     >
-                      Arquivar
+                      <Icon name="archive" className="h-4 w-4" />
                     </button>
                   </td>
                 </tr>

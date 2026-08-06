@@ -9,6 +9,9 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  app.enableShutdownHooks();
+
   app.use(helmet());
   app.use(cookieParser());
 
@@ -22,8 +25,12 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api/v1', { exclude: ['api/docs', 'api/docs-json'] });
 
+  const allowedOrigins = (process.env.FRONTEND_URL ?? 'http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+    origin: allowedOrigins,
     credentials: true,
   });
 

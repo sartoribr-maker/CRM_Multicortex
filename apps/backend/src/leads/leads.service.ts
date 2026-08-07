@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CustomFieldType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeadActivityService } from './lead-activity.service';
@@ -8,6 +8,9 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { ListLeadsQueryDto } from './dto/list-leads.query.dto';
 import type { CustomFieldValueInputDto } from './dto/custom-field-value-input.dto';
+import { EmailNotificationsService } from '../notifications/email-notifications.service';
+import { AuditService } from '../audit/audit.service';
+import { STORAGE_PROVIDER, type StorageProvider } from '../storage/storage-provider.interface';
 
 const LEAD_LIST_INCLUDE = {
   stage: true,
@@ -33,6 +36,9 @@ export class LeadsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly leadActivityService: LeadActivityService,
+    private readonly emailNotifications: EmailNotificationsService,
+    private readonly audit: AuditService,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
   ) {}
 
   private canViewAll(currentUser: JwtPayload): boolean {
@@ -279,7 +285,29 @@ export class LeadsService {
       actorUserId: currentUser.sub,
     });
 
-    return this.findOne(lead.id, currentUser);
+    const result = await this.findOne(lead.id, currentUser);
+    await this.emailNotifications.leadCreated({
+      id: result.id,
+      name: result.name,
+      stageName: result.stage.name,
+      recipients: result.assignees.map(({ user }) => ({ name: user.name, email: user.email })),
+      companyName: result.companyName,
+      contactName: result.contactName,
+      contactEmail: result.contactEmail,
+      contactPhone: result.contactPhone,
+      priorityName: result.priority?.name,
+      dealSizeName: result.dealSize?.name,
+      sourceName: result.source?.name,
+      partnerName: result.partner?.name,
+      projectTypeName: result.projectType?.name,
+      successProbability: result.successProbability,
+      estimatedValue: result.estimatedValue?.toString() ?? null,
+      expectedCloseDate: result.expectedCloseDate,
+      status: result.status,
+      description: result.description,
+      responsibleNames: result.assignees.map(({ user }) => user.name),
+    });
+    return result;
   }
 
   async update(id: string, dto: UpdateLeadDto, currentUser: JwtPayload) {
@@ -287,6 +315,7 @@ export class LeadsService {
     await this.validateCustomFieldValues(dto.customFieldValues, { enforceRequired: false });
 
     let stageChangeMessage: string | null = null;
+    const movementTaskIds: string[] = [];
     const data: Prisma.LeadUpdateInput = {
       name: dto.name,
       companyName: dto.companyName,
@@ -368,18 +397,21 @@ export class LeadsService {
 
       if (stageChangeMessage && dto.createTask && dto.taskDueDate && dto.taskPriority) {
         const taskOwnerIds = [...new Set(dto.ownerIds?.length ? dto.ownerIds : [existing.ownerId])];
-        await tx.task.createMany({
-          data: taskOwnerIds.map((assigneeId) => ({
-            title: dto.actionDescription!.trim(),
-            description: `Tarefa criada pela movimentação da oportunidade "${dto.name ?? existing.name}".`,
-            status: 'TODO',
-            priority: dto.taskPriority!,
-            dueDate: new Date(dto.taskDueDate!),
-            leadId: id,
-            assigneeId,
-            createdByUserId: currentUser.sub,
-          })),
-        });
+        for (const assigneeId of taskOwnerIds) {
+          const task = await tx.task.create({
+            data: {
+              title: dto.actionDescription!.trim(),
+              description: `Tarefa criada pela movimentação da oportunidade "${dto.name ?? existing.name}".`,
+              status: 'TODO',
+              priority: dto.taskPriority!,
+              dueDate: new Date(dto.taskDueDate!),
+              leadId: id,
+              assigneeId,
+              createdByUserId: currentUser.sub,
+            },
+          });
+          movementTaskIds.push(task.id);
+        }
       }
 
       if (dto.customFieldValues?.length) {
@@ -428,12 +460,84 @@ export class LeadsService {
       });
     }
 
-    return this.findOne(id, currentUser);
+    const result = await this.findOne(id, currentUser);
+    if (stageChangeMessage) {
+      const previousStage = await this.prisma.stage.findUnique({ where: { id: existing.stageId } });
+      await this.emailNotifications.leadStageChanged({
+        id: result.id,
+        name: result.name,
+        previousStageName: previousStage?.name ?? 'Etapa anterior',
+        stageName: result.stage.name,
+        recipients: result.assignees.map(({ user }) => ({ name: user.name, email: user.email })),
+        companyName: result.companyName,
+        contactName: result.contactName,
+        contactEmail: result.contactEmail,
+        contactPhone: result.contactPhone,
+        priorityName: result.priority?.name,
+        dealSizeName: result.dealSize?.name,
+        sourceName: result.source?.name,
+        partnerName: result.partner?.name,
+        projectTypeName: result.projectType?.name,
+        successProbability: result.successProbability,
+        estimatedValue: result.estimatedValue?.toString() ?? null,
+        expectedCloseDate: result.expectedCloseDate,
+        status: result.status,
+        description: result.description,
+        responsibleNames: result.assignees.map(({ user }) => user.name),
+      });
+    }
+    if (movementTaskIds.length) {
+      const tasks = await this.prisma.task.findMany({
+        where: { id: { in: movementTaskIds } },
+        include: {
+          assignee: { select: { name: true, email: true } },
+          lead: {
+            select: { name: true, companyName: true, stage: { select: { name: true } } },
+          },
+        },
+      });
+      await Promise.all(
+        tasks.map((task) =>
+          this.emailNotifications.taskCreated({
+            id: task.id,
+            title: task.title,
+            dueDate: task.dueDate,
+            status: task.status,
+            priority: task.priority,
+            assignee: task.assignee,
+            leadName: task.lead?.name,
+            description: task.description,
+            createdByName: currentUser.name,
+            leadCompanyName: task.lead?.companyName,
+            leadStageName: task.lead?.stage.name,
+          }),
+        ),
+      );
+    }
+    return result;
   }
 
   async archive(id: string, currentUser: JwtPayload) {
     await this.ensureVisible(id, currentUser);
     await this.prisma.lead.update({ where: { id }, data: { deletedAt: new Date() } });
+  }
+
+  async remove(id: string, currentUser: JwtPayload) {
+    const lead = await this.ensureVisible(id, currentUser);
+    const attachments = await this.prisma.attachment.findMany({
+      where: { leadId: id },
+      select: { storageKey: true },
+    });
+
+    await this.prisma.lead.delete({ where: { id } });
+    await Promise.all(attachments.map(({ storageKey }) => this.storage.delete(storageKey)));
+    await this.audit.record({
+      action: 'LEAD_DELETED',
+      actorUserId: currentUser.sub,
+      targetType: 'Lead',
+      targetId: id,
+      metadata: { name: lead.name },
+    });
   }
 
   async listActivities(id: string, currentUser: JwtPayload) {

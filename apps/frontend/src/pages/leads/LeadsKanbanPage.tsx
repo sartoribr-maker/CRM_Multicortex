@@ -1,13 +1,24 @@
-import { type DragEvent, useEffect, useMemo, useState } from 'react';
+import { type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
+import { FixedHorizontalScrollbar } from '../../components/FixedHorizontalScrollbar';
 import { Icon } from '../../components/Icon';
+import { DateInput } from '../../components/MaskedInputs';
 import { leadsApi, type LeadListFilters } from '../../lib/leadsApi';
-import { prioritiesApi, projectTypesApi, stagesApi } from '../../lib/settingsApi';
+import { formatCurrency, formatDate } from '../../lib/formatters';
+import { partnersApi } from '../../lib/partnersApi';
+import {
+  dealSizesApi,
+  prioritiesApi,
+  projectTypesApi,
+  sourcesApi,
+  stagesApi,
+} from '../../lib/settingsApi';
 import { avatarUrl, usersApi, type UserOption } from '../../lib/usersApi';
 import { useAuthStore } from '../../store/useAuthStore';
 import type { LeadListItem } from '../../types/leads';
-import type { Priority, ProjectType, Stage } from '../../types/settings';
+import type { Partner } from '../../types/partners';
+import type { DealSize, Priority, ProjectType, Source, Stage } from '../../types/settings';
 
 interface PendingMove {
   lead: LeadListItem;
@@ -15,16 +26,22 @@ interface PendingMove {
 }
 
 function money(value: string | number | null) {
-  if (value === null) return 'Valor não informado';
-  return Number(value).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    maximumFractionDigits: 0,
-  });
+  return value === null ? 'Valor não informado' : formatCurrency(value);
+}
+
+function isMandatoryPriority(lead: LeadListItem) {
+  return (
+    lead.priority?.name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase() === 'mandatoria'
+  );
 }
 
 export default function LeadsKanbanPage() {
   const navigate = useNavigate();
+  const kanbanScrollRef = useRef<HTMLDivElement>(null);
+  const cardClickTimerRef = useRef<number | null>(null);
   const user = useAuthStore((state) => state.user);
   const canViewAll = user?.permissions.includes('leads.view.all') ?? false;
   const canCreate = user?.permissions.includes('leads.create') ?? false;
@@ -32,6 +49,9 @@ export default function LeadsKanbanPage() {
   const [stages, setStages] = useState<Stage[]>([]);
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
+  const [dealSizes, setDealSizes] = useState<DealSize[]>([]);
+  const [sources, setSources] = useState<Source[]>([]);
+  const [partners, setPartners] = useState<Partner[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [leads, setLeads] = useState<LeadListItem[]>([]);
   const [filters, setFilters] = useState<LeadListFilters>({});
@@ -52,15 +72,31 @@ export default function LeadsKanbanPage() {
     Promise.all([
       stagesApi.list(),
       prioritiesApi.list(),
+      dealSizesApi.list(),
+      sourcesApi.list(),
       projectTypesApi.list(),
       canViewAll ? usersApi.list() : Promise.resolve([]),
+      partnersApi.options(),
     ])
-      .then(([stageData, priorityData, projectData, userData]) => {
-        setStages([...stageData].sort((a, b) => a.order - b.order));
-        setPriorities(priorityData);
-        setProjectTypes(projectData);
-        setUsers(userData);
-      })
+      .then(
+        ([
+          stageData,
+          priorityData,
+          dealSizeData,
+          sourceData,
+          projectData,
+          userData,
+          partnerData,
+        ]) => {
+          setStages([...stageData].sort((a, b) => a.order - b.order));
+          setPriorities(priorityData);
+          setDealSizes(dealSizeData);
+          setSources(sourceData);
+          setProjectTypes(projectData);
+          setUsers(userData);
+          setPartners(partnerData);
+        },
+      )
       .catch(() => setError('Não foi possível carregar as configurações do funil.'));
   }, [canViewAll]);
 
@@ -98,12 +134,42 @@ export default function LeadsKanbanPage() {
       ),
     [leads, stages],
   );
+  const visibleStages = useMemo(
+    () => (filters.stageId ? stages.filter((stage) => stage.id === filters.stageId) : stages),
+    [filters.stageId, stages],
+  );
   const totalValue = useMemo(
     () => leads.reduce((sum, lead) => sum + Number(lead.estimatedValue ?? 0), 0),
     [leads],
   );
   function updateFilter(key: keyof LeadListFilters, value: string) {
     setFilters((current) => ({ ...current, [key]: value || undefined }));
+  }
+
+  function openLeadAfterClick(leadId: string) {
+    if (cardClickTimerRef.current) window.clearTimeout(cardClickTimerRef.current);
+    cardClickTimerRef.current = window.setTimeout(() => navigate(`/leads/${leadId}`), 250);
+  }
+
+  async function markAsMandatory(lead: LeadListItem) {
+    if (!canEdit || isMandatoryPriority(lead)) return;
+    const mandatoryPriority = priorities.find(
+      (priority) =>
+        priority.name
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase() === 'mandatoria',
+    );
+    if (!mandatoryPriority) {
+      setError('A prioridade Mandatória não foi encontrada nas configurações.');
+      return;
+    }
+    try {
+      const updated = await leadsApi.update(lead.id, { priorityId: mandatoryPriority.id });
+      setLeads((items) => items.map((item) => (item.id === lead.id ? updated : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível alterar a prioridade.');
+    }
   }
 
   function requestMove(leadId: string, stage: Stage) {
@@ -141,7 +207,7 @@ export default function LeadsKanbanPage() {
         actionDescription: actionDescription.trim(),
         ownerIds: moveOwnerIds,
         createTask,
-        taskDueDate: createTask ? new Date(taskDueDate).toISOString() : undefined,
+        taskDueDate: createTask ? new Date(`${taskDueDate}T12:00:00`).toISOString() : undefined,
         taskPriority: createTask ? taskPriority : undefined,
       });
       setLeads((items) => items.map((item) => (item.id === lead.id ? updatedLead : item)));
@@ -183,62 +249,112 @@ export default function LeadsKanbanPage() {
           )
         }
       />
-      <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:flex-row xl:items-center">
-        <div className="relative min-w-[260px] flex-1">
-          <Icon name="search" className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
-          <input
-            className="form-control pl-10"
-            placeholder="Buscar oportunidade..."
-            value={filters.search ?? ''}
-            onChange={(event) => updateFilter('search', event.target.value)}
-          />
-        </div>
-        <select
-          className="form-control xl:w-48"
-          value={filters.priorityId ?? ''}
-          onChange={(event) => updateFilter('priorityId', event.target.value)}
-        >
-          <option value="">Todas as prioridades</option>
-          {priorities.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className="form-control xl:w-48"
-          value={filters.projectTypeId ?? ''}
-          onChange={(event) => updateFilter('projectTypeId', event.target.value)}
-        >
-          <option value="">Todos os projetos</option>
-          {projectTypes.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-        {canViewAll && (
+      <div className="filter-panel mb-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <label className="relative sm:col-span-2">
+            <Icon name="search" className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+            <input
+              className="form-control pl-10"
+              placeholder="Buscar por lead, empresa ou contato..."
+              value={filters.search ?? ''}
+              onChange={(event) => updateFilter('search', event.target.value)}
+            />
+          </label>
           <select
-            className="form-control xl:w-48"
-            value={filters.ownerId ?? ''}
-            onChange={(event) => updateFilter('ownerId', event.target.value)}
+            className="form-control"
+            value={filters.stageId ?? ''}
+            onChange={(event) => updateFilter('stageId', event.target.value)}
           >
-            <option value="">Todos os responsáveis</option>
-            {users.map((item) => (
+            <option value="">Todas as etapas</option>
+            {stages.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
               </option>
             ))}
           </select>
-        )}
-        {activeFilterCount > 0 && (
-          <button
-            className="h-10 whitespace-nowrap px-2 text-xs font-bold text-brand-purple"
-            onClick={() => setFilters({})}
+          <select
+            className="form-control"
+            value={filters.priorityId ?? ''}
+            onChange={(event) => updateFilter('priorityId', event.target.value)}
           >
-            Limpar filtros
-          </button>
-        )}
+            <option value="">Todas as prioridades</option>
+            {priorities.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-control"
+            value={filters.dealSizeId ?? ''}
+            onChange={(event) => updateFilter('dealSizeId', event.target.value)}
+          >
+            <option value="">Todos os portes</option>
+            {dealSizes.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-control"
+            value={filters.sourceId ?? ''}
+            onChange={(event) => updateFilter('sourceId', event.target.value)}
+          >
+            <option value="">Todas as origens</option>
+            {sources.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-control"
+            value={filters.projectTypeId ?? ''}
+            onChange={(event) => updateFilter('projectTypeId', event.target.value)}
+          >
+            <option value="">Todos os projetos</option>
+            {projectTypes.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-control"
+            value={filters.partnerId ?? ''}
+            onChange={(event) => updateFilter('partnerId', event.target.value)}
+          >
+            <option value="">Todos os parceiros indicadores</option>
+            {partners.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          {canViewAll && (
+            <select
+              className="form-control"
+              value={filters.ownerId ?? ''}
+              onChange={(event) => updateFilter('ownerId', event.target.value)}
+            >
+              <option value="">Todos os responsáveis</option>
+              {users.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {activeFilterCount > 0 && (
+            <button
+              className="h-10 justify-self-start whitespace-nowrap px-2 text-xs font-bold text-brand-purple"
+              onClick={() => setFilters({})}
+            >
+              Limpar filtros
+            </button>
+          )}
+        </div>
       </div>
       {error && (
         <div className="mb-4 flex items-center justify-between rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -261,9 +377,9 @@ export default function LeadsKanbanPage() {
           </button>
         </div>
       ) : (
-        <div className="-mx-4 overflow-x-auto px-4 pb-5 md:-mx-8 md:px-8">
+        <div ref={kanbanScrollRef} className="-mx-4 overflow-x-auto px-4 pb-5 md:-mx-8 md:px-8">
           <div className="flex min-w-max items-start gap-4">
-            {stages.map((stage) => {
+            {visibleStages.map((stage) => {
               const columnLeads = grouped.get(stage.id) ?? [];
               const columnValue = columnLeads.reduce(
                 (sum, lead) => sum + Number(lead.estimatedValue ?? 0),
@@ -324,8 +440,26 @@ export default function LeadsKanbanPage() {
                           setDraggedId(null);
                           setDragOverStageId(null);
                         }}
-                        onClick={() => navigate(`/leads/${lead.id}`)}
-                        className={`group cursor-pointer rounded-xl border border-amber-200/80 bg-amber-50 p-4 shadow-sm shadow-amber-200/30 transition hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-100/70 hover:shadow-md ${draggedId === lead.id ? 'opacity-40' : ''}`}
+                        onClick={() => openLeadAfterClick(lead.id)}
+                        onDoubleClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          if (cardClickTimerRef.current) {
+                            window.clearTimeout(cardClickTimerRef.current);
+                            cardClickTimerRef.current = null;
+                          }
+                          void markAsMandatory(lead);
+                        }}
+                        title={
+                          canEdit && !isMandatoryPriority(lead)
+                            ? 'Duplo clique para marcar como prioridade Mandatória'
+                            : undefined
+                        }
+                        className={`group cursor-pointer rounded-xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
+                          isMandatoryPriority(lead)
+                            ? 'border-rose-200 bg-rose-50 shadow-rose-200/30 hover:border-rose-300 hover:bg-rose-100/70'
+                            : 'border-amber-200/80 bg-amber-50 shadow-amber-200/30 hover:border-amber-300 hover:bg-amber-100/70'
+                        } ${draggedId === lead.id ? 'opacity-40' : ''}`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
@@ -344,13 +478,13 @@ export default function LeadsKanbanPage() {
                             />
                           )}
                         </div>
-                        <div className="my-3 h-px bg-amber-200/60" />
+                        <div
+                          className={`my-3 h-px ${isMandatoryPriority(lead) ? 'bg-rose-200/70' : 'bg-amber-200/60'}`}
+                        />
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <span className="text-xs font-semibold text-slate-700">
-                              {new Date(lead.stageEnteredAt || lead.createdAt).toLocaleDateString(
-                                'pt-BR',
-                              )}
+                              {formatDate(lead.stageEnteredAt || lead.createdAt)}
                             </span>
                             {lead.estimatedValue !== null && (
                               <p className="mt-0.5 text-[10px] text-slate-400">
@@ -417,6 +551,7 @@ export default function LeadsKanbanPage() {
           </div>
         </div>
       )}
+      <FixedHorizontalScrollbar targetRef={kanbanScrollRef} />
       {pendingMove && (
         <div className="mobile-modal-overlay fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
           <form
@@ -498,12 +633,11 @@ export default function LeadsKanbanPage() {
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="form-label">Prazo *</label>
-                  <input
+                  <DateInput
                     required
-                    type="datetime-local"
                     className="form-control"
                     value={taskDueDate}
-                    onChange={(event) => setTaskDueDate(event.target.value)}
+                    onValueChange={(value) => setTaskDueDate(value ?? '')}
                   />
                 </div>
                 <div>

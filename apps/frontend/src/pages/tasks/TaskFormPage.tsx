@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
+import { DateInput } from '../../components/MaskedInputs';
 import { leadsApi } from '../../lib/leadsApi';
 import { tasksApi } from '../../lib/tasksApi';
 import { usersApi, type UserOption } from '../../lib/usersApi';
@@ -16,7 +17,7 @@ import {
 import type { LeadListItem } from '../../types/leads';
 function localDate(value: Date) {
   const offset = value.getTimezoneOffset() * 60000;
-  return new Date(value.getTime() - offset).toISOString().slice(0, 16);
+  return new Date(value.getTime() - offset).toISOString().slice(0, 10);
 }
 export default function TaskFormPage() {
   const { id } = useParams();
@@ -67,7 +68,7 @@ export default function TaskFormPage() {
     setSaving(true);
     setError(null);
     try {
-      const payload = { ...form, dueDate: new Date(form.dueDate).toISOString() };
+      const payload = { ...form, dueDate: new Date(`${form.dueDate}T12:00:00`).toISOString() };
       const r = editing ? await tasksApi.update(id!, payload) : await tasksApi.create(payload);
       nav(`/tasks/${r.id}`);
     } catch (err) {
@@ -109,12 +110,11 @@ export default function TaskFormPage() {
               </div>
               <div>
                 <label className="form-label">Prazo *</label>
-                <input
+                <DateInput
                   required
-                  type="datetime-local"
                   className="form-control"
                   value={form.dueDate}
-                  onChange={(e) => field('dueDate', e.target.value)}
+                  onValueChange={(value) => field('dueDate', value ?? '')}
                 />
               </div>
               <div>

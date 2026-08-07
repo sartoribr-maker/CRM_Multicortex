@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
 import { tasksApi } from '../../lib/tasksApi';
+import { formatDate } from '../../lib/formatters';
 import { usersApi, type UserOption } from '../../lib/usersApi';
 import { useAuthStore } from '../../store/useAuthStore';
 import {
@@ -15,16 +16,22 @@ import {
 type Sort = 'title' | 'dueDate' | 'priority' | 'status' | 'assignee';
 export default function TasksListPage() {
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
   const isAdministrator = user?.role.name.trim().toLocaleLowerCase('pt-BR') === 'administrador';
   const canCreate = user?.permissions.includes('tasks.create') ?? false;
   const canEdit = user?.permissions.includes('tasks.edit') ?? false;
+  const canDelete = user?.permissions.includes('tasks.delete') ?? false;
   const [items, setItems] = useState<Task[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<TaskFilters>({ page: 1, pageSize: 20 });
+  const [filters, setFilters] = useState<TaskFilters>({
+    page: 1,
+    pageSize: 20,
+    overdue: searchParams.get('overdue') === 'true' || undefined,
+  });
   const [sort, setSort] = useState<{ key: Sort; dir: 'asc' | 'desc' }>({
     key: 'dueDate',
     dir: 'asc',
@@ -75,12 +82,33 @@ export default function TasksListPage() {
   );
   const overdue = (t: Task) =>
     !['DONE', 'CANCELED'].includes(t.status) && new Date(t.dueDate) < new Date();
+  const assignedDays = (task: Task) => {
+    const assignedAt = new Date(task.assigneeAssignedAt);
+    const elapsed = Date.now() - assignedAt.getTime();
+    return Math.max(0, Math.floor(elapsed / 86_400_000));
+  };
   async function complete(t: Task) {
     try {
       const u = await tasksApi.complete(t.id);
       setItems((c) => c.map((i) => (i.id === t.id ? u : i)));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao concluir.');
+    }
+  }
+  async function remove(t: Task) {
+    const confirmation = window.prompt(
+      `Exclusão definitiva. Digite o título da tarefa para confirmar:\n\n${t.title}`,
+    );
+    if (confirmation !== t.title) {
+      if (confirmation !== null) window.alert('O título informado não corresponde à tarefa.');
+      return;
+    }
+    try {
+      await tasksApi.remove(t.id);
+      setItems((current) => current.filter((item) => item.id !== t.id));
+      setTotal((current) => Math.max(0, current - 1));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao excluir a tarefa.');
     }
   }
   return (
@@ -197,6 +225,7 @@ export default function TasksListPage() {
                 <th>
                   <H f="assignee" c="Responsável" />
                 </th>
+                <th>Dias atribuída</th>
                 <th>Oportunidade</th>
                 <th className="text-right">Ações</th>
               </tr>
@@ -214,12 +243,7 @@ export default function TasksListPage() {
                   </td>
                   <td>
                     <span className={overdue(t) ? 'font-bold text-red-600' : 'text-slate-600'}>
-                      {new Date(t.dueDate).toLocaleString('pt-BR', {
-                        day: '2-digit',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {formatDate(t.dueDate)}
                     </span>
                     {overdue(t) && (
                       <p className="text-[10px] font-bold uppercase text-red-500">Atrasada</p>
@@ -234,6 +258,11 @@ export default function TasksListPage() {
                   </td>
                   <td>{TASK_STATUS_LABELS[t.status]}</td>
                   <td>{t.assignee.name}</td>
+                  <td>
+                    <span className="whitespace-nowrap font-semibold text-slate-600">
+                      {assignedDays(t)} {assignedDays(t) === 1 ? 'dia' : 'dias'}
+                    </span>
+                  </td>
                   <td>
                     {t.lead ? (
                       <button
@@ -273,13 +302,22 @@ export default function TasksListPage() {
                           <Icon name="edit" className="h-4 w-4" />
                         </button>
                       )}
+                      {canDelete && (
+                        <button
+                          className="icon-button hover:!text-red-600"
+                          title="Excluir definitivamente"
+                          onClick={() => void remove(t)}
+                        >
+                          <Icon name="trash" className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
               {!sorted.length && (
                 <tr>
-                  <td colSpan={7} className="py-14 text-center">
+                  <td colSpan={8} className="py-14 text-center">
                     Nenhuma tarefa encontrada.
                   </td>
                 </tr>

@@ -1,6 +1,8 @@
 import { type FormEvent, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
+import { PhoneInput } from '../../components/MaskedInputs';
+import { formatPhone } from '../../lib/formatters';
 import { rolesApi, type Permission, type Role } from '../../lib/rolesApi';
 import {
   avatarUrl,
@@ -259,7 +261,7 @@ export default function AccessManagementPage() {
                         </span>
                       </td>
                       <td>{u.position || '—'}</td>
-                      <td>{u.phone || '—'}</td>
+                      <td>{formatPhone(u.phone)}</td>
                       <td>
                         <span
                           className={`inline-flex items-center gap-2 text-xs font-bold ${u.status === 'ACTIVE' ? 'text-emerald-600' : 'text-slate-400'}`}
@@ -555,10 +557,10 @@ function UserForm({
         </div>
         <div>
           <label className="form-label">Telefone</label>
-          <input
+          <PhoneInput
             className="form-control"
             value={form.phone ?? ''}
-            onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value || undefined }))}
+            onValueChange={(value) => setForm((f) => ({ ...f, phone: value || undefined }))}
           />
         </div>
         {error && (

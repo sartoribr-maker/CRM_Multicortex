@@ -13,16 +13,56 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model EmailSettings {
+  id                String   @id @default("default")
+  enabled           Boolean  @default(false)
+  host              String   @default("smtp.gmail.com")
+  port              Int      @default(587)
+  secure            Boolean  @default(false)
+  username          String   @default("sartori.br@gmail.com")
+  passwordEncrypted String?
+  fromEmail         String   @default("sartori.br@gmail.com")
+  fromName          String   @default("Multicortex CRM")
+  updatedAt         DateTime @updatedAt
+  updatedBy         String?
+
+  @@map("email_settings")
+}
+
+model WhatsAppSettings {
+  id                     String   @id @default("default")
+  enabled                Boolean  @default(false)
+  apiVersion             String   @default("v23.0")
+  phoneNumberId          String   @default("")
+  businessAccountId      String   @default("")
+  accessTokenEncrypted   String?
+  languageCode           String   @default("pt_BR")
+  testTemplate           String   @default("hello_world")
+  leadCreatedTemplate    String   @default("")
+  leadStageTemplate      String   @default("")
+  taskCreatedTemplate    String   @default("")
+  taskUpdatedTemplate    String   @default("")
+  testPhone              String   @default("")
+  notifyLeadCreated      Boolean  @default(true)
+  notifyLeadStageChanged Boolean  @default(true)
+  notifyTaskCreated      Boolean  @default(true)
+  notifyTaskUpdated      Boolean  @default(true)
+  updatedAt              DateTime @updatedAt
+  updatedBy              String?
+
+  @@map("whatsapp_settings")
+}
+
 enum UserStatus {
   ACTIVE
   INACTIVE
 }
 
 model Role {
-  id          String   @id @default(uuid())
-  name        String   @unique
+  id          String  @id @default(uuid())
+  name        String  @unique
   description String?
-  isSystem    Boolean  @default(false)
+  isSystem    Boolean @default(false)
 
   users       User[]
   permissions RolePermission[]
@@ -78,16 +118,16 @@ model User {
   roleId String
   role   Role   @relation(fields: [roleId], references: [id])
 
-  refreshTokens      RefreshToken[]
+  refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
 
-  ownedLeads         Lead[]               @relation("LeadOwner")
-  leadAssignments    LeadAssignee[]
+  ownedLeads          Lead[]              @relation("LeadOwner")
+  leadAssignments     LeadAssignee[]
   stageHistoryChanges StageHistoryEntry[]
   uploadedAttachments Attachment[]
-  leadActivities     LeadActivity[]
-  assignedTasks      Task[]               @relation("TaskAssignee")
-  createdTasks       Task[]               @relation("TaskCreator")
+  leadActivities      LeadActivity[]
+  assignedTasks       Task[]              @relation("TaskAssignee")
+  createdTasks        Task[]              @relation("TaskCreator")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -186,9 +226,9 @@ model Stage {
   isWonStage  Boolean @default(false)
   isLostStage Boolean @default(false)
 
-  leads             Lead[]
-  stageHistoryFrom  StageHistoryEntry[] @relation("StageHistoryFrom")
-  stageHistoryTo    StageHistoryEntry[] @relation("StageHistoryTo")
+  leads            Lead[]
+  stageHistoryFrom StageHistoryEntry[] @relation("StageHistoryFrom")
+  stageHistoryTo   StageHistoryEntry[] @relation("StageHistoryTo")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -325,7 +365,7 @@ enum LeadStatus {
 }
 
 model Lead {
-  id String @id @default(uuid())
+  id   String @id @default(uuid())
   name String
 
   companyName     String?
@@ -355,9 +395,9 @@ model Lead {
   partner   Partner? @relation(fields: [partnerId], references: [id])
 
   successProbability Int?
-  estimatedValue      Decimal?        @db.Decimal(14, 2)
-  periodicity         LeadPeriodicity @default(PONTUAL)
-  expectedCloseDate   DateTime?
+  estimatedValue     Decimal?        @db.Decimal(14, 2)
+  periodicity        LeadPeriodicity @default(PONTUAL)
+  expectedCloseDate  DateTime?
 
   ownerId String
   owner   User   @relation("LeadOwner", fields: [ownerId], references: [id])
@@ -385,10 +425,10 @@ model Lead {
 }
 
 model LeadAssignee {
-  leadId String
-  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leadId     String
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   assignedAt DateTime @default(now())
   assignedBy String?
 
@@ -409,8 +449,9 @@ model Task {
   leadId String?
   lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
 
-  assigneeId String
-  assignee   User   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assigneeId         String
+  assignee           User     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assigneeAssignedAt DateTime @default(now())
 
   createdByUserId String
   createdByUser   User   @relation("TaskCreator", fields: [createdByUserId], references: [id])
@@ -511,12 +552,12 @@ model LeadActivity {
 }
 
 model AuditLog {
-  id           String   @id @default(uuid())
-  action       String
-  actorUserId  String?
-  targetType   String?
-  targetId     String?
-  metadata     Json?
+  id          String  @id @default(uuid())
+  action      String
+  actorUserId String?
+  targetType  String?
+  targetId    String?
+  metadata    Json?
 
   createdAt DateTime @default(now())
 

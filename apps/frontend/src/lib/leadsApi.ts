@@ -79,6 +79,8 @@ export const leadsApi = {
   archive: (id: string) =>
     apiJson<{ success: boolean }>(`/leads/${id}/archive`, { method: 'POST' }),
 
+  remove: (id: string) => apiJson<{ success: boolean }>(`/leads/${id}`, { method: 'DELETE' }),
+
   listActivities: (id: string) => apiJson<LeadActivity[]>(`/leads/${id}/activities`),
 
   listStageHistory: (id: string) => apiJson<StageHistoryEntry[]>(`/leads/${id}/stage-history`),

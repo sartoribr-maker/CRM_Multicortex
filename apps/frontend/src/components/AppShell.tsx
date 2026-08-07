@@ -23,6 +23,8 @@ const settingsItems = [
   { to: '/settings/segments', label: 'Segmentos de Mercado', permission: 'settings.manage' },
   { to: '/settings/project-types', label: 'Tipos de Projeto', permission: 'settings.manage' },
   { to: '/settings/custom-fields', label: 'Campos Personalizados', permission: 'settings.manage' },
+  { to: '/settings/email', label: 'Configuração de E-mail', permission: 'settings.manage' },
+  { to: '/settings/whatsapp', label: 'Configuração do WhatsApp', permission: 'settings.manage' },
   { to: '/settings/access', label: 'Usuários e Acessos', permission: 'users.view' },
 ];
 
@@ -226,7 +228,7 @@ export function PageHeader({
   actions,
 }: {
   eyebrow?: string;
-  title: string;
+  title: ReactNode;
   description?: string;
   actions?: ReactNode;
 }) {

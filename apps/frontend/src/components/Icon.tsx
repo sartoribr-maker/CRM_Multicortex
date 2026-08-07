@@ -14,6 +14,7 @@ export type IconName =
   | 'filter'
   | 'leads'
   | 'logout'
+  | 'mail'
   | 'menu'
   | 'plus'
   | 'search'
@@ -91,6 +92,12 @@ const paths: Record<IconName, JSX.Element> = {
     <>
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <path d="m16 17 5-5-5-5M21 12H9" />
+    </>
+  ),
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 7 9 6 9-6" />
     </>
   ),
   menu: (

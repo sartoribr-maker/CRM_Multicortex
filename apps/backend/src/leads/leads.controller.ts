@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { LeadsService } from './leads.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
@@ -47,6 +57,13 @@ export class LeadsController {
   @RequirePermissions(PERMISSIONS.LEADS_DELETE)
   async archive(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() currentUser: JwtPayload) {
     await this.leadsService.archive(id, currentUser);
+    return { success: true };
+  }
+
+  @Delete(':id')
+  @RequirePermissions(PERMISSIONS.LEADS_DELETE)
+  async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() currentUser: JwtPayload) {
+    await this.leadsService.remove(id, currentUser);
     return { success: true };
   }
 

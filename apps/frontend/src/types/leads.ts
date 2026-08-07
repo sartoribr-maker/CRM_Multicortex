@@ -32,6 +32,9 @@ export interface LeadListItem {
   id: string;
   name: string;
   companyName: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  successProbability: number | null;
   estimatedValue: string | number | null;
   status: LeadStatus;
   stage: RefColorName & { isWonStage: boolean; isLostStage: boolean };

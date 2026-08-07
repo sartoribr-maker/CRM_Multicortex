@@ -26,6 +26,7 @@ export interface Task {
   priority: TaskPriority;
   dueDate: string;
   completedAt: string | null;
+  assigneeAssignedAt: string;
   assignee: { id: string; name: string; email: string };
   createdByUser: { id: string; name: string };
   lead: {

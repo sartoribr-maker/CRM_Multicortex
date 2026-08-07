@@ -21,6 +21,8 @@ import { AttachmentsModule } from './leads/attachments/attachments.module';
 import { PartnersModule } from './partners/partners.module';
 import { TasksModule } from './tasks/tasks.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { EmailNotificationsModule } from './notifications/email-notifications.module';
+import { WhatsAppSettingsModule } from './notifications/whatsapp-settings.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
     }),
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 60 }]),
     PrismaModule,
+    EmailNotificationsModule,
+    WhatsAppSettingsModule,
     AuditModule,
     AuthModule,
     UsersModule,

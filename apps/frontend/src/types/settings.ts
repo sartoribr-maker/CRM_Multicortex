@@ -73,3 +73,64 @@ export interface CustomField {
   order: number;
   deletedAt: string | null;
 }
+
+export interface EmailSettings {
+  enabled: boolean;
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  fromEmail: string;
+  fromName: string;
+  hasPassword: boolean;
+  updatedAt: string;
+}
+
+export interface EmailSettingsPayload {
+  enabled: boolean;
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  password?: string;
+  fromEmail: string;
+  fromName: string;
+}
+
+export interface WhatsAppSettings {
+  enabled: boolean;
+  apiVersion: string;
+  phoneNumberId: string;
+  businessAccountId: string;
+  languageCode: string;
+  testTemplate: string;
+  leadCreatedTemplate: string;
+  leadStageTemplate: string;
+  taskCreatedTemplate: string;
+  taskUpdatedTemplate: string;
+  testPhone: string;
+  hasAccessToken: boolean;
+  notifyLeadCreated: boolean;
+  notifyLeadStageChanged: boolean;
+  notifyTaskCreated: boolean;
+  notifyTaskUpdated: boolean;
+  updatedAt: string;
+}
+export interface WhatsAppSettingsPayload {
+  enabled: boolean;
+  apiVersion: string;
+  phoneNumberId: string;
+  businessAccountId: string;
+  accessToken?: string;
+  languageCode: string;
+  testTemplate: string;
+  leadCreatedTemplate: string;
+  leadStageTemplate: string;
+  taskCreatedTemplate: string;
+  taskUpdatedTemplate: string;
+  testPhone: string;
+  notifyLeadCreated: boolean;
+  notifyLeadStageChanged: boolean;
+  notifyTaskCreated: boolean;
+  notifyTaskUpdated: boolean;
+}

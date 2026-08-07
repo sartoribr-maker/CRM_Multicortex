@@ -16,6 +16,7 @@ import { partnersApi } from '../../lib/partnersApi';
 import type { Partner } from '../../types/partners';
 import { useAuthStore } from '../../store/useAuthStore';
 import { CustomFieldsFormSection } from '../../components/CustomFieldsFormSection';
+import { CurrencyInput, DateInput, PhoneInput } from '../../components/MaskedInputs';
 import { LEAD_PERIODICITY_LABELS, type LeadPeriodicity } from '../../types/leads';
 import type { DealSize, Priority, ProjectType, Segment, Source, Stage } from '../../types/settings';
 
@@ -235,10 +236,10 @@ export default function LeadFormPage() {
               </div>
               <div>
                 <label className={labelClass}>Telefone</label>
-                <input
+                <PhoneInput
                   className={inputClass}
                   value={form.contactPhone ?? ''}
-                  onChange={(e) => updateField('contactPhone', e.target.value)}
+                  onValueChange={(value) => updateField('contactPhone', value || undefined)}
                 />
               </div>
             </div>
@@ -404,12 +405,11 @@ export default function LeadFormPage() {
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       <div>
                         <label className={labelClass}>Prazo *</label>
-                        <input
+                        <DateInput
                           required
-                          type="datetime-local"
                           className={inputClass}
-                          value={form.taskDueDate ?? ''}
-                          onChange={(event) => updateField('taskDueDate', event.target.value)}
+                          value={form.taskDueDate}
+                          onValueChange={(value) => updateField('taskDueDate', value)}
                         />
                       </div>
                       <div>
@@ -461,17 +461,10 @@ export default function LeadFormPage() {
             <div className="form-section-body lg:grid-cols-3">
               <div>
                 <label className={labelClass}>Valor estimado (R$)</label>
-                <input
-                  type="number"
-                  min={0}
+                <CurrencyInput
                   className={inputClass}
-                  value={form.estimatedValue ?? ''}
-                  onChange={(e) =>
-                    updateField(
-                      'estimatedValue',
-                      e.target.value === '' ? undefined : Number(e.target.value),
-                    )
-                  }
+                  value={form.estimatedValue}
+                  onValueChange={(value) => updateField('estimatedValue', value)}
                 />
               </div>
               <div>
@@ -506,11 +499,10 @@ export default function LeadFormPage() {
               </div>
               <div>
                 <label className={labelClass}>Previsão de fechamento</label>
-                <input
-                  type="date"
+                <DateInput
                   className={inputClass}
-                  value={form.expectedCloseDate ?? ''}
-                  onChange={(e) => updateField('expectedCloseDate', e.target.value || undefined)}
+                  value={form.expectedCloseDate}
+                  onValueChange={(value) => updateField('expectedCloseDate', value)}
                 />
               </div>
               <div className="md:col-span-2 lg:col-span-3">

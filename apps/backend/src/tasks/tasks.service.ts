@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { ListTasksQueryDto } from './dto/list-tasks.query.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { EmailNotificationsService } from '../notifications/email-notifications.service';
 
 const INCLUDE = {
   assignee: { select: { id: true, name: true, email: true } },
@@ -25,6 +26,7 @@ export class TasksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly emailNotifications: EmailNotificationsService,
   ) {}
   private canViewAll(user: JwtPayload) {
     return user.roleName.trim().toLocaleLowerCase('pt-BR') === 'administrador';
@@ -101,6 +103,19 @@ export class TasksService {
       targetType: 'Task',
       targetId: task.id,
     });
+    await this.emailNotifications.taskCreated({
+      id: task.id,
+      title: task.title,
+      dueDate: task.dueDate,
+      status: task.status,
+      priority: task.priority,
+      assignee: task.assignee,
+      leadName: task.lead?.name,
+      description: task.description,
+      createdByName: task.createdByUser.name,
+      leadCompanyName: task.lead?.companyName,
+      leadStageName: task.lead?.stage.name,
+    });
     return task;
   }
   async update(id: string, dto: UpdateTaskDto, user: JwtPayload) {
@@ -114,7 +129,13 @@ export class TasksService {
       : undefined;
     const task = await this.prisma.task.update({
       where: { id },
-      data: { ...dto, dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined, completedAt },
+      data: {
+        ...dto,
+        dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+        completedAt,
+        assigneeAssignedAt:
+          dto.assigneeId && dto.assigneeId !== existing.assignee.id ? new Date() : undefined,
+      },
       include: INCLUDE,
     });
     await this.audit.record({
@@ -122,6 +143,19 @@ export class TasksService {
       actorUserId: user.sub,
       targetType: 'Task',
       targetId: id,
+    });
+    await this.emailNotifications.taskUpdated({
+      id: task.id,
+      title: task.title,
+      dueDate: task.dueDate,
+      status: task.status,
+      priority: task.priority,
+      assignee: task.assignee,
+      leadName: task.lead?.name,
+      description: task.description,
+      createdByName: task.createdByUser.name,
+      leadCompanyName: task.lead?.companyName,
+      leadStageName: task.lead?.stage.name,
     });
     return task;
   }
@@ -133,6 +167,18 @@ export class TasksService {
       actorUserId: user.sub,
       targetType: 'Task',
       targetId: id,
+    });
+  }
+
+  async remove(id: string, user: JwtPayload) {
+    const task = await this.findOne(id, user);
+    await this.prisma.task.delete({ where: { id } });
+    await this.audit.record({
+      action: 'TASK_DELETED',
+      actorUserId: user.sub,
+      targetType: 'Task',
+      targetId: id,
+      metadata: { title: task.title },
     });
   }
 }

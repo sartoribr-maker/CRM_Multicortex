@@ -28,7 +28,9 @@ export type AuditAction =
   | 'TASK_CREATED'
   | 'TASK_UPDATED'
   | 'TASK_COMPLETED'
-  | 'TASK_ARCHIVED';
+  | 'TASK_ARCHIVED'
+  | 'TASK_DELETED'
+  | 'LEAD_DELETED';
 
 interface RecordParams {
   action: AuditAction;

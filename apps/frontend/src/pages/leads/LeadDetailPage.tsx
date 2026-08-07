@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
 import { leadsApi } from '../../lib/leadsApi';
+import { formatCurrency, formatDate, formatPhone } from '../../lib/formatters';
 import { avatarUrl } from '../../lib/usersApi';
 import { useAuthStore } from '../../store/useAuthStore';
 import {
@@ -15,17 +16,6 @@ import {
 } from '../../types/leads';
 
 type Tab = 'overview' | 'timeline' | 'attachments';
-
-function formatCurrency(value: string | number | null): string {
-  if (value === null) return '—';
-  const num = typeof value === 'string' ? Number(value) : value;
-  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-function formatDate(value: string | null): string {
-  if (!value) return '—';
-  return new Date(value).toLocaleString('pt-BR');
-}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -58,6 +48,19 @@ export default function LeadDetailPage() {
   async function handleArchive() {
     if (!id || !window.confirm('Arquivar este lead?')) return;
     await leadsApi.archive(id);
+    navigate('/leads');
+  }
+
+  async function handleDelete() {
+    if (!id || !lead) return;
+    const confirmation = window.prompt(
+      `Esta exclusão é definitiva e também removerá históricos e anexos. Para confirmar, digite o nome da oportunidade:\n\n${lead.name}`,
+    );
+    if (confirmation !== lead.name) {
+      if (confirmation !== null) window.alert('O nome informado não corresponde à oportunidade.');
+      return;
+    }
+    await leadsApi.remove(id);
     navigate('/leads');
   }
 
@@ -100,10 +103,16 @@ export default function LeadDetailPage() {
                 </button>
               )}
               {canDelete && (
-                <button onClick={handleArchive} className="btn-danger">
-                  <Icon name="archive" className="h-4 w-4" />
-                  Arquivar
-                </button>
+                <>
+                  <button onClick={handleArchive} className="btn-secondary">
+                    <Icon name="archive" className="h-4 w-4" />
+                    Arquivar
+                  </button>
+                  <button onClick={handleDelete} className="btn-danger">
+                    <Icon name="trash" className="h-4 w-4" />
+                    Excluir
+                  </button>
+                </>
               )}
             </>
           }
@@ -257,13 +266,9 @@ function OverviewTab({ lead }: { lead: LeadDetail }) {
             Previsão de fechamento
           </p>
           <p className="mt-2 text-base font-bold text-slate-800">
-            {lead.expectedCloseDate
-              ? new Date(lead.expectedCloseDate).toLocaleDateString('pt-BR')
-              : 'Não definida'}
+            {lead.expectedCloseDate ? formatDate(lead.expectedCloseDate) : 'Não definida'}
           </p>
-          <p className="mt-1 text-xs text-slate-400">
-            Cadastro em {new Date(lead.createdAt).toLocaleDateString('pt-BR')}
-          </p>
+          <p className="mt-1 text-xs text-slate-400">Cadastro em {formatDate(lead.createdAt)}</p>
         </div>
       </div>
 
@@ -294,7 +299,7 @@ function OverviewTab({ lead }: { lead: LeadDetail }) {
           <dl className="grid gap-5 p-5 sm:grid-cols-2 lg:grid-cols-1">
             <Field label="Nome" value={lead.contactName} accent />
             <Field label="E-mail" value={lead.contactEmail} />
-            <Field label="Telefone" value={lead.contactPhone} />
+            <Field label="Telefone" value={formatPhone(lead.contactPhone)} />
           </dl>
         </section>
       </div>

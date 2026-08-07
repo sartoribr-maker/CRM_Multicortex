@@ -7,6 +7,10 @@ import type {
   Segment,
   Source,
   Stage,
+  EmailSettings,
+  EmailSettingsPayload,
+  WhatsAppSettings,
+  WhatsAppSettingsPayload,
 } from '../types/settings';
 
 function makeCrud<T>(basePath: string) {
@@ -36,3 +40,20 @@ export const sourcesApi = makeCrud<Source>('/sources');
 export const segmentsApi = makeCrud<Segment>('/segments');
 export const projectTypesApi = makeCrud<ProjectType>('/project-types');
 export const customFieldsApi = makeCrud<CustomField>('/custom-fields');
+export const emailSettingsApi = {
+  get: () => apiJson<EmailSettings>('/email-settings'),
+  update: (payload: EmailSettingsPayload) =>
+    apiJson<EmailSettings>('/email-settings', { method: 'PUT', body: JSON.stringify(payload) }),
+  test: () =>
+    apiJson<{ success: boolean; recipient: string }>('/email-settings/test', { method: 'POST' }),
+};
+export const whatsappSettingsApi = {
+  get: () => apiJson<WhatsAppSettings>('/whatsapp-settings'),
+  update: (payload: WhatsAppSettingsPayload) =>
+    apiJson<WhatsAppSettings>('/whatsapp-settings', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  test: () =>
+    apiJson<{ success: boolean; recipient: string }>('/whatsapp-settings/test', { method: 'POST' }),
+};

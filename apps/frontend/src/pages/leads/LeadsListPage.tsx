@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
+import { FixedHorizontalScrollbar } from '../../components/FixedHorizontalScrollbar';
 import { Icon } from '../../components/Icon';
 import { leadsApi, type LeadListFilters } from '../../lib/leadsApi';
+import { formatCurrency, formatPhone } from '../../lib/formatters';
+import { partnersApi } from '../../lib/partnersApi';
 import {
   stagesApi,
   prioritiesApi,
@@ -13,17 +16,32 @@ import {
 import { avatarUrl, usersApi, type UserOption } from '../../lib/usersApi';
 import { useAuthStore } from '../../store/useAuthStore';
 import type { LeadListItem } from '../../types/leads';
+import type { Partner } from '../../types/partners';
 import type { DealSize, Priority, ProjectType, Source, Stage } from '../../types/settings';
 
-type SortKey = 'name' | 'stage' | 'priority' | 'estimatedValue' | 'owner' | 'stageEnteredAt';
+type SortKey =
+  | 'name'
+  | 'stage'
+  | 'priority'
+  | 'owner'
+  | 'partner'
+  | 'dealSize'
+  | 'successProbability'
+  | 'estimatedValue'
+  | 'stageEnteredAt'
+  | 'contactName'
+  | 'contactPhone';
 
-function formatCurrency(value: string | number | null) {
-  return value === null
-    ? '—'
-    : Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
 function daysSince(value: string) {
   return Math.floor((Date.now() - new Date(value).getTime()) / 86400000);
+}
+function isMandatoryPriority(lead: LeadListItem) {
+  return (
+    lead.priority?.name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase() === 'mandatoria'
+  );
 }
 
 export default function LeadsListPage() {
@@ -31,12 +49,21 @@ export default function LeadsListPage() {
   const canViewAll = user?.permissions.includes('leads.view.all') ?? false;
   const canCreate = user?.permissions.includes('leads.create') ?? false;
   const canEdit = user?.permissions.includes('leads.edit') ?? false;
+  const canDelete = user?.permissions.includes('leads.delete') ?? false;
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const leadClickTimerRef = useRef<number | null>(null);
   const [leads, setLeads] = useState<LeadListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<LeadListFilters>({ page: 1, pageSize: 20 });
+  const [filters, setFilters] = useState<LeadListFilters>({
+    page: 1,
+    pageSize: 20,
+    stageId: searchParams.get('stageId') || undefined,
+    priorityId: searchParams.get('priorityId') || undefined,
+  });
   const [showFilters, setShowFilters] = useState(true);
   const [sort, setSort] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({
     key: 'name',
@@ -48,6 +75,7 @@ export default function LeadsListPage() {
   const [sources, setSources] = useState<Source[]>([]);
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [partners, setPartners] = useState<Partner[]>([]);
 
   useEffect(() => {
     Promise.all([
@@ -57,13 +85,15 @@ export default function LeadsListPage() {
       sourcesApi.list(),
       projectTypesApi.list(),
       canViewAll ? usersApi.list() : Promise.resolve([]),
-    ]).then(([a, b, c, d, e, f]) => {
+      partnersApi.options(),
+    ]).then(([a, b, c, d, e, f, g]) => {
       setStages(a);
       setPriorities(b);
       setDealSizes(c);
       setSources(d);
       setProjectTypes(e);
       setUsers(f);
+      setPartners(g);
     });
   }, [canViewAll]);
   useEffect(() => {
@@ -87,6 +117,47 @@ export default function LeadsListPage() {
       direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
     }));
   }
+
+  async function removeLead(lead: LeadListItem) {
+    const confirmation = window.prompt(
+      `Exclusão definitiva. Digite o nome da oportunidade para confirmar:\n\n${lead.name}`,
+    );
+    if (confirmation !== lead.name) {
+      if (confirmation !== null) window.alert('O nome informado não corresponde à oportunidade.');
+      return;
+    }
+    try {
+      await leadsApi.remove(lead.id);
+      setLeads((items) => items.filter((item) => item.id !== lead.id));
+      setTotal((value) => Math.max(0, value - 1));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível excluir a oportunidade.');
+    }
+  }
+  async function markAsMandatory(lead: LeadListItem) {
+    if (!canEdit || isMandatoryPriority(lead)) return;
+    const mandatoryPriority = priorities.find(
+      (priority) =>
+        priority.name
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase() === 'mandatoria',
+    );
+    if (!mandatoryPriority) {
+      setError('A prioridade Mandatória não foi encontrada nas configurações.');
+      return;
+    }
+    try {
+      const updated = await leadsApi.update(lead.id, { priorityId: mandatoryPriority.id });
+      setLeads((items) => items.map((item) => (item.id === lead.id ? updated : item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível alterar a prioridade.');
+    }
+  }
+  function openLeadAfterClick(leadId: string) {
+    if (leadClickTimerRef.current) window.clearTimeout(leadClickTimerRef.current);
+    leadClickTimerRef.current = window.setTimeout(() => navigate(`/leads/${leadId}`), 250);
+  }
   const sortedLeads = useMemo(
     () =>
       [...leads].sort((a, b) => {
@@ -99,7 +170,12 @@ export default function LeadsListPage() {
             a.assignees.map((item) => item.user.name).join(','),
             b.assignees.map((item) => item.user.name).join(','),
           ],
+          partner: [a.partner?.name ?? '', b.partner?.name ?? ''],
+          dealSize: [a.dealSize?.name ?? '', b.dealSize?.name ?? ''],
+          successProbability: [a.successProbability ?? -1, b.successProbability ?? -1],
           stageEnteredAt: [a.stageEnteredAt, b.stageEnteredAt],
+          contactName: [a.contactName ?? '', b.contactName ?? ''],
+          contactPhone: [a.contactPhone ?? '', b.contactPhone ?? ''],
         };
         const [av, bv] = values[sort.key];
         const result =
@@ -199,6 +275,18 @@ export default function LeadsListPage() {
                 ))}
               </select>
             ))}
+            <select
+              className="form-control"
+              value={filters.partnerId ?? ''}
+              onChange={(e) => updateFilter({ partnerId: e.target.value || undefined })}
+            >
+              <option value="">Todos os parceiros indicadores</option>
+              {partners.map((partner) => (
+                <option key={partner.id} value={partner.id}>
+                  {partner.name}
+                </option>
+              ))}
+            </select>
             {canViewAll && (
               <select
                 className="form-control"
@@ -221,39 +309,84 @@ export default function LeadsListPage() {
           {error}
         </div>
       )}
-      <div className="table-shell overflow-x-auto">
+      <div ref={tableScrollRef} className="table-shell overflow-x-auto">
         {isLoading ? (
           <div className="p-12 text-center text-sm text-slate-400">Carregando oportunidades…</div>
         ) : (
-          <table className="data-table">
+          <table className="data-table min-w-[2780px]">
             <thead>
               <tr>
-                <th>
-                  <SortHeader label="Oportunidade" field="name" />
-                </th>
-                <th>
+                <th className="min-w-[220px]">
                   <SortHeader label="Etapa" field="stage" />
                 </th>
-                <th>
+                <th className="min-w-[420px]">
+                  <SortHeader label="Oportunidade" field="name" />
+                </th>
+                <th className="min-w-[140px]">
                   <SortHeader label="Prioridade" field="priority" />
                 </th>
-                <th>
-                  <SortHeader label="Valor estimado" field="estimatedValue" />
-                </th>
-                <th>
+                <th className="min-w-[300px]">
                   <SortHeader label="Responsável" field="owner" />
                 </th>
-                <th>
+                <th className="min-w-[280px]">
+                  <SortHeader label="Parceiro indicador" field="partner" />
+                </th>
+                <th className="min-w-[180px]">
+                  <SortHeader label="Porte negócio" field="dealSize" />
+                </th>
+                <th className="min-w-[260px]">
+                  <SortHeader label="Probabilidade de sucesso (%)" field="successProbability" />
+                </th>
+                <th className="min-w-[190px]">
+                  <SortHeader label="Valor estimado" field="estimatedValue" />
+                </th>
+                <th className="min-w-[180px]">
                   <SortHeader label="Tempo na etapa" field="stageEnteredAt" />
                 </th>
-                <th className="text-right">Ações</th>
+                <th className="min-w-[240px]">
+                  <SortHeader label="Contato" field="contactName" />
+                </th>
+                <th className="min-w-[200px]">
+                  <SortHeader label="Telefone contato" field="contactPhone" />
+                </th>
+                <th className="min-w-[120px] text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
               {sortedLeads.map((lead) => (
-                <tr key={lead.id}>
+                <tr
+                  key={lead.id}
+                  className={isMandatoryPriority(lead) ? 'mandatory-lead-row' : ''}
+                  onDoubleClick={(event) => {
+                    if ((event.target as HTMLElement).closest('button')) return;
+                    void markAsMandatory(lead);
+                  }}
+                  title={
+                    canEdit && !isMandatoryPriority(lead)
+                      ? 'Duplo clique para marcar como prioridade Mandatória'
+                      : undefined
+                  }
+                >
+                  <td className="whitespace-nowrap">
+                    <span className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                      <span className="status-dot" style={{ backgroundColor: lead.stage.color }} />
+                      {lead.stage.name}
+                    </span>
+                  </td>
                   <td>
-                    <button onClick={() => navigate(`/leads/${lead.id}`)} className="text-left">
+                    <button
+                      onClick={() => openLeadAfterClick(lead.id)}
+                      onDoubleClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (leadClickTimerRef.current) {
+                          window.clearTimeout(leadClickTimerRef.current);
+                          leadClickTimerRef.current = null;
+                        }
+                        void markAsMandatory(lead);
+                      }}
+                      className="text-left"
+                    >
                       <p className="font-semibold text-slate-800 hover:text-brand-purple">
                         {lead.name}
                       </p>
@@ -262,13 +395,7 @@ export default function LeadsListPage() {
                       </p>
                     </button>
                   </td>
-                  <td>
-                    <span className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                      <span className="status-dot" style={{ backgroundColor: lead.stage.color }} />
-                      {lead.stage.name}
-                    </span>
-                  </td>
-                  <td>
+                  <td className="whitespace-nowrap">
                     {lead.priority ? (
                       <span className="inline-flex items-center gap-2 text-xs font-medium">
                         <span
@@ -280,9 +407,6 @@ export default function LeadsListPage() {
                     ) : (
                       '—'
                     )}
-                  </td>
-                  <td className="font-semibold text-slate-700">
-                    {formatCurrency(lead.estimatedValue)}
                   </td>
                   <td>
                     <div className="flex items-center">
@@ -310,7 +434,17 @@ export default function LeadsListPage() {
                       </span>
                     </div>
                   </td>
-                  <td>{daysSince(lead.stageEnteredAt)} dias</td>
+                  <td>{lead.partner?.name ?? '—'}</td>
+                  <td className="whitespace-nowrap">{lead.dealSize?.name ?? '—'}</td>
+                  <td className="whitespace-nowrap font-semibold text-slate-700">
+                    {lead.successProbability === null ? '—' : `${lead.successProbability}%`}
+                  </td>
+                  <td className="whitespace-nowrap font-semibold text-slate-700">
+                    {formatCurrency(lead.estimatedValue)}
+                  </td>
+                  <td className="whitespace-nowrap">{daysSince(lead.stageEnteredAt)} dias</td>
+                  <td>{lead.contactName ?? '—'}</td>
+                  <td className="whitespace-nowrap">{formatPhone(lead.contactPhone)}</td>
                   <td>
                     <div className="flex justify-end gap-1">
                       <button
@@ -329,13 +463,22 @@ export default function LeadsListPage() {
                           <Icon name="edit" className="h-4 w-4" />
                         </button>
                       )}
+                      {canDelete && (
+                        <button
+                          className="icon-button hover:!text-red-600"
+                          title="Excluir definitivamente"
+                          onClick={() => void removeLead(lead)}
+                        >
+                          <Icon name="trash" className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
               {sortedLeads.length === 0 && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={12}>
                     <div className="py-10 text-center">
                       <Icon name="search" className="mx-auto h-8 w-8 text-slate-300" />
                       <p className="mt-2 font-medium text-slate-600">Nenhum lead encontrado</p>
@@ -350,6 +493,7 @@ export default function LeadsListPage() {
           </table>
         )}
       </div>
+      <FixedHorizontalScrollbar targetRef={tableScrollRef} />
       {total > 20 && (
         <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
           <span>Página {filters.page ?? 1}</span>

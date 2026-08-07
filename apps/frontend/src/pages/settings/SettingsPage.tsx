@@ -1,7 +1,11 @@
 import { AppShell, PageHeader } from '../../components/AppShell';
+import { CurrencyInput } from '../../components/MaskedInputs';
+import { formatCurrency } from '../../lib/formatters';
 import { ColorOrderedListPanel } from './ColorOrderedListPanel';
 import { SimpleCatalogPanel } from './SimpleCatalogPanel';
 import { CustomFieldsPanel } from './CustomFieldsPanel';
+import { EmailSettingsPanel } from './EmailSettingsPanel';
+import { WhatsAppSettingsPanel } from './WhatsAppSettingsPanel';
 import {
   stagesApi,
   prioritiesApi,
@@ -13,7 +17,15 @@ import {
 import type { DealSize, Priority, ProjectType, Segment, Source, Stage } from '../../types/settings';
 
 export type SettingsSection =
-  'stages' | 'priorities' | 'dealSizes' | 'sources' | 'segments' | 'projectTypes' | 'customFields';
+  | 'stages'
+  | 'priorities'
+  | 'dealSizes'
+  | 'sources'
+  | 'segments'
+  | 'projectTypes'
+  | 'customFields'
+  | 'email'
+  | 'whatsapp';
 
 const SECTIONS: Record<SettingsSection, { title: string; description: string }> = {
   stages: {
@@ -43,6 +55,14 @@ const SECTIONS: Record<SettingsSection, { title: string; description: string }> 
   customFields: {
     title: 'Campos Personalizados',
     description: 'Configure informações adicionais para o cadastro de leads.',
+  },
+  email: {
+    title: 'Configuração de E-mail',
+    description: 'Configure o servidor e teste as notificações automáticas do CRM.',
+  },
+  whatsapp: {
+    title: 'Configuração do WhatsApp',
+    description: 'Prepare a futura integração com o WhatsApp Business Cloud da Meta.',
   },
 };
 
@@ -118,40 +138,28 @@ export default function SettingsPage({ section }: { section: SettingsSection }) 
                     <label className="mb-1 block text-sm font-medium text-ink">
                       Valor mínimo (R$)
                     </label>
-                    <input
-                      type="number"
-                      min={0}
+                    <CurrencyInput
                       className="w-full rounded-card border border-surface-muted bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple"
-                      value={draft.minValue ?? ''}
-                      onChange={(e) =>
-                        setDraft({
-                          minValue: e.target.value === '' ? null : Number(e.target.value),
-                        })
-                      }
+                      value={draft.minValue === null ? undefined : Number(draft.minValue)}
+                      onValueChange={(value) => setDraft({ minValue: value ?? null })}
                     />
                   </div>
                   <div className="flex-1">
                     <label className="mb-1 block text-sm font-medium text-ink">
                       Valor máximo (R$, opcional)
                     </label>
-                    <input
-                      type="number"
-                      min={0}
+                    <CurrencyInput
                       className="w-full rounded-card border border-surface-muted bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple"
-                      value={draft.maxValue ?? ''}
-                      onChange={(e) =>
-                        setDraft({
-                          maxValue: e.target.value === '' ? null : Number(e.target.value),
-                        })
-                      }
+                      value={draft.maxValue === null ? undefined : Number(draft.maxValue)}
+                      onValueChange={(value) => setDraft({ maxValue: value ?? null })}
                     />
                   </div>
                 </div>
               )}
               renderExtraColumns={(item) => (
                 <span className="text-xs text-ink/60">
-                  {item.minValue !== null ? `R$ ${item.minValue}` : 'R$ 0'} —{' '}
-                  {item.maxValue !== null ? `R$ ${item.maxValue}` : 'sem limite'}
+                  {item.minValue !== null ? formatCurrency(item.minValue) : formatCurrency(0)} —{' '}
+                  {item.maxValue !== null ? formatCurrency(item.maxValue) : 'sem limite'}
                 </span>
               )}
             />
@@ -188,6 +196,8 @@ export default function SettingsPage({ section }: { section: SettingsSection }) 
           )}
 
           {section === 'customFields' && <CustomFieldsPanel />}
+          {section === 'email' && <EmailSettingsPanel />}
+          {section === 'whatsapp' && <WhatsAppSettingsPanel />}
         </div>
       </div>
     </AppShell>

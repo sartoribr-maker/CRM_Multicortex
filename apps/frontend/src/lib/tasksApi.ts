@@ -15,4 +15,5 @@ export const tasksApi = {
   complete: (id: string) => apiJson<Task>(`/tasks/${id}/complete`, { method: 'POST' }),
   archive: (id: string) =>
     apiJson<{ success: boolean }>(`/tasks/${id}/archive`, { method: 'POST' }),
+  remove: (id: string) => apiJson<{ success: boolean }>(`/tasks/${id}`, { method: 'DELETE' }),
 };

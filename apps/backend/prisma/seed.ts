@@ -304,7 +304,10 @@ async function main() {
         dealSizeId: dealSize.id,
         sourceId: source.id,
         projectTypeId: projectType.id,
+        projectTypes: { create: { projectTypeId: projectType.id } },
         partnerId: partner?.id,
+        capexValue: leadDef.estimatedValue,
+        opexValue: 0,
         estimatedValue: leadDef.estimatedValue,
         periodicity: leadDef.periodicity,
         status,
@@ -343,7 +346,14 @@ async function main() {
   ];
   for (const task of taskDefinitions) {
     const existing = await prisma.task.findFirst({ where: { title: task.title } });
-    if (!existing) await prisma.task.create({ data: { ...task, assigneeId: taskOwner.id, createdByUserId: taskCreator.id } });
+    if (!existing) await prisma.task.create({
+      data: {
+        ...task,
+        assigneeId: taskOwner.id,
+        createdByUserId: taskCreator.id,
+        assignees: { create: { userId: taskOwner.id, assignedBy: taskCreator.id } },
+      },
+    });
   }
 
   console.log('Seed concluído. Senha padrão para todos os usuários de exemplo: ' + SEED_PASSWORD);

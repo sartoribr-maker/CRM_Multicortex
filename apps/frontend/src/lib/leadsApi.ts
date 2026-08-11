@@ -21,13 +21,15 @@ export interface LeadFormPayload {
   contactEmail?: string;
   contactPhone?: string;
   projectTypeId?: string;
+  projectTypeIds?: string[];
   stageId?: string;
   priorityId?: string;
   dealSizeId?: string;
   sourceId?: string;
   partnerId?: string;
   successProbability?: number;
-  estimatedValue?: number;
+  capexValue?: number;
+  opexValue?: number;
   periodicity?: string;
   expectedCloseDate?: string;
   ownerId?: string;

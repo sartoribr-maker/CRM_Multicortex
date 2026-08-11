@@ -74,14 +74,15 @@ export default function LeadFormPage() {
           contactName: lead.contactName ?? undefined,
           contactEmail: lead.contactEmail ?? undefined,
           contactPhone: lead.contactPhone ?? undefined,
-          projectTypeId: lead.projectType?.id,
+          projectTypeIds: lead.projectTypes.map(({ projectType }) => projectType.id),
           stageId: lead.stage.id,
           priorityId: lead.priority?.id,
           dealSizeId: lead.dealSize?.id,
           sourceId: lead.source?.id,
           partnerId: lead.partner?.id,
           successProbability: lead.successProbability ?? undefined,
-          estimatedValue: lead.estimatedValue ? Number(lead.estimatedValue) : undefined,
+          capexValue: lead.capexValue === null ? undefined : Number(lead.capexValue),
+          opexValue: lead.opexValue === null ? undefined : Number(lead.opexValue),
           periodicity: lead.periodicity,
           expectedCloseDate: lead.expectedCloseDate?.slice(0, 10),
           ownerId: lead.owner.id,
@@ -109,6 +110,10 @@ export default function LeadFormPage() {
   const selectedSource = sources.find((source) => source.id === form.sourceId);
   const isPartnerSource = selectedSource?.name.trim().toLocaleLowerCase('pt-BR') === 'parceiro';
   const isStageChanging = isEditing && Boolean(form.stageId && form.stageId !== initialStageId);
+  const estimatedValue =
+    form.capexValue === undefined && form.opexValue === undefined
+      ? undefined
+      : (form.capexValue ?? 0) + (form.opexValue ?? 0) * 12;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -321,19 +326,29 @@ export default function LeadFormPage() {
                 </select>
               </div>
               <div>
-                <label className={labelClass}>Tipo de projeto</label>
-                <select
-                  className={inputClass}
-                  value={form.projectTypeId ?? ''}
-                  onChange={(e) => updateField('projectTypeId', e.target.value || undefined)}
-                >
-                  <option value="">—</option>
-                  {projectTypes.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                <label className={labelClass}>Tipos de produto</label>
+                <div className="grid max-h-40 gap-2 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2">
+                  {projectTypes.map((projectType) => {
+                    const checked = form.projectTypeIds?.includes(projectType.id) ?? false;
+                    return (
+                      <label key={projectType.id} className="flex cursor-pointer items-center gap-2 rounded-lg p-2 text-sm hover:bg-purple-50">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(event) =>
+                            updateField(
+                              'projectTypeIds',
+                              event.target.checked
+                                ? [...(form.projectTypeIds ?? []), projectType.id]
+                                : (form.projectTypeIds ?? []).filter((id) => id !== projectType.id),
+                            )
+                          }
+                        />
+                        <span>{projectType.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
               <div>
                 <label className={labelClass}>Parceiro indicador</label>
@@ -460,11 +475,28 @@ export default function LeadFormPage() {
             </div>
             <div className="form-section-body lg:grid-cols-3">
               <div>
-                <label className={labelClass}>Valor estimado (R$)</label>
+                <label className={labelClass}>Valor CAPEX (R$)</label>
                 <CurrencyInput
                   className={inputClass}
-                  value={form.estimatedValue}
-                  onValueChange={(value) => updateField('estimatedValue', value)}
+                  value={form.capexValue}
+                  onValueChange={(value) => updateField('capexValue', value)}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Valor OPEX mensal (R$)</label>
+                <CurrencyInput
+                  className={inputClass}
+                  value={form.opexValue}
+                  onValueChange={(value) => updateField('opexValue', value)}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Valor estimado (CAPEX + OPEX × 12)</label>
+                <CurrencyInput
+                  className={`${inputClass} bg-slate-100`}
+                  value={estimatedValue}
+                  onValueChange={() => undefined}
+                  disabled
                 />
               </div>
               <div>

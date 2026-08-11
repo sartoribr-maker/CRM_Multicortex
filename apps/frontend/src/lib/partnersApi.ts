@@ -10,4 +10,5 @@ export const partnersApi = {
   update: (id: string, payload: Partial<PartnerPayload>) => apiJson<Partner>(`/partners/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   deactivate: (id: string) => apiJson<Partner>(`/partners/${id}/deactivate`, { method: 'POST' }),
   reactivate: (id: string) => apiJson<Partner>(`/partners/${id}/reactivate`, { method: 'POST' }),
+  remove: (id: string) => apiJson<{ success: boolean }>(`/partners/${id}`, { method: 'DELETE' }),
 };

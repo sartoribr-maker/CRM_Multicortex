@@ -63,6 +63,7 @@ export default function LeadsListPage() {
     pageSize: 20,
     stageId: searchParams.get('stageId') || undefined,
     priorityId: searchParams.get('priorityId') || undefined,
+    partnerId: searchParams.get('partnerId') || undefined,
   });
   const [showFilters, setShowFilters] = useState(true);
   const [sort, setSort] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({

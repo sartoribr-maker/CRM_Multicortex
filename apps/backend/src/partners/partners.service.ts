@@ -69,6 +69,22 @@ export class PartnersService {
     return partner;
   }
 
+  async remove(id: string, actorUserId: string) {
+    const partner = await this.findOne(id);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.auditLog.create({
+        data: {
+          action: 'PARTNER_DELETED',
+          actorUserId,
+          targetType: 'Partner',
+          targetId: id,
+          metadata: { name: partner.name, linkedLeads: partner._count.leads },
+        },
+      });
+      await tx.partner.delete({ where: { id } });
+    });
+  }
+
   private handleUnique(error: unknown) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') throw new ConflictException('Já existe um parceiro com este documento.');
   }

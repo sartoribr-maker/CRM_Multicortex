@@ -41,7 +41,7 @@ export const PERMISSION_CATALOG: Array<{ key: PermissionKey; module: string; des
   { key: PERMISSIONS.PARTNERS_VIEW, module: 'partners', description: 'Visualizar parceiros' },
   { key: PERMISSIONS.PARTNERS_CREATE, module: 'partners', description: 'Criar parceiros' },
   { key: PERMISSIONS.PARTNERS_EDIT, module: 'partners', description: 'Editar parceiros' },
-  { key: PERMISSIONS.PARTNERS_DELETE, module: 'partners', description: 'Inativar parceiros' },
+  { key: PERMISSIONS.PARTNERS_DELETE, module: 'partners', description: 'Inativar ou excluir parceiros' },
   { key: PERMISSIONS.TASKS_VIEW, module: 'tasks', description: 'Visualizar as próprias tarefas' },
   { key: PERMISSIONS.TASKS_VIEW_ALL, module: 'tasks', description: 'Visualizar tarefas de toda a equipe' },
   { key: PERMISSIONS.TASKS_CREATE, module: 'tasks', description: 'Criar tarefas' },

@@ -28,6 +28,7 @@ export interface Task {
   completedAt: string | null;
   assigneeAssignedAt: string;
   assignee: { id: string; name: string; email: string };
+  assignees: Array<{ user: { id: string; name: string; email: string } }>;
   createdByUser: { id: string; name: string };
   lead: {
     id: string;
@@ -46,6 +47,28 @@ export interface TaskPayload {
   dueDate: string;
   leadId?: string;
   assigneeId?: string;
+  assigneeIds?: string[];
+}
+export interface TaskAttachment {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+export type TaskHistoryType = 'DEADLINE_EXTENDED' | 'TRANSFERRED';
+export interface TaskHistoryEntry {
+  id: string;
+  type: TaskHistoryType;
+  reason: string;
+  metadata: {
+    previousDueDate?: string;
+    newDueDate?: string;
+    previousAssignees?: Array<{ id: string; name: string }>;
+    newAssignee?: { id: string; name: string };
+  };
+  actorUser: { id: string; name: string };
+  createdAt: string;
 }
 export interface TaskFilters {
   page?: number;

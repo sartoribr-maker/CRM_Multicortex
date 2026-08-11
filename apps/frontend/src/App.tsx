@@ -16,6 +16,7 @@ import TasksListPage from './pages/tasks/TasksListPage';
 import TaskFormPage from './pages/tasks/TaskFormPage';
 import TaskDetailPage from './pages/tasks/TaskDetailPage';
 import AccessManagementPage from './pages/access/AccessManagementPage';
+import PipelineReportPage from './pages/reports/PipelineReportPage';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { RequirePermission } from './routes/RequirePermission';
 import { attemptSilentRefresh } from './lib/api';
@@ -160,6 +161,16 @@ function App() {
           <ProtectedRoute>
             <RequirePermission permission="users.view">
               <AccessManagementPage />
+            </RequirePermission>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports/pipeline"
+        element={
+          <ProtectedRoute>
+            <RequirePermission permission="leads.view.all">
+              <PipelineReportPage />
             </RequirePermission>
           </ProtectedRoute>
         }

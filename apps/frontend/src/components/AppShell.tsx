@@ -15,6 +15,10 @@ const navItems: Array<{ to: string; label: string; icon: IconName; permission?: 
   { to: '/tasks', label: 'Tarefas', icon: 'file', permission: 'tasks.view' },
 ];
 
+const reportItems = [
+  { to: '/reports/pipeline', label: 'Pipeline', permission: 'leads.view.all' },
+];
+
 const settingsItems = [
   { to: '/settings/stages', label: 'Etapas do Funil', permission: 'settings.manage' },
   { to: '/settings/priorities', label: 'Prioridades', permission: 'settings.manage' },
@@ -32,6 +36,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(location.pathname.startsWith('/settings'));
+  const [reportsOpen, setReportsOpen] = useState(location.pathname.startsWith('/reports'));
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
   const theme = useUiStore((s) => s.theme);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
@@ -46,6 +51,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     .join('')
     .toUpperCase();
   const visibleSettings = settingsItems.filter((item) =>
+    user?.permissions.includes(item.permission),
+  );
+  const visibleReports = reportItems.filter((item) =>
     user?.permissions.includes(item.permission),
   );
 
@@ -120,6 +128,42 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span className={sidebarCollapsed ? 'lg:sr-only' : ''}>{item.label}</span>
               </NavLink>
             ))}
+          {visibleReports.length > 0 && (
+            <div className="pt-1">
+              <button
+                onClick={() => {
+                  if (sidebarCollapsed) toggleSidebar();
+                  setReportsOpen((open) => !open);
+                }}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${location.pathname.startsWith('/reports') ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}
+              >
+                <Icon name="sort" className="h-[19px] w-[19px]" />
+                <span className={`flex-1 text-left ${sidebarCollapsed ? 'lg:sr-only' : ''}`}>
+                  Visões/Relatórios
+                </span>
+                <Icon
+                  name="chevron-down"
+                  className={`h-4 w-4 transition-transform ${sidebarCollapsed ? 'lg:hidden' : ''} ${reportsOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {reportsOpen && !sidebarCollapsed && (
+                <div className="ml-5 mt-1 space-y-0.5 border-l border-white/10 pl-3">
+                  {visibleReports.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setMobileOpen(false)}
+                      className={({ isActive }) =>
+                        `block rounded-lg px-3 py-2 text-xs font-medium transition ${isActive ? 'bg-white text-brand-purple-dark' : 'text-white/55 hover:bg-white/10 hover:text-white'}`
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {visibleSettings.length > 0 && (
             <div className="pt-1">
               <button

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
 import { tasksApi } from '../../lib/tasksApi';
-import { formatDate } from '../../lib/formatters';
+import { brazilianDateToIso, formatDate, isoToBrazilianDate } from '../../lib/formatters';
 import { usersApi, type UserOption } from '../../lib/usersApi';
 import { useAuthStore } from '../../store/useAuthStore';
 import {
@@ -30,6 +30,7 @@ export default function TasksListPage() {
   const [filters, setFilters] = useState<TaskFilters>({
     page: 1,
     pageSize: 20,
+    mine: true,
     overdue: searchParams.get('overdue') === 'true' || undefined,
   });
   const [sort, setSort] = useState<{ key: Sort; dir: 'asc' | 'desc' }>({
@@ -58,7 +59,10 @@ export default function TasksListPage() {
           dueDate: [a.dueDate, b.dueDate],
           priority: [a.priority, b.priority],
           status: [a.status, b.status],
-          assignee: [a.assignee.name, b.assignee.name],
+          assignee: [
+            a.assignees.map(({ user }) => user.name).join(', '),
+            b.assignees.map(({ user }) => user.name).join(', '),
+          ],
         }[sort.key];
         const r = String(v[0]).localeCompare(String(v[1]), 'pt-BR');
         return sort.dir === 'asc' ? r : -r;
@@ -93,6 +97,58 @@ export default function TasksListPage() {
       setItems((c) => c.map((i) => (i.id === t.id ? u : i)));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao concluir.');
+    }
+  }
+  async function extendDeadline(task: Task) {
+    const current = new Date(task.dueDate);
+    current.setDate(current.getDate() + 1);
+    const suggestedDate = isoToBrazilianDate(current.toISOString());
+    const dueDate = window.prompt('Informe o novo prazo (DD/MM/AAAA):', suggestedDate);
+    if (!dueDate) return;
+    const isoDate = brazilianDateToIso(dueDate.trim());
+    if (!isoDate) {
+      setError('Informe uma data válida no formato DD/MM/AAAA.');
+      return;
+    }
+    const reason = window.prompt('Informe a justificativa obrigatória para a prorrogação:');
+    if (!reason?.trim()) return;
+    try {
+      const updated = await tasksApi.extendDeadline(
+        task.id,
+        new Date(`${isoDate}T12:00:00`).toISOString(),
+        reason.trim(),
+      );
+      setItems((currentItems) =>
+        currentItems.map((item) => (item.id === task.id ? updated : item)),
+      );
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Erro ao prorrogar prazo.');
+    }
+  }
+  async function transfer(task: Task) {
+    const options = users.filter(
+      (candidate) => !task.assignees.some(({ user: assignee }) => assignee.id === candidate.id),
+    );
+    if (!options.length) {
+      setError('Nenhum outro responsável está disponível para transferência.');
+      return;
+    }
+    const choice = window.prompt(
+      `Escolha o novo responsável pelo número:\n\n${options.map((candidate, index) => `${index + 1}. ${candidate.name}`).join('\n')}`,
+    );
+    if (!choice) return;
+    const newAssignee = options[Number(choice) - 1];
+    if (!newAssignee) {
+      setError('Responsável inválido.');
+      return;
+    }
+    const reason = window.prompt('Informe a justificativa obrigatória para a transferência:');
+    if (!reason?.trim()) return;
+    try {
+      await tasksApi.transfer(task.id, newAssignee.id, reason.trim());
+      setFilters((current) => ({ ...current }));
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Erro ao transferir tarefa.');
     }
   }
   async function remove(t: Task) {
@@ -257,7 +313,7 @@ export default function TasksListPage() {
                     </span>
                   </td>
                   <td>{TASK_STATUS_LABELS[t.status]}</td>
-                  <td>{t.assignee.name}</td>
+                  <td>{t.assignees.map(({ user }) => user.name).join(', ')}</td>
                   <td>
                     <span className="whitespace-nowrap font-semibold text-slate-600">
                       {assignedDays(t)} {assignedDays(t) === 1 ? 'dia' : 'dias'}
@@ -284,6 +340,24 @@ export default function TasksListPage() {
                           onClick={() => complete(t)}
                         >
                           <Icon name="view" className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canEdit && t.status !== 'DONE' && (
+                        <button
+                          title="Prorrogar prazo"
+                          className="icon-button"
+                          onClick={() => extendDeadline(t)}
+                        >
+                          ⏱
+                        </button>
+                      )}
+                      {canEdit && isAdministrator && t.status !== 'DONE' && (
+                        <button
+                          title="Transferir tarefa"
+                          className="icon-button"
+                          onClick={() => transfer(t)}
+                        >
+                          ⇄
                         </button>
                       )}
                       <button

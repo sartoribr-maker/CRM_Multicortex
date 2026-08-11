@@ -257,6 +257,12 @@ async function main() {
     const lead = existing
       ? await prisma.lead.update({ where: { id: existing.id }, data: leadData })
       : await prisma.lead.create({ data: leadData });
+    await prisma.leadProjectType.deleteMany({ where: { leadId: lead.id } });
+    if (projectType) {
+      await prisma.leadProjectType.create({
+        data: { leadId: lead.id, projectTypeId: projectType.id },
+      });
+    }
     existing ? updated++ : created++;
 
     await prisma.leadAssignee.deleteMany({ where: { leadId: lead.id } });

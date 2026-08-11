@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
@@ -38,6 +38,7 @@ export default function TaskFormPage() {
   const [loading, setLoading] = useState(editing);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   useEffect(() => {
     leadsApi.list({ pageSize: 100 }).then((r) => setLeads(r.items));
     if (isAdministrator) usersApi.list().then(setUsers);
@@ -54,7 +55,7 @@ export default function TaskFormPage() {
           priority: t.priority,
           dueDate: localDate(new Date(t.dueDate)),
           leadId: t.lead?.id,
-          assigneeId: t.assignee.id,
+          assigneeIds: t.assignees.map(({ user: assignee }) => assignee.id),
         }),
       )
       .catch((e) => setError(e instanceof Error ? e.message : 'Erro ao carregar.'))
@@ -70,12 +71,24 @@ export default function TaskFormPage() {
     try {
       const payload = { ...form, dueDate: new Date(`${form.dueDate}T12:00:00`).toISOString() };
       const r = editing ? await tasksApi.update(id!, payload) : await tasksApi.create(payload);
+      await Promise.all(files.map((file) => tasksApi.uploadAttachment(r.id, file)));
       nav(`/tasks/${r.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar tarefa.');
     } finally {
       setSaving(false);
     }
+  }
+  function selectFiles(event: ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.target.files ?? []);
+    const oversized = selected.find((file) => file.size > 15 * 1024 * 1024);
+    if (oversized) {
+      setError(`O arquivo ${oversized.name} excede o limite de 15 MB.`);
+      event.target.value = '';
+      return;
+    }
+    setFiles((current) => [...current, ...selected]);
+    event.target.value = '';
   }
   if (loading)
     return <div className="flex min-h-screen items-center justify-center">Carregando…</div>;
@@ -147,19 +160,29 @@ export default function TaskFormPage() {
               </div>
               {isAdministrator && (
                 <div>
-                  <label className="form-label">Responsável</label>
-                  <select
-                    className="form-control"
-                    value={form.assigneeId ?? ''}
-                    onChange={(e) => field('assigneeId', e.target.value || undefined)}
-                  >
-                    <option value="">Eu mesmo</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="form-label">Responsáveis *</label>
+                  <div className="grid max-h-40 gap-2 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2">
+                    {users.map((responsible) => {
+                      const checked = form.assigneeIds?.includes(responsible.id) ?? false;
+                      return (
+                        <label key={responsible.id} className="flex cursor-pointer items-center gap-2 rounded-lg p-2 text-sm hover:bg-purple-50">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) =>
+                              field(
+                                'assigneeIds',
+                                event.target.checked
+                                  ? [...(form.assigneeIds ?? []), responsible.id]
+                                  : (form.assigneeIds ?? []).filter((id) => id !== responsible.id),
+                              )
+                            }
+                          />
+                          <span>{responsible.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
               <div className="md:col-span-2">
@@ -186,6 +209,39 @@ export default function TaskFormPage() {
                   value={form.description ?? ''}
                   onChange={(e) => field('description', e.target.value || undefined)}
                 />
+              </div>
+              <div className="md:col-span-2">
+                <label className="form-label">Anexos</label>
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-brand-purple/40 bg-purple-50/40 px-4 py-5 text-sm font-semibold text-brand-purple hover:bg-purple-50">
+                  <Icon name="upload" className="h-4 w-4" />
+                  Selecionar arquivos
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    accept=".doc,.docx,.xls,.xlsx,.pdf,image/*,.txt,.zip"
+                    onChange={selectFiles}
+                  />
+                </label>
+                <p className="mt-2 text-xs text-slate-400">
+                  DOC, DOCX, PDF, XLS, XLSX, imagens, TXT ou ZIP — até 15 MB por arquivo.
+                </p>
+                {files.length > 0 && (
+                  <ul className="mt-3 space-y-2">
+                    {files.map((file, index) => (
+                      <li key={`${file.name}-${index}`} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                        <span className="truncate">{file.name}</span>
+                        <button
+                          type="button"
+                          className="ml-3 text-red-500 hover:text-red-700"
+                          onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                        >
+                          Remover
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           </section>

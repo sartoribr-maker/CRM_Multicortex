@@ -60,6 +60,13 @@ export class CreateLeadDto {
   @IsUUID()
   projectTypeId?: string;
 
+  @ApiPropertyOptional({ type: [String], description: 'Tipos de produto/projeto' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  projectTypeIds?: string[];
+
   @ApiPropertyOptional({ description: 'Se omitido, usa a etapa inicial do funil' })
   @IsOptional()
   @IsUUID()
@@ -92,11 +99,17 @@ export class CreateLeadDto {
   @Max(100)
   successProbability?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Valor CAPEX em parcela única' })
   @IsOptional()
   @IsNumber()
   @Min(0)
-  estimatedValue?: number;
+  capexValue?: number;
+
+  @ApiPropertyOptional({ description: 'Valor OPEX mensal, anualizado no valor estimado' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  opexValue?: number;
 
   @ApiPropertyOptional({ enum: LeadPeriodicity })
   @IsOptional()

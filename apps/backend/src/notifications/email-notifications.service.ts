@@ -42,6 +42,7 @@ interface TaskEmailData {
   status: string;
   priority: string;
   assignee: Recipient;
+  assignees?: Recipient[];
   leadName?: string | null;
   description?: string | null;
   createdByName?: string | null;
@@ -140,7 +141,7 @@ export class EmailNotificationsService {
     greeting: string,
   ): Promise<void> {
     await this.sendToEach(
-      [data.assignee],
+      data.assignees?.length ? data.assignees : [data.assignee],
       `${title}: ${data.title}`,
       this.template({
         title,
@@ -150,7 +151,7 @@ export class EmailNotificationsService {
           ...(data.description
             ? ([['Descrição', data.description]] as Array<[string, string]>)
             : []),
-          ['Responsável', data.assignee.name],
+          ['Responsáveis', (data.assignees?.length ? data.assignees : [data.assignee]).map((item) => item.name).join(', ')],
           ...(data.createdByName
             ? ([['Criada por', data.createdByName]] as Array<[string, string]>)
             : []),

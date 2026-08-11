@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TaskPriority, TaskStatus } from '@prisma/client';
-import { IsDateString, IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import { ArrayMinSize, IsArray, IsDateString, IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
 
 export class CreateTaskDto {
   @ApiProperty() @IsString() @MinLength(2) title!: string;
@@ -10,4 +10,10 @@ export class CreateTaskDto {
   @ApiProperty() @IsDateString() dueDate!: string;
   @ApiPropertyOptional() @IsOptional() @IsUUID() leadId?: string;
   @ApiPropertyOptional({ description: 'Se omitido, atribui ao criador' }) @IsOptional() @IsUUID() assigneeId?: string;
+  @ApiPropertyOptional({ type: [String], description: 'Responsáveis pela tarefa' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  assigneeIds?: string[];
 }

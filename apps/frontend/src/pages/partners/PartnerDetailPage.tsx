@@ -40,6 +40,22 @@ export default function PartnerDetailPage() {
         : await partnersApi.reactivate(partner.id);
     setPartner({ ...partner, ...updated });
   }
+  async function remove() {
+    if (!partner) return;
+    const confirmation = window.prompt(
+      `A exclusão é definitiva. As oportunidades vinculadas serão preservadas, mas ficarão sem este parceiro. Para confirmar, digite o nome do parceiro:\n\n${partner.name}`,
+    );
+    if (confirmation !== partner.name) {
+      if (confirmation !== null) window.alert('O nome informado não corresponde ao parceiro.');
+      return;
+    }
+    try {
+      await partnersApi.remove(partner.id);
+      navigate('/partners');
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : 'Erro ao excluir parceiro.');
+    }
+  }
   if (error)
     return (
       <AppShell>
@@ -81,13 +97,19 @@ export default function PartnerDetailPage() {
                 </button>
               )}
               {canDelete && (
-                <button
-                  className={partner.status === 'ACTIVE' ? 'btn-danger' : 'btn-secondary'}
-                  onClick={toggleStatus}
-                >
-                  <Icon name="archive" className="h-4 w-4" />
-                  {partner.status === 'ACTIVE' ? 'Inativar' : 'Reativar'}
-                </button>
+                <>
+                  <button
+                    className="btn-secondary"
+                    onClick={toggleStatus}
+                  >
+                    <Icon name="archive" className="h-4 w-4" />
+                    {partner.status === 'ACTIVE' ? 'Inativar' : 'Reativar'}
+                  </button>
+                  <button className="btn-danger" onClick={remove}>
+                    <Icon name="trash" className="h-4 w-4" />
+                    Excluir
+                  </button>
+                </>
               )}
             </>
           }

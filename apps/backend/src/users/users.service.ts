@@ -255,7 +255,7 @@ export class UsersService {
       this.prisma.stageHistoryEntry.count({ where: { changedByUserId: id } }),
       this.prisma.attachment.count({ where: { uploadedByUserId: id } }),
       this.prisma.leadActivity.count({ where: { actorUserId: id } }),
-      this.prisma.task.count({ where: { assigneeId: id } }),
+      this.prisma.taskAssignee.count({ where: { userId: id } }),
       this.prisma.task.count({ where: { createdByUserId: id } }),
     ]);
     const linkedRecords =

@@ -18,6 +18,7 @@ export default function PartnersListPage() {
   const user = useAuthStore((state) => state.user);
   const canCreate = user?.permissions.includes('partners.create') ?? false;
   const canEdit = user?.permissions.includes('partners.edit') ?? false;
+  const canDelete = user?.permissions.includes('partners.delete') ?? false;
   const [items, setItems] = useState<Partner[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -64,6 +65,22 @@ export default function PartnersListPage() {
       key,
       direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc',
     }));
+  }
+  async function remove(partner: Partner) {
+    const confirmation = window.prompt(
+      `A exclusão é definitiva. As oportunidades vinculadas serão preservadas, mas ficarão sem este parceiro. Para confirmar, digite o nome do parceiro:\n\n${partner.name}`,
+    );
+    if (confirmation !== partner.name) {
+      if (confirmation !== null) window.alert('O nome informado não corresponde ao parceiro.');
+      return;
+    }
+    try {
+      await partnersApi.remove(partner.id);
+      setItems((current) => current.filter((item) => item.id !== partner.id));
+      setTotal((current) => Math.max(0, current - 1));
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : 'Erro ao excluir parceiro.');
+    }
   }
   const Header = ({ field, children }: { field: SortKey; children: string }) => (
     <button
@@ -189,7 +206,13 @@ export default function PartnersListPage() {
                     </p>
                   </td>
                   <td>
-                    <span className="font-bold text-slate-700">{partner._count.leads}</span>
+                    <button
+                      className="rounded-lg px-2 py-1 font-bold text-brand-blue hover:bg-blue-50 hover:underline"
+                      title={`Listar oportunidades de ${partner.name}`}
+                      onClick={() => navigate(`/leads?partnerId=${partner.id}`)}
+                    >
+                      {partner._count.leads}
+                    </button>
                   </td>
                   <td>
                     {partner.commissionPercentage !== null
@@ -222,6 +245,15 @@ export default function PartnersListPage() {
                           onClick={() => navigate(`/partners/${partner.id}/editar`)}
                         >
                           <Icon name="edit" className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          className="icon-button hover:!text-red-600"
+                          title="Excluir definitivamente"
+                          onClick={() => remove(partner)}
+                        >
+                          <Icon name="trash" className="h-4 w-4" />
                         </button>
                       )}
                     </div>

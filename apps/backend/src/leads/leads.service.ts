@@ -19,6 +19,7 @@ const LEAD_LIST_INCLUDE = {
   source: true,
   partner: true,
   projectType: true,
+  projectTypes: { include: { projectType: true } },
   owner: { select: { id: true, name: true, email: true, avatarUrl: true } },
   assignees: {
     include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
@@ -40,6 +41,14 @@ export class LeadsService {
     private readonly audit: AuditService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
   ) {}
+
+  private calculateEstimatedValue(
+    capexValue?: number | null,
+    opexValue?: number | null,
+  ): number | null {
+    if (capexValue === undefined && opexValue === undefined) return null;
+    return Math.round((Number(capexValue ?? 0) + Number(opexValue ?? 0) * 12) * 100) / 100;
+  }
 
   private canViewAll(currentUser: JwtPayload): boolean {
     return currentUser.permissions.includes(PERMISSIONS.LEADS_VIEW_ALL);
@@ -67,7 +76,9 @@ export class LeadsService {
       ...(query.dealSizeId ? { dealSizeId: query.dealSizeId } : {}),
       ...(query.sourceId ? { sourceId: query.sourceId } : {}),
       ...(query.partnerId ? { partnerId: query.partnerId } : {}),
-      ...(query.projectTypeId ? { projectTypeId: query.projectTypeId } : {}),
+      ...(query.projectTypeId
+        ? { projectTypes: { some: { projectTypeId: query.projectTypeId } } }
+        : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.createdFrom || query.createdTo
         ? {
@@ -218,7 +229,11 @@ export class LeadsService {
       ...new Set(dto.ownerIds?.length ? dto.ownerIds : [dto.ownerId ?? currentUser.sub]),
     ];
     const ownerId = requestedOwnerIds[0];
+    const requestedProjectTypeIds = [
+      ...new Set(dto.projectTypeIds?.length ? dto.projectTypeIds : dto.projectTypeId ? [dto.projectTypeId] : []),
+    ];
 
+    const estimatedValue = this.calculateEstimatedValue(dto.capexValue, dto.opexValue);
     const lead = await this.prisma.$transaction(async (tx) => {
       const created = await tx.lead.create({
         data: {
@@ -229,14 +244,16 @@ export class LeadsService {
           contactName: dto.contactName,
           contactEmail: dto.contactEmail,
           contactPhone: dto.contactPhone,
-          projectTypeId: dto.projectTypeId,
+          projectTypeId: requestedProjectTypeIds[0],
           stageId: stage.id,
           priorityId: dto.priorityId,
           dealSizeId: dto.dealSizeId,
           sourceId: dto.sourceId,
           partnerId: dto.partnerId,
           successProbability: dto.successProbability,
-          estimatedValue: dto.estimatedValue,
+          capexValue: dto.capexValue,
+          opexValue: dto.opexValue,
+          estimatedValue,
           periodicity: dto.periodicity,
           expectedCloseDate: dto.expectedCloseDate ? new Date(dto.expectedCloseDate) : undefined,
           ownerId,
@@ -254,6 +271,15 @@ export class LeadsService {
           assignedBy: currentUser.sub,
         })),
       });
+
+      if (requestedProjectTypeIds.length) {
+        await tx.leadProjectType.createMany({
+          data: requestedProjectTypeIds.map((projectTypeId) => ({
+            leadId: created.id,
+            projectTypeId,
+          })),
+        });
+      }
 
       await tx.stageHistoryEntry.create({
         data: {
@@ -299,7 +325,7 @@ export class LeadsService {
       dealSizeName: result.dealSize?.name,
       sourceName: result.source?.name,
       partnerName: result.partner?.name,
-      projectTypeName: result.projectType?.name,
+      projectTypeName: result.projectTypes.map(({ projectType }) => projectType.name).join(', '),
       successProbability: result.successProbability,
       estimatedValue: result.estimatedValue?.toString() ?? null,
       expectedCloseDate: result.expectedCloseDate,
@@ -316,6 +342,9 @@ export class LeadsService {
 
     let stageChangeMessage: string | null = null;
     const movementTaskIds: string[] = [];
+    const financialValuesChanged = dto.capexValue !== undefined || dto.opexValue !== undefined;
+    const capexValue = dto.capexValue ?? Number(existing.capexValue ?? 0);
+    const opexValue = dto.opexValue ?? Number(existing.opexValue ?? 0);
     const data: Prisma.LeadUpdateInput = {
       name: dto.name,
       companyName: dto.companyName,
@@ -325,14 +354,20 @@ export class LeadsService {
       contactEmail: dto.contactEmail,
       contactPhone: dto.contactPhone,
       successProbability: dto.successProbability,
-      estimatedValue: dto.estimatedValue,
+      capexValue: dto.capexValue,
+      opexValue: dto.opexValue,
+      ...(financialValuesChanged
+        ? { estimatedValue: this.calculateEstimatedValue(capexValue, opexValue) }
+        : {}),
       periodicity: dto.periodicity,
       description: dto.description,
       lossReason: dto.lossReason,
       ...(dto.expectedCloseDate ? { expectedCloseDate: new Date(dto.expectedCloseDate) } : {}),
-      ...(dto.projectTypeId !== undefined
-        ? { projectType: { connect: { id: dto.projectTypeId } } }
-        : {}),
+      ...(dto.projectTypeIds?.length
+        ? { projectType: { connect: { id: dto.projectTypeIds[0] } } }
+        : dto.projectTypeId !== undefined
+          ? { projectType: { connect: { id: dto.projectTypeId } } }
+          : {}),
       ...(dto.priorityId !== undefined ? { priority: { connect: { id: dto.priorityId } } } : {}),
       ...(dto.dealSizeId !== undefined ? { dealSize: { connect: { id: dto.dealSizeId } } } : {}),
       ...(dto.sourceId !== undefined ? { source: { connect: { id: dto.sourceId } } } : {}),
@@ -393,6 +428,14 @@ export class LeadsService {
         });
       }
 
+      if (dto.projectTypeIds?.length) {
+        const projectTypeIds = [...new Set(dto.projectTypeIds)];
+        await tx.leadProjectType.deleteMany({ where: { leadId: id } });
+        await tx.leadProjectType.createMany({
+          data: projectTypeIds.map((projectTypeId) => ({ leadId: id, projectTypeId })),
+        });
+      }
+
       await tx.lead.update({ where: { id }, data });
 
       if (stageChangeMessage && dto.createTask && dto.taskDueDate && dto.taskPriority) {
@@ -409,6 +452,9 @@ export class LeadsService {
               assigneeId,
               createdByUserId: currentUser.sub,
             },
+          });
+          await tx.taskAssignee.create({
+            data: { taskId: task.id, userId: assigneeId, assignedBy: currentUser.sub },
           });
           movementTaskIds.push(task.id);
         }
@@ -477,7 +523,7 @@ export class LeadsService {
         dealSizeName: result.dealSize?.name,
         sourceName: result.source?.name,
         partnerName: result.partner?.name,
-        projectTypeName: result.projectType?.name,
+        projectTypeName: result.projectTypes.map(({ projectType }) => projectType.name).join(', '),
         successProbability: result.successProbability,
         estimatedValue: result.estimatedValue?.toString() ?? null,
         expectedCloseDate: result.expectedCloseDate,

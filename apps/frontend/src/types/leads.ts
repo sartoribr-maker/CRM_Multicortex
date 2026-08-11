@@ -35,6 +35,8 @@ export interface LeadListItem {
   contactName: string | null;
   contactPhone: string | null;
   successProbability: number | null;
+  capexValue: string | number | null;
+  opexValue: string | number | null;
   estimatedValue: string | number | null;
   status: LeadStatus;
   stage: RefColorName & { isWonStage: boolean; isLostStage: boolean };
@@ -42,6 +44,7 @@ export interface LeadListItem {
   dealSize: RefColorName | null;
   source: RefName | null;
   projectType: RefName | null;
+  projectTypes: Array<{ projectType: RefName }>;
   partner: RefName | null;
   owner: { id: string; name: string; email: string; avatarUrl: string | null };
   assignees: Array<{

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { PERMISSIONS } from '../auth/constants/permissions';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -19,4 +19,8 @@ export class PartnersController {
   @Patch(':id') @RequirePermissions(PERMISSIONS.PARTNERS_EDIT) update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdatePartnerDto, @CurrentUser() user: JwtPayload) { return this.service.update(id, dto, user.sub); }
   @Post(':id/deactivate') @RequirePermissions(PERMISSIONS.PARTNERS_DELETE) deactivate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) { return this.service.setStatus(id, 'INACTIVE', user.sub); }
   @Post(':id/reactivate') @RequirePermissions(PERMISSIONS.PARTNERS_EDIT) reactivate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) { return this.service.setStatus(id, 'ACTIVE', user.sub); }
+  @Delete(':id') @RequirePermissions(PERMISSIONS.PARTNERS_DELETE) async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    await this.service.remove(id, user.sub);
+    return { success: true };
+  }
 }

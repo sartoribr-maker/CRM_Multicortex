@@ -28,6 +28,7 @@ export default function LeadDetailPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const canEdit = user?.permissions.includes('leads.edit') ?? false;
+  const canCreate = user?.permissions.includes('leads.create') ?? false;
   const canDelete = user?.permissions.includes('leads.delete') ?? false;
   const canCreateTask = user?.permissions.includes('tasks.create') ?? false;
 
@@ -84,6 +85,12 @@ export default function LeadDetailPage() {
                 <Icon name="arrow-left" className="h-4 w-4" />
                 Voltar
               </button>
+              {canCreate && (
+                <button onClick={() => navigate('/leads/novo')} className="btn-secondary">
+                  <Icon name="plus" className="h-4 w-4" />
+                  Novo lead
+                </button>
+              )}
               {canCreateTask && (
                 <button
                   onClick={() => navigate(`/tasks/nova?leadId=${lead.id}`)}
@@ -246,6 +253,16 @@ function OverviewTab({ lead }: { lead: LeadDetail }) {
           <p className="mt-1 text-xs text-slate-400">{LEAD_PERIODICITY_LABELS[lead.periodicity]}</p>
         </div>
         <div className="card p-5">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">CAPEX</p>
+          <p className="mt-2 text-xl font-bold text-slate-900">{formatCurrency(lead.capexValue)}</p>
+          <p className="mt-1 text-xs text-slate-400">Parcela única</p>
+        </div>
+        <div className="card p-5">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">OPEX</p>
+          <p className="mt-2 text-xl font-bold text-slate-900">{formatCurrency(lead.opexValue)}</p>
+          <p className="mt-1 text-xs text-slate-400">Valor mensal</p>
+        </div>
+        <div className="card p-5">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Probabilidade
@@ -284,7 +301,10 @@ function OverviewTab({ lead }: { lead: LeadDetail }) {
             <Field label="Segmento" value={lead.companySegment} />
             <Field label="Prioridade" value={lead.priority?.name} />
             <Field label="Porte" value={lead.dealSize?.name} />
-            <Field label="Tipo de projeto" value={lead.projectType?.name} />
+            <Field
+              label="Tipos de produto"
+              value={lead.projectTypes.map(({ projectType }) => projectType.name).join(', ')}
+            />
             <Field label="Origem" value={lead.source?.name} />
             <Field label="Parceiro indicador" value={lead.partner?.name} />
             <Field label="Etapa atual" value={lead.stage.name} accent />

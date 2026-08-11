@@ -493,7 +493,9 @@ export default function LeadsKanbanPage() {
                             )}
                           </div>
                           <span className="text-[10px] font-semibold text-slate-400">
-                            {lead.projectType?.name ?? 'Sem categoria'}
+                            {lead.projectTypes.length
+                              ? lead.projectTypes.map(({ projectType }) => projectType.name).join(', ')
+                              : 'Sem categoria'}
                           </span>
                         </div>
                         <div className="mt-3 flex items-end justify-between gap-3">

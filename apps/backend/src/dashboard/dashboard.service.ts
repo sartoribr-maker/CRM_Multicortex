@@ -18,7 +18,7 @@ export class DashboardService {
     };
     const taskWhere: Prisma.TaskWhereInput = {
       deletedAt: null,
-      ...(allTasks ? {} : { assigneeId: user.sub }),
+      ...(allTasks ? {} : { assignees: { some: { userId: user.sub } } }),
     };
     const now = new Date();
     const nextWeek = new Date(now.getTime() + 7 * 86400000);

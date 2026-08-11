@@ -18,6 +18,8 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { ListTasksQueryDto } from './dto/list-tasks.query.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { TasksService } from './tasks.service';
+import { ExtendTaskDeadlineDto } from './dto/extend-task-deadline.dto';
+import { TransferTaskDto } from './dto/transfer-task.dto';
 @ApiTags('tasks')
 @Controller('tasks')
 export class TasksController {
@@ -52,6 +54,26 @@ export class TasksController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.service.update(id, { status: 'DONE' }, user);
+  }
+  @Post(':id/extend-deadline') @RequirePermissions(PERMISSIONS.TASKS_EDIT) extendDeadline(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ExtendTaskDeadlineDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.extendDeadline(id, dto, user);
+  }
+  @Post(':id/transfer') @RequirePermissions(PERMISSIONS.TASKS_EDIT) transfer(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: TransferTaskDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.transfer(id, dto, user);
+  }
+  @Get(':id/history') @RequirePermissions(PERMISSIONS.TASKS_VIEW) history(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.history(id, user);
   }
   @Post(':id/archive') @RequirePermissions(PERMISSIONS.TASKS_DELETE) async archive(
     @Param('id', ParseUUIDPipe) id: string,

@@ -16,6 +16,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangeRequiredPasswordDto } from './dto/change-required-password.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { JwtPayload } from './types/jwt-payload.interface';
@@ -55,6 +56,13 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const user = await this.authService.validateUser(dto.email, dto.password);
+    if (user.mustChangePassword) {
+      this.clearRefreshCookie(res);
+      return {
+        passwordChangeRequired: true,
+        changeToken: this.authService.createPasswordChangeToken(user),
+      };
+    }
     const tokens = await this.authService.login(user, {
       userAgent: req.headers['user-agent'],
       ip: req.ip,
@@ -62,7 +70,16 @@ export class AuthController {
 
     this.setRefreshCookie(res, tokens.refreshToken, tokens.refreshTokenExpiresAt);
 
-    return { accessToken: tokens.accessToken, user: tokens.user };
+    return { accessToken: tokens.accessToken, user: tokens.user, passwordChangeRequired: false };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('change-required-password')
+  @HttpCode(HttpStatus.OK)
+  async changeRequiredPassword(@Body() dto: ChangeRequiredPasswordDto) {
+    await this.authService.changeRequiredPassword(dto.changeToken, dto.newPassword);
+    return { message: 'Senha alterada com sucesso. Faça login novamente.' };
   }
 
   @Public()

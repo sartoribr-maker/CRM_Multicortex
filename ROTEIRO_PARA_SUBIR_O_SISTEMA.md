@@ -169,3 +169,25 @@ docker compose --env-file .env -f infra/docker-compose.yml up -d --build
 - No frontend, o script local é `npm run dev`, não `npm run start:dev`.
 - Não existe a pasta `apps/api`; a API está em `apps/backend`.
 - Usando Docker Compose conforme este roteiro, não é necessário iniciar backend e frontend manualmente em terminais separados.
+
+## Publicação (Passo a Passo)
+
+Você altera o CRM
+        ↓
+testa localmente
+        ↓
+git add
+        ↓
+git commit
+        ↓
+git push
+        ↓
+GitHub
+
+Depois entra na VM:
+
+ssh ec2-user@13.220.245.81
+
+e executa simplesmente:
+
+deploy-crm

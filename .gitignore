@@ -14,3 +14,4 @@ apps/backend/prisma/generated/
 apps/frontend/vite.config.js
 apps/frontend/vite.config.d.ts
 
+backups/

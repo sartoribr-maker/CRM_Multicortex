@@ -19,6 +19,7 @@ interface AuthenticatedUser {
   avatarUrl: string | null;
   role: { id: string; name: string };
   permissions: string[];
+  mustChangePassword: boolean;
 }
 
 interface TokenPair {
@@ -64,6 +65,7 @@ export class AuthService {
       avatarUrl: user.avatarUrl,
       role: { id: user.role.id, name: user.role.name },
       permissions: user.role.permissions.map((rp) => rp.permission.key),
+      mustChangePassword: user.mustChangePassword,
     };
   }
 
@@ -103,6 +105,55 @@ export class AuthService {
     return this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_SECRET', 'dev-secret'),
       expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN', '15m'),
+    });
+  }
+
+  createPasswordChangeToken(user: AuthenticatedUser): string {
+    return this.jwtService.sign(
+      { sub: user.id, purpose: 'password-change' },
+      {
+        secret: this.configService.get<string>('JWT_SECRET', 'dev-secret'),
+        expiresIn: '15m',
+      },
+    );
+  }
+
+  async changeRequiredPassword(changeToken: string, newPassword: string): Promise<void> {
+    let payload: { sub?: string; purpose?: string };
+    try {
+      payload = await this.jwtService.verifyAsync(changeToken, {
+        secret: this.configService.get<string>('JWT_SECRET', 'dev-secret'),
+      });
+    } catch {
+      throw new UnauthorizedException('Solicitação de troca de senha inválida ou expirada.');
+    }
+    if (!payload.sub || payload.purpose !== 'password-change') {
+      throw new UnauthorizedException('Solicitação de troca de senha inválida ou expirada.');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user || user.deletedAt || user.status !== 'ACTIVE' || !user.mustChangePassword) {
+      throw new UnauthorizedException('Solicitação de troca de senha inválida ou já utilizada.');
+    }
+    if (await bcrypt.compare(newPassword, user.passwordHash)) {
+      throw new BadRequestException('A nova senha deve ser diferente da senha atual.');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash, mustChangePassword: false },
+      }),
+      this.prisma.refreshToken.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
+    await this.auditService.record({
+      action: 'PASSWORD_RESET_COMPLETED',
+      actorUserId: user.id,
+      metadata: { requiredChange: true },
     });
   }
 
@@ -162,7 +213,12 @@ export class AuthService {
     });
 
     const userRecord = await this.loadUserWithPermissions(existing.userId);
-    if (!userRecord || userRecord.deletedAt || userRecord.status !== 'ACTIVE') {
+    if (
+      !userRecord ||
+      userRecord.deletedAt ||
+      userRecord.status !== 'ACTIVE' ||
+      userRecord.mustChangePassword
+    ) {
       throw new UnauthorizedException('Sessão expirada, faça login novamente.');
     }
 
@@ -243,7 +299,7 @@ export class AuthService {
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: resetToken.userId },
-        data: { passwordHash },
+        data: { passwordHash, mustChangePassword: false },
       }),
       this.prisma.passwordResetToken.update({
         where: { id: resetToken.id },

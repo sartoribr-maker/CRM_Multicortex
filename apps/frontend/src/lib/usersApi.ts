@@ -10,6 +10,7 @@ export interface UserRecord extends UserOption {
   position: string | null;
   phone: string | null;
   status: 'ACTIVE' | 'INACTIVE';
+  mustChangePassword: boolean;
   roleId: string;
   role: { id: string; name: string };
   createdAt: string;
@@ -22,6 +23,7 @@ export interface UserPayload {
   roleId: string;
   position?: string;
   phone?: string;
+  mustChangePassword?: boolean;
 }
 export interface UsersFilters {
   page?: number;

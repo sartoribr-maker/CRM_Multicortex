@@ -18,11 +18,14 @@ const SAFE_USER_SELECT = {
   position: true,
   phone: true,
   status: true,
+  mustChangePassword: true,
   roleId: true,
   role: { select: { id: true, name: true } },
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.UserSelect;
+
+const DEFAULT_TEMPORARY_PASSWORD = 'Senha@123';
 
 @Injectable()
 export class UsersService {
@@ -84,7 +87,10 @@ export class UsersService {
       throw new NotFoundException('Perfil (role) não encontrado.');
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const passwordHash = await bcrypt.hash(
+      dto.mustChangePassword ? DEFAULT_TEMPORARY_PASSWORD : dto.password,
+      10,
+    );
 
     try {
       const user = await this.prisma.user.create({
@@ -95,6 +101,7 @@ export class UsersService {
           roleId: dto.roleId,
           position: dto.position,
           phone: dto.phone,
+          mustChangePassword: dto.mustChangePassword ?? false,
           createdBy: actorUserId,
         },
         select: SAFE_USER_SELECT,
@@ -117,7 +124,9 @@ export class UsersService {
   }
 
   async update(id: string, dto: UpdateUserDto, actorUserId: string) {
-    await this.findOne(id);
+    const existingUser = await this.findOne(id);
+    const enablingRequiredPasswordChange =
+      dto.mustChangePassword === true && !existingUser.mustChangePassword;
 
     if (dto.roleId) {
       const role = await this.prisma.role.findFirst({ where: { id: dto.roleId, deletedAt: null } });
@@ -129,15 +138,32 @@ export class UsersService {
     try {
       const user = await this.prisma.user.update({
         where: { id },
-        data: dto,
+        data: {
+          ...dto,
+          ...(enablingRequiredPasswordChange
+            ? { passwordHash: await bcrypt.hash(DEFAULT_TEMPORARY_PASSWORD, 10) }
+            : {}),
+        },
         select: SAFE_USER_SELECT,
       });
+
+      // Uma sessão persistente anterior não pode contornar a troca obrigatória
+      // quando a aplicação for aberta novamente.
+      if (enablingRequiredPasswordChange) {
+        await this.prisma.refreshToken.updateMany({
+          where: { userId: id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+      }
 
       await this.auditService.record({
         action: 'USER_UPDATED',
         actorUserId,
         targetType: 'User',
         targetId: id,
+        metadata: enablingRequiredPasswordChange
+          ? { temporaryPasswordAssigned: true, requiredPasswordChange: true }
+          : undefined,
       });
 
       return user;

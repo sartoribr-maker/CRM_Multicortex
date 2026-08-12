@@ -415,13 +415,14 @@ function UserForm({
   const isNew = user === 'new';
   const [form, setForm] = useState<UserPayload>(
     isNew
-      ? { name: '', email: '', password: '', roleId: '' }
+      ? { name: '', email: '', password: '', roleId: '', mustChangePassword: false }
       : {
           name: user.name,
           email: user.email,
           roleId: user.roleId,
           position: user.position ?? undefined,
           phone: user.phone ?? undefined,
+          mustChangePassword: user.mustChangePassword,
         },
   );
   const [error, setError] = useState<string | null>(null);
@@ -563,6 +564,25 @@ function UserForm({
             onValueChange={(value) => setForm((f) => ({ ...f, phone: value || undefined }))}
           />
         </div>
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-4 md:col-span-2">
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4 accent-brand-purple"
+            checked={form.mustChangePassword ?? false}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, mustChangePassword: e.target.checked }))
+            }
+          />
+          <span>
+            <span className="block text-sm font-medium text-slate-700">
+              Obrigar troca de senha no próximo acesso
+            </span>
+            <span className="mt-1 block text-xs text-slate-400">
+              Ao salvar, a senha temporária será Senha@123. O usuário só poderá acessar o CRM
+              depois de definir uma nova senha.
+            </span>
+          </span>
+        </label>
         {error && (
           <p className="md:col-span-2 rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</p>
         )}

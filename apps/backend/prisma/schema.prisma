@@ -106,14 +106,15 @@ model RolePermission {
 }
 
 model User {
-  id           String     @id @default(uuid())
-  name         String
-  email        String     @unique
-  passwordHash String
-  avatarUrl    String?
-  position     String?
-  phone        String?
-  status       UserStatus @default(ACTIVE)
+  id                 String     @id @default(uuid())
+  name               String
+  email              String     @unique
+  passwordHash       String
+  mustChangePassword Boolean    @default(false)
+  avatarUrl          String?
+  position           String?
+  phone              String?
+  status             UserStatus @default(ACTIVE)
 
   roleId String
   role   Role   @relation(fields: [roleId], references: [id])
@@ -121,16 +122,16 @@ model User {
   refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
 
-  ownedLeads          Lead[]              @relation("LeadOwner")
-  leadAssignments     LeadAssignee[]
-  stageHistoryChanges StageHistoryEntry[]
-  uploadedAttachments Attachment[]
-  leadActivities      LeadActivity[]
-  assignedTasks       Task[]              @relation("TaskAssignee")
-  taskAssignments     TaskAssignee[]
+  ownedLeads              Lead[]              @relation("LeadOwner")
+  leadAssignments         LeadAssignee[]
+  stageHistoryChanges     StageHistoryEntry[]
+  uploadedAttachments     Attachment[]
+  leadActivities          LeadActivity[]
+  assignedTasks           Task[]              @relation("TaskAssignee")
+  taskAssignments         TaskAssignee[]
   uploadedTaskAttachments TaskAttachment[]
-  taskHistoryActions TaskHistoryEntry[]
-  createdTasks        Task[]              @relation("TaskCreator")
+  taskHistoryActions      TaskHistoryEntry[]
+  createdTasks            Task[]              @relation("TaskCreator")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -381,7 +382,7 @@ model Lead {
   contactPhone String?
 
   projectTypeId String?
-  projectType   ProjectType? @relation("LeadPrimaryProjectType", fields: [projectTypeId], references: [id])
+  projectType   ProjectType?      @relation("LeadPrimaryProjectType", fields: [projectTypeId], references: [id])
   projectTypes  LeadProjectType[]
 
   stageId String
@@ -445,10 +446,10 @@ model LeadAssignee {
 }
 
 model LeadProjectType {
-  leadId       String
-  lead         Lead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId        String
+  lead          Lead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
   projectTypeId String
-  projectType  ProjectType @relation(fields: [projectTypeId], references: [id], onDelete: Cascade)
+  projectType   ProjectType @relation(fields: [projectTypeId], references: [id], onDelete: Cascade)
 
   @@id([leadId, projectTypeId])
   @@index([projectTypeId])
@@ -468,8 +469,8 @@ model Task {
   lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
 
   assigneeId         String
-  assignee           User     @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  assigneeAssignedAt DateTime @default(now())
+  assignee           User               @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assigneeAssignedAt DateTime           @default(now())
   assignees          TaskAssignee[]
   attachments        TaskAttachment[]
   history            TaskHistoryEntry[]
@@ -510,7 +511,7 @@ model TaskAttachment {
   storageKey String
 
   uploadedByUserId String
-  uploadedByUser   User @relation(fields: [uploadedByUserId], references: [id])
+  uploadedByUser   User   @relation(fields: [uploadedByUserId], references: [id])
 
   createdAt DateTime  @default(now())
   deletedAt DateTime?
@@ -533,7 +534,7 @@ model TaskHistoryEntry {
   metadata Json
 
   actorUserId String
-  actorUser   User @relation(fields: [actorUserId], references: [id])
+  actorUser   User   @relation(fields: [actorUserId], references: [id])
 
   createdAt DateTime @default(now())
 

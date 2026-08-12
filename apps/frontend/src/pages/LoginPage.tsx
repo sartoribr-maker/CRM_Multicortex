@@ -5,17 +5,19 @@ import { apiJson } from '../lib/api';
 import { useAuthStore } from '../store/useAuthStore';
 import type { AuthUser } from '../types/auth';
 
-interface LoginResponse {
-  accessToken: string;
-  user: AuthUser;
-}
+type LoginResponse =
+  | { passwordChangeRequired: true; changeToken: string }
+  | { passwordChangeRequired: false; accessToken: string; user: AuthUser };
 
 const inputClass =
   'form-control';
+const REMEMBERED_EMAIL_KEY = 'multicortex.rememberedEmail';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const rememberedEmail = localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? '';
+  const [email, setEmail] = useState(rememberedEmail);
   const [password, setPassword] = useState('');
+  const [rememberEmail, setRememberEmail] = useState(Boolean(rememberedEmail));
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -33,6 +35,15 @@ export default function LoginPage() {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
+      if (rememberEmail) {
+        localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim());
+      } else {
+        localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+      }
+      if (data.passwordChangeRequired) {
+        navigate('/change-password', { replace: true, state: { changeToken: data.changeToken } });
+        return;
+      }
       setSession(data.accessToken, data.user);
       navigate(from, { replace: true });
     } catch (err) {
@@ -74,6 +85,16 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
+
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-brand-purple"
+            checked={rememberEmail}
+            onChange={(e) => setRememberEmail(e.target.checked)}
+          />
+          Lembrar meu e-mail no próximo login
+        </label>
 
         {error && (
           <p className="rounded-card bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>

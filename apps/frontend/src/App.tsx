@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import ChangeRequiredPasswordPage from './pages/ChangeRequiredPasswordPage';
 import HomePage from './pages/HomePage';
 import SettingsPage, { type SettingsSection } from './pages/settings/SettingsPage';
 import LeadsListPage from './pages/leads/LeadsListPage';
@@ -56,6 +57,7 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/change-password" element={<ChangeRequiredPasswordPage />} />
       <Route
         path="/"
         element={

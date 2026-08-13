@@ -25,6 +25,7 @@ type SortKey =
   | 'priority'
   | 'owner'
   | 'partner'
+  | 'technicalPartner'
   | 'dealSize'
   | 'successProbability'
   | 'estimatedValue'
@@ -64,6 +65,7 @@ export default function LeadsListPage() {
     stageId: searchParams.get('stageId') || undefined,
     priorityId: searchParams.get('priorityId') || undefined,
     partnerId: searchParams.get('partnerId') || undefined,
+    technicalPartnerId: searchParams.get('technicalPartnerId') || undefined,
   });
   const [showFilters, setShowFilters] = useState(true);
   const [sort, setSort] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({
@@ -172,6 +174,10 @@ export default function LeadsListPage() {
             b.assignees.map((item) => item.user.name).join(','),
           ],
           partner: [a.partner?.name ?? '', b.partner?.name ?? ''],
+          technicalPartner: [
+            a.technicalPartner?.name ?? '',
+            b.technicalPartner?.name ?? '',
+          ],
           dealSize: [a.dealSize?.name ?? '', b.dealSize?.name ?? ''],
           successProbability: [a.successProbability ?? -1, b.successProbability ?? -1],
           stageEnteredAt: [a.stageEnteredAt, b.stageEnteredAt],
@@ -281,7 +287,21 @@ export default function LeadsListPage() {
               value={filters.partnerId ?? ''}
               onChange={(e) => updateFilter({ partnerId: e.target.value || undefined })}
             >
-              <option value="">Todos os parceiros indicadores</option>
+              <option value="">Todos os parceiros comerciais</option>
+              {partners.map((partner) => (
+                <option key={partner.id} value={partner.id}>
+                  {partner.name}
+                </option>
+              ))}
+            </select>
+            <select
+              className="form-control"
+              value={filters.technicalPartnerId ?? ''}
+              onChange={(e) =>
+                updateFilter({ technicalPartnerId: e.target.value || undefined })
+              }
+            >
+              <option value="">Todos os parceiros técnicos</option>
               {partners.map((partner) => (
                 <option key={partner.id} value={partner.id}>
                   {partner.name}
@@ -314,7 +334,7 @@ export default function LeadsListPage() {
         {isLoading ? (
           <div className="p-12 text-center text-sm text-slate-400">Carregando oportunidades…</div>
         ) : (
-          <table className="data-table min-w-[2780px]">
+          <table className="data-table min-w-[3060px]">
             <thead>
               <tr>
                 <th className="min-w-[220px]">
@@ -330,7 +350,10 @@ export default function LeadsListPage() {
                   <SortHeader label="Responsável" field="owner" />
                 </th>
                 <th className="min-w-[280px]">
-                  <SortHeader label="Parceiro indicador" field="partner" />
+                  <SortHeader label="Parceiro comercial" field="partner" />
+                </th>
+                <th className="min-w-[280px]">
+                  <SortHeader label="Parceiro técnico" field="technicalPartner" />
                 </th>
                 <th className="min-w-[180px]">
                   <SortHeader label="Porte negócio" field="dealSize" />
@@ -436,6 +459,7 @@ export default function LeadsListPage() {
                     </div>
                   </td>
                   <td>{lead.partner?.name ?? '—'}</td>
+                  <td>{lead.technicalPartner?.name ?? '—'}</td>
                   <td className="whitespace-nowrap">{lead.dealSize?.name ?? '—'}</td>
                   <td className="whitespace-nowrap font-semibold text-slate-700">
                     {lead.successProbability === null ? '—' : `${lead.successProbability}%`}
@@ -479,7 +503,7 @@ export default function LeadsListPage() {
               ))}
               {sortedLeads.length === 0 && (
                 <tr>
-                  <td colSpan={12}>
+                  <td colSpan={13}>
                     <div className="py-10 text-center">
                       <Icon name="search" className="mx-auto h-8 w-8 text-slate-300" />
                       <p className="mt-2 font-medium text-slate-600">Nenhum lead encontrado</p>

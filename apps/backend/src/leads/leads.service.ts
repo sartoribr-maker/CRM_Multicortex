@@ -18,6 +18,7 @@ const LEAD_LIST_INCLUDE = {
   dealSize: true,
   source: true,
   partner: true,
+  technicalPartner: true,
   projectType: true,
   projectTypes: { include: { projectType: true } },
   owner: { select: { id: true, name: true, email: true, avatarUrl: true } },
@@ -76,6 +77,7 @@ export class LeadsService {
       ...(query.dealSizeId ? { dealSizeId: query.dealSizeId } : {}),
       ...(query.sourceId ? { sourceId: query.sourceId } : {}),
       ...(query.partnerId ? { partnerId: query.partnerId } : {}),
+      ...(query.technicalPartnerId ? { technicalPartnerId: query.technicalPartnerId } : {}),
       ...(query.projectTypeId
         ? { projectTypes: { some: { projectTypeId: query.projectTypeId } } }
         : {}),
@@ -250,6 +252,7 @@ export class LeadsService {
           dealSizeId: dto.dealSizeId,
           sourceId: dto.sourceId,
           partnerId: dto.partnerId,
+          technicalPartnerId: dto.technicalPartnerId,
           successProbability: dto.successProbability,
           capexValue: dto.capexValue,
           opexValue: dto.opexValue,
@@ -371,7 +374,20 @@ export class LeadsService {
       ...(dto.priorityId !== undefined ? { priority: { connect: { id: dto.priorityId } } } : {}),
       ...(dto.dealSizeId !== undefined ? { dealSize: { connect: { id: dto.dealSizeId } } } : {}),
       ...(dto.sourceId !== undefined ? { source: { connect: { id: dto.sourceId } } } : {}),
-      ...(dto.partnerId !== undefined ? { partner: { connect: { id: dto.partnerId } } } : {}),
+      ...(dto.partnerId !== undefined
+        ? {
+            partner: dto.partnerId
+              ? { connect: { id: dto.partnerId } }
+              : { disconnect: true },
+          }
+        : {}),
+      ...(dto.technicalPartnerId !== undefined
+        ? {
+            technicalPartner: dto.technicalPartnerId
+              ? { connect: { id: dto.technicalPartnerId } }
+              : { disconnect: true },
+          }
+        : {}),
       ...(dto.ownerIds?.length
         ? { owner: { connect: { id: dto.ownerIds[0] } } }
         : dto.ownerId !== undefined

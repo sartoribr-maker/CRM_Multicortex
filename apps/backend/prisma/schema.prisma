@@ -182,7 +182,8 @@ model Partner {
   status               PartnerStatus @default(ACTIVE)
   notes                String?
 
-  leads Lead[]
+  leads          Lead[] @relation("LeadReferralPartner")
+  technicalLeads Lead[] @relation("LeadTechnicalPartner")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -398,7 +399,10 @@ model Lead {
   source   Source? @relation(fields: [sourceId], references: [id])
 
   partnerId String?
-  partner   Partner? @relation(fields: [partnerId], references: [id])
+  partner   Partner? @relation("LeadReferralPartner", fields: [partnerId], references: [id])
+
+  technicalPartnerId String?
+  technicalPartner   Partner? @relation("LeadTechnicalPartner", fields: [technicalPartnerId], references: [id])
 
   successProbability Int?
   capexValue         Decimal?        @db.Decimal(14, 2)
@@ -429,6 +433,7 @@ model Lead {
   createdBy String?
   deletedAt DateTime?
 
+  @@index([technicalPartnerId])
   @@map("leads")
 }
 

@@ -184,7 +184,7 @@ export class EmailNotificationsService {
       ['Prioridade', data.priorityName],
       ['Porte do negócio', data.dealSizeName],
       ['Origem', data.sourceName],
-      ['Parceiro indicador', data.partnerName],
+      ['Parceiro comercial', data.partnerName],
       ['Tipo de projeto', data.projectTypeName],
       [
         'Probabilidade de sucesso',

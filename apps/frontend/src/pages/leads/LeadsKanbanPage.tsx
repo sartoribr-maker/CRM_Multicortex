@@ -325,7 +325,19 @@ export default function LeadsKanbanPage() {
             value={filters.partnerId ?? ''}
             onChange={(event) => updateFilter('partnerId', event.target.value)}
           >
-            <option value="">Todos os parceiros indicadores</option>
+            <option value="">Todos os parceiros comerciais</option>
+            {partners.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-control"
+            value={filters.technicalPartnerId ?? ''}
+            onChange={(event) => updateFilter('technicalPartnerId', event.target.value)}
+          >
+            <option value="">Todos os parceiros técnicos</option>
             {partners.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
@@ -533,10 +545,7 @@ export default function LeadsKanbanPage() {
                               Origem
                             </span>
                             {lead.source?.name ?? 'Não informada'}
-                            {lead.source?.name.toLocaleLowerCase('pt-BR') === 'parceiro' &&
-                            lead.partner
-                              ? ` · ${lead.partner.name}`
-                              : ''}
+                            {lead.partner ? ` · Comercial: ${lead.partner.name}` : ''}
                           </p>
                         </div>
                       </article>

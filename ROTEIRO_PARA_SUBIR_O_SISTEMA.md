@@ -190,4 +190,6 @@ ssh ec2-user@13.220.245.81
 
 e executa simplesmente:
 
-deploy-crm
+deploy-crm "Minha alteração"
+
+docker compose --env-file .env -f infra/docker-compose.yml up -d

@@ -90,7 +90,12 @@ export class CreateLeadDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()
-  partnerId?: string;
+  partnerId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Parceiro responsável pelo apoio técnico' })
+  @IsOptional()
+  @IsUUID()
+  technicalPartnerId?: string | null;
 
   @ApiPropertyOptional({ minimum: 0, maximum: 100 })
   @IsOptional()

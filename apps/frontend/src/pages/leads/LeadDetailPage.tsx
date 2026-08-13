@@ -306,7 +306,8 @@ function OverviewTab({ lead }: { lead: LeadDetail }) {
               value={lead.projectTypes.map(({ projectType }) => projectType.name).join(', ')}
             />
             <Field label="Origem" value={lead.source?.name} />
-            <Field label="Parceiro indicador" value={lead.partner?.name} />
+            <Field label="Parceiro comercial" value={lead.partner?.name} />
+            <Field label="Parceiro técnico" value={lead.technicalPartner?.name} />
             <Field label="Etapa atual" value={lead.stage.name} accent />
           </dl>
         </section>

@@ -26,7 +26,8 @@ export interface LeadFormPayload {
   priorityId?: string;
   dealSizeId?: string;
   sourceId?: string;
-  partnerId?: string;
+  partnerId?: string | null;
+  technicalPartnerId?: string | null;
   successProbability?: number;
   capexValue?: number;
   opexValue?: number;
@@ -53,6 +54,7 @@ export interface LeadListFilters {
   dealSizeId?: string;
   sourceId?: string;
   partnerId?: string;
+  technicalPartnerId?: string;
   projectTypeId?: string;
   status?: string;
 }

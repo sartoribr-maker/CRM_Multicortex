@@ -80,6 +80,7 @@ export default function LeadFormPage() {
           dealSizeId: lead.dealSize?.id,
           sourceId: lead.source?.id,
           partnerId: lead.partner?.id,
+          technicalPartnerId: lead.technicalPartner?.id,
           successProbability: lead.successProbability ?? undefined,
           capexValue: lead.capexValue === null ? undefined : Number(lead.capexValue),
           opexValue: lead.opexValue === null ? undefined : Number(lead.opexValue),
@@ -107,8 +108,6 @@ export default function LeadFormPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  const selectedSource = sources.find((source) => source.id === form.sourceId);
-  const isPartnerSource = selectedSource?.name.trim().toLocaleLowerCase('pt-BR') === 'parceiro';
   const isStageChanging = isEditing && Boolean(form.stageId && form.stageId !== initialStageId);
   const estimatedValue =
     form.capexValue === undefined && form.opexValue === undefined
@@ -252,6 +251,34 @@ export default function LeadFormPage() {
 
           <section className="form-section">
             <div className="form-section-header">
+              <h2 className="font-heading text-base font-bold text-slate-800">
+                Parceiro comercial
+              </h2>
+              <p className="mt-1 text-xs text-slate-400">
+                Empresa parceira responsável pelo relacionamento comercial nesta oportunidade.
+              </p>
+            </div>
+            <div className="form-section-body">
+              <div className="md:col-span-2">
+                <label className={labelClass}>Parceiro comercial</label>
+                <select
+                  className={inputClass}
+                  value={form.partnerId ?? ''}
+                  onChange={(event) => updateField('partnerId', event.target.value || null)}
+                >
+                  <option value="">Nenhum parceiro comercial</option>
+                  {partners.map((partner) => (
+                    <option key={partner.id} value={partner.id}>
+                      {partner.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <section className="form-section">
+            <div className="form-section-header">
               <h2 className="font-heading text-base font-bold text-slate-800">Classificação</h2>
               <p className="mt-1 text-xs text-slate-400">
                 Organização do lead no funil e na carteira comercial.
@@ -308,14 +335,7 @@ export default function LeadFormPage() {
                 <select
                   className={inputClass}
                   value={form.sourceId ?? ''}
-                  onChange={(e) => {
-                    const sourceId = e.target.value || undefined;
-                    updateField('sourceId', sourceId);
-                    const source = sources.find((item) => item.id === sourceId);
-                    if (source?.name.trim().toLocaleLowerCase('pt-BR') !== 'parceiro') {
-                      updateField('partnerId', undefined);
-                    }
-                  }}
+                  onChange={(e) => updateField('sourceId', e.target.value || undefined)}
                 >
                   <option value="">—</option>
                   {sources.map((s) => (
@@ -349,24 +369,6 @@ export default function LeadFormPage() {
                     );
                   })}
                 </div>
-              </div>
-              <div>
-                <label className={labelClass}>Parceiro indicador</label>
-                <select
-                  disabled={!isPartnerSource}
-                  className={`${inputClass} disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400`}
-                  value={form.partnerId ?? ''}
-                  onChange={(e) => updateField('partnerId', e.target.value || undefined)}
-                >
-                  <option value="">
-                    {isPartnerSource ? 'Selecione o parceiro…' : 'Disponível para origem Parceiro'}
-                  </option>
-                  {partners.map((partner) => (
-                    <option key={partner.id} value={partner.id}>
-                      {partner.name}
-                    </option>
-                  ))}
-                </select>
               </div>
               {canViewAll && (
                 <div className="md:col-span-2">
@@ -461,6 +463,36 @@ export default function LeadFormPage() {
                   />
                 </div>
               )}
+            </div>
+          </section>
+
+          <section className="form-section">
+            <div className="form-section-header">
+              <h2 className="font-heading text-base font-bold text-slate-800">
+                Parceiro técnico
+              </h2>
+              <p className="mt-1 text-xs text-slate-400">
+                Empresa parceira responsável pelo apoio técnico nesta oportunidade.
+              </p>
+            </div>
+            <div className="form-section-body">
+              <div className="md:col-span-2">
+                <label className={labelClass}>Parceiro técnico</label>
+                <select
+                  className={inputClass}
+                  value={form.technicalPartnerId ?? ''}
+                  onChange={(event) =>
+                    updateField('technicalPartnerId', event.target.value || null)
+                  }
+                >
+                  <option value="">Nenhum parceiro técnico</option>
+                  {partners.map((partner) => (
+                    <option key={partner.id} value={partner.id}>
+                      {partner.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </section>
 

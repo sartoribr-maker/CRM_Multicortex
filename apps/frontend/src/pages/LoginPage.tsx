@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../components/AuthLayout';
 import { apiJson } from '../lib/api';
+import { APP_VERSION } from '../lib/version';
 import { useAuthStore } from '../store/useAuthStore';
 import type { AuthUser } from '../types/auth';
 
@@ -114,6 +115,10 @@ export default function LoginPage() {
         >
           Esqueci minha senha
         </Link>
+
+        <p className="pt-1 text-center text-[11px] text-slate-400">
+          MultiCortex CRM · Versão {APP_VERSION}
+        </p>
       </form>
     </AuthLayout>
   );

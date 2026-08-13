@@ -13,7 +13,7 @@ import {
 } from '../../lib/settingsApi';
 import { usersApi, type UserOption } from '../../lib/usersApi';
 import { partnersApi } from '../../lib/partnersApi';
-import type { Partner } from '../../types/partners';
+import type { Partner, PartnerType } from '../../types/partners';
 import { useAuthStore } from '../../store/useAuthStore';
 import { CustomFieldsFormSection } from '../../components/CustomFieldsFormSection';
 import { CurrencyInput, DateInput, PhoneInput } from '../../components/MaskedInputs';
@@ -23,12 +23,39 @@ import type { DealSize, Priority, ProjectType, Segment, Source, Stage } from '..
 const inputClass = 'form-control';
 const labelClass = 'form-label';
 
+type QuickCreateKind = 'segment' | 'commercialPartner' | 'technicalPartner';
+
+const quickCreateConfig: Record<
+  QuickCreateKind,
+  { title: string; label: string; placeholder: string; partnerType?: PartnerType }
+> = {
+  segment: {
+    title: 'Novo segmento',
+    label: 'Nome do segmento',
+    placeholder: 'Ex.: Serviços financeiros',
+  },
+  commercialPartner: {
+    title: 'Novo parceiro comercial',
+    label: 'Nome do parceiro comercial',
+    placeholder: 'Ex.: Empresa parceira',
+    partnerType: 'CHANNEL',
+  },
+  technicalPartner: {
+    title: 'Novo parceiro técnico',
+    label: 'Nome do parceiro técnico',
+    placeholder: 'Ex.: Integrador de tecnologia',
+    partnerType: 'TECHNOLOGY',
+  },
+};
+
 export default function LeadFormPage() {
   const { id } = useParams();
   const isEditing = Boolean(id);
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const canViewAll = user?.permissions.includes('leads.view.all') ?? false;
+  const canCreateSegments = user?.permissions.includes('settings.manage') ?? false;
+  const canCreatePartners = user?.permissions.includes('partners.create') ?? false;
 
   const [stages, setStages] = useState<Stage[]>([]);
   const [priorities, setPriorities] = useState<Priority[]>([]);
@@ -46,6 +73,10 @@ export default function LeadFormPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditing);
+  const [quickCreateKind, setQuickCreateKind] = useState<QuickCreateKind | null>(null);
+  const [quickCreateName, setQuickCreateName] = useState('');
+  const [isQuickCreating, setIsQuickCreating] = useState(false);
+  const [quickCreateError, setQuickCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     stagesApi.list().then(setStages);
@@ -106,6 +137,61 @@ export default function LeadFormPage() {
 
   function updateField<K extends keyof LeadFormPayload>(key: K, value: LeadFormPayload[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function openQuickCreate(kind: QuickCreateKind) {
+    setQuickCreateKind(kind);
+    setQuickCreateName('');
+    setQuickCreateError(null);
+  }
+
+  function closeQuickCreate() {
+    if (isQuickCreating) return;
+    setQuickCreateKind(null);
+    setQuickCreateName('');
+    setQuickCreateError(null);
+  }
+
+  async function handleQuickCreate(event: FormEvent) {
+    event.preventDefault();
+    if (!quickCreateKind) return;
+
+    const name = quickCreateName.trim();
+    if (!name) {
+      setQuickCreateError('Informe um nome para continuar.');
+      return;
+    }
+
+    setIsQuickCreating(true);
+    setQuickCreateError(null);
+    try {
+      if (quickCreateKind === 'segment') {
+        const segment = await segmentsApi.create({ name });
+        setSegments((current) =>
+          [...current, segment].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+        );
+        updateField('companySegment', segment.name);
+      } else {
+        const partner = await partnersApi.create({
+          name,
+          type: quickCreateConfig[quickCreateKind].partnerType,
+          status: 'ACTIVE',
+        });
+        setPartners((current) =>
+          [...current, partner].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+        );
+        updateField(
+          quickCreateKind === 'commercialPartner' ? 'partnerId' : 'technicalPartnerId',
+          partner.id,
+        );
+      }
+      setIsQuickCreating(false);
+      closeQuickCreate();
+    } catch (err) {
+      setQuickCreateError(err instanceof Error ? err.message : 'Erro ao realizar o cadastro.');
+    } finally {
+      setIsQuickCreating(false);
+    }
   }
 
   const isStageChanging = isEditing && Boolean(form.stageId && form.stageId !== initialStageId);
@@ -196,7 +282,19 @@ export default function LeadFormPage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className={labelClass}>Segmento</label>
+                <div className="mb-1.5 flex items-center justify-between gap-3">
+                  <label className={labelClass}>Segmento</label>
+                  {canCreateSegments && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-dark"
+                      onClick={() => openQuickCreate('segment')}
+                    >
+                      <Icon name="plus" className="h-3.5 w-3.5" />
+                      Novo segmento
+                    </button>
+                  )}
+                </div>
                 <select
                   className={inputClass}
                   value={form.companySegment ?? ''}
@@ -260,7 +358,19 @@ export default function LeadFormPage() {
             </div>
             <div className="form-section-body">
               <div className="md:col-span-2">
-                <label className={labelClass}>Parceiro comercial</label>
+                <div className="mb-1.5 flex items-center justify-between gap-3">
+                  <label className={labelClass}>Parceiro comercial</label>
+                  {canCreatePartners && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-dark"
+                      onClick={() => openQuickCreate('commercialPartner')}
+                    >
+                      <Icon name="plus" className="h-3.5 w-3.5" />
+                      Novo parceiro comercial
+                    </button>
+                  )}
+                </div>
                 <select
                   className={inputClass}
                   value={form.partnerId ?? ''}
@@ -477,7 +587,19 @@ export default function LeadFormPage() {
             </div>
             <div className="form-section-body">
               <div className="md:col-span-2">
-                <label className={labelClass}>Parceiro técnico</label>
+                <div className="mb-1.5 flex items-center justify-between gap-3">
+                  <label className={labelClass}>Parceiro técnico</label>
+                  {canCreatePartners && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-dark"
+                      onClick={() => openQuickCreate('technicalPartner')}
+                    >
+                      <Icon name="plus" className="h-3.5 w-3.5" />
+                      Novo parceiro técnico
+                    </button>
+                  )}
+                </div>
                 <select
                   className={inputClass}
                   value={form.technicalPartnerId ?? ''}
@@ -601,6 +723,70 @@ export default function LeadFormPage() {
             </button>
           </div>
         </form>
+        {quickCreateKind && (
+          <div
+            className="mobile-modal-overlay fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quick-create-title"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) closeQuickCreate();
+            }}
+          >
+            <form
+              onSubmit={handleQuickCreate}
+              className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 id="quick-create-title" className="font-heading text-lg font-bold text-slate-800">
+                    {quickCreateConfig[quickCreateKind].title}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-400">
+                    O novo cadastro será selecionado automaticamente nesta oportunidade.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={closeQuickCreate}
+                  aria-label="Fechar"
+                >
+                  <Icon name="x" className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="mt-5">
+                <label className={labelClass} htmlFor="quick-create-name">
+                  {quickCreateConfig[quickCreateKind].label} *
+                </label>
+                <input
+                  id="quick-create-name"
+                  required
+                  autoFocus
+                  minLength={quickCreateKind === 'segment' ? 1 : 2}
+                  className={inputClass}
+                  placeholder={quickCreateConfig[quickCreateKind].placeholder}
+                  value={quickCreateName}
+                  onChange={(event) => setQuickCreateName(event.target.value)}
+                />
+              </div>
+              {quickCreateError && (
+                <p className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+                  {quickCreateError}
+                </p>
+              )}
+              <div className="mt-5 flex justify-end gap-2">
+                <button type="button" className="btn-secondary" onClick={closeQuickCreate}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary" disabled={isQuickCreating}>
+                  <Icon name="plus" className="h-4 w-4" />
+                  {isQuickCreating ? 'Cadastrando…' : 'Cadastrar e selecionar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
     </AppShell>
   );

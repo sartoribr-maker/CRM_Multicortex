@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import { apiFetch } from '../lib/api';
+import { APP_VERSION } from '../lib/version';
 import { avatarUrl } from '../lib/usersApi';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUiStore } from '../store/useUiStore';
@@ -226,6 +227,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Icon name="logout" className="h-[18px] w-[18px]" />
             <span className={sidebarCollapsed ? 'lg:sr-only' : ''}>Sair da plataforma</span>
           </button>
+          <p
+            className={`mt-1 text-center text-[10px] text-white/30 ${sidebarCollapsed ? 'lg:sr-only' : ''}`}
+          >
+            Versão {APP_VERSION}
+          </p>
         </div>
       </aside>
       <div className="min-h-screen">

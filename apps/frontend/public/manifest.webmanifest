@@ -1,13 +1,26 @@
 {
-  "name": "Multicortex CRM",
-  "short_name": "Multicortex",
+  "name": "MultiCortex CRM",
+  "short_name": "MultiCortex CRM",
   "description": "Gestão de relacionamentos, oportunidades e atividades comerciais.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f6f7fb",
   "theme_color": "#30224a",
   "orientation": "any",
   "icons": [
-    { "src": "/favicon.svg?v=2", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    {
+      "src": "/icons/multicortex-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/multicortex-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
   ]
 }

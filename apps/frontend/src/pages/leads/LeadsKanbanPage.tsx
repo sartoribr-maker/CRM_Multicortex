@@ -1,5 +1,5 @@
 import { type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { FixedHorizontalScrollbar } from '../../components/FixedHorizontalScrollbar';
 import { Icon } from '../../components/Icon';
@@ -40,6 +40,7 @@ function isMandatoryPriority(lead: LeadListItem) {
 
 export default function LeadsKanbanPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const kanbanScrollRef = useRef<HTMLDivElement>(null);
   const cardClickTimerRef = useRef<number | null>(null);
   const user = useAuthStore((state) => state.user);
@@ -148,7 +149,13 @@ export default function LeadsKanbanPage() {
 
   function openLeadAfterClick(leadId: string) {
     if (cardClickTimerRef.current) window.clearTimeout(cardClickTimerRef.current);
-    cardClickTimerRef.current = window.setTimeout(() => navigate(`/leads/${leadId}`), 250);
+    cardClickTimerRef.current = window.setTimeout(
+      () =>
+        navigate(`/leads/${leadId}`, {
+          state: { returnTo: `${location.pathname}${location.search}` },
+        }),
+      250,
+    );
   }
 
   async function markAsMandatory(lead: LeadListItem) {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { FixedHorizontalScrollbar } from '../../components/FixedHorizontalScrollbar';
 import { Icon } from '../../components/Icon';
@@ -52,6 +52,7 @@ export default function LeadsListPage() {
   const canEdit = user?.permissions.includes('leads.edit') ?? false;
   const canDelete = user?.permissions.includes('leads.delete') ?? false;
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const leadClickTimerRef = useRef<number | null>(null);
@@ -159,7 +160,13 @@ export default function LeadsListPage() {
   }
   function openLeadAfterClick(leadId: string) {
     if (leadClickTimerRef.current) window.clearTimeout(leadClickTimerRef.current);
-    leadClickTimerRef.current = window.setTimeout(() => navigate(`/leads/${leadId}`), 250);
+    leadClickTimerRef.current = window.setTimeout(
+      () =>
+        navigate(`/leads/${leadId}`, {
+          state: { returnTo: `${location.pathname}${location.search}` },
+        }),
+      250,
+    );
   }
   const sortedLeads = useMemo(
     () =>
@@ -475,7 +482,11 @@ export default function LeadsListPage() {
                       <button
                         className="icon-button"
                         title="Visualizar"
-                        onClick={() => navigate(`/leads/${lead.id}`)}
+                        onClick={() =>
+                          navigate(`/leads/${lead.id}`, {
+                            state: { returnTo: `${location.pathname}${location.search}` },
+                          })
+                        }
                       >
                         <Icon name="view" className="h-4 w-4" />
                       </button>

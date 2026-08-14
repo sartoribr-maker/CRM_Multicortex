@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
 import { leadsApi } from '../../lib/leadsApi';
@@ -26,6 +26,15 @@ function formatBytes(bytes: number): string {
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const requestedReturnTo = (location.state as { returnTo?: unknown } | null)?.returnTo;
+  const returnTo =
+    typeof requestedReturnTo === 'string' &&
+    (requestedReturnTo === '/leads/kanban' ||
+      requestedReturnTo === '/leads' ||
+      requestedReturnTo.startsWith('/leads?'))
+      ? requestedReturnTo
+      : '/leads';
   const user = useAuthStore((s) => s.user);
   const canEdit = user?.permissions.includes('leads.edit') ?? false;
   const canCreate = user?.permissions.includes('leads.create') ?? false;
@@ -81,7 +90,7 @@ export default function LeadDetailPage() {
           description={lead.companyName ?? 'Empresa não informada'}
           actions={
             <>
-              <button onClick={() => navigate('/leads')} className="btn-secondary">
+              <button onClick={() => navigate(returnTo)} className="btn-secondary">
                 <Icon name="arrow-left" className="h-4 w-4" />
                 Voltar
               </button>
@@ -102,7 +111,7 @@ export default function LeadDetailPage() {
               )}
               {canEdit && (
                 <button
-                  onClick={() => navigate(`/leads/${lead.id}/editar`)}
+                  onClick={() => navigate(`/leads/${lead.id}/editar`, { state: { returnTo } })}
                   className="btn-primary"
                 >
                   <Icon name="edit" className="h-4 w-4" />

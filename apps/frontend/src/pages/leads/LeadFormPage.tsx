@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
 import { leadsApi, type CustomFieldValueInput, type LeadFormPayload } from '../../lib/leadsApi';
@@ -55,6 +55,8 @@ export default function LeadFormPage() {
   const { id } = useParams();
   const isEditing = Boolean(id);
   const navigate = useNavigate();
+  const location = useLocation();
+  const navigationState = location.state as { returnTo?: string } | null;
   const user = useAuthStore((s) => s.user);
   const canViewAll = user?.permissions.includes('leads.view.all') ?? false;
   const canCreateSegments = user?.permissions.includes('settings.manage') ?? false;
@@ -229,7 +231,7 @@ export default function LeadFormPage() {
     try {
       const payload: LeadFormPayload = { ...form, customFieldValues };
       const lead = isEditing ? await leadsApi.update(id!, payload) : await leadsApi.create(payload);
-      navigate(`/leads/${lead.id}`);
+      navigate(`/leads/${lead.id}`, { state: navigationState });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar lead.');
     } finally {
@@ -255,7 +257,11 @@ export default function LeadFormPage() {
           actions={
             <button
               type="button"
-              onClick={() => navigate(isEditing ? `/leads/${id}` : '/leads')}
+              onClick={() =>
+                navigate(isEditing ? `/leads/${id}` : '/leads', {
+                  state: isEditing ? navigationState : undefined,
+                })
+              }
               className="btn-secondary"
             >
               <Icon name="x" className="h-4 w-4" />
@@ -839,7 +845,11 @@ export default function LeadFormPage() {
           <div className="sticky bottom-4 z-20 flex justify-end gap-2 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur">
             <button
               type="button"
-              onClick={() => navigate(isEditing ? `/leads/${id}` : '/leads')}
+              onClick={() =>
+                navigate(isEditing ? `/leads/${id}` : '/leads', {
+                  state: isEditing ? navigationState : undefined,
+                })
+              }
               className="btn-secondary"
             >
               Cancelar

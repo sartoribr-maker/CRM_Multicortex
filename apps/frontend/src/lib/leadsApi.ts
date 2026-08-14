@@ -28,6 +28,7 @@ export interface LeadFormPayload {
   sourceId?: string;
   partnerId?: string | null;
   technicalPartnerId?: string | null;
+  technicalServiceValue?: number;
   successProbability?: number;
   capexValue?: number;
   opexValue?: number;
@@ -42,6 +43,14 @@ export interface LeadFormPayload {
   description?: string;
   lossReason?: string;
   customFieldValues?: CustomFieldValueInput[];
+}
+
+export interface LeadAutocompleteOption {
+  companyName: string | null;
+  companyDocument: string | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
 }
 
 export interface LeadListFilters {
@@ -69,6 +78,10 @@ function toQueryString(filters: LeadListFilters): string {
 }
 
 export const leadsApi = {
+  autocomplete: (type: 'company' | 'contact', search: string) =>
+    apiJson<LeadAutocompleteOption[]>(
+      `/leads/autocomplete?type=${type}&search=${encodeURIComponent(search)}`,
+    ),
   list: (filters: LeadListFilters = {}) =>
     apiJson<LeadListResponse>(`/leads${toQueryString(filters)}`),
 

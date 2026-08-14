@@ -16,9 +16,12 @@ import { partnersApi } from '../../lib/partnersApi';
 import type { Partner, PartnerType } from '../../types/partners';
 import { useAuthStore } from '../../store/useAuthStore';
 import { CustomFieldsFormSection } from '../../components/CustomFieldsFormSection';
+import { LeadAutocompleteInput } from '../../components/LeadAutocompleteInput';
 import { CurrencyInput, DateInput, PhoneInput } from '../../components/MaskedInputs';
 import { LEAD_PERIODICITY_LABELS, type LeadPeriodicity } from '../../types/leads';
 import type { DealSize, Priority, ProjectType, Segment, Source, Stage } from '../../types/settings';
+import { formatCurrency } from '../../lib/formatters';
+import { SERVICE_UNIT_LABELS } from '../settings/ServicesPanel';
 
 const inputClass = 'form-control';
 const labelClass = 'form-label';
@@ -112,6 +115,10 @@ export default function LeadFormPage() {
           sourceId: lead.source?.id,
           partnerId: lead.partner?.id,
           technicalPartnerId: lead.technicalPartner?.id,
+          technicalServiceValue:
+            lead.technicalServiceValue === null
+              ? undefined
+              : Number(lead.technicalServiceValue),
           successProbability: lead.successProbability ?? undefined,
           capexValue: lead.capexValue === null ? undefined : Number(lead.capexValue),
           opexValue: lead.opexValue === null ? undefined : Number(lead.opexValue),
@@ -199,6 +206,15 @@ export default function LeadFormPage() {
     form.capexValue === undefined && form.opexValue === undefined
       ? undefined
       : (form.capexValue ?? 0) + (form.opexValue ?? 0) * 12;
+  const selectedProjectTypes = projectTypes.filter((item) =>
+    form.projectTypeIds?.includes(item.id),
+  );
+  const selectedCommercialPartner = partners.find((partner) => partner.id === form.partnerId);
+  const commercialCommissionPercentage = Number(
+    selectedCommercialPartner?.commissionPercentage ?? 0,
+  );
+  const commercialCommissionValue =
+    (form.capexValue ?? 0) * (commercialCommissionPercentage / 100);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -248,7 +264,7 @@ export default function LeadFormPage() {
           }
         />
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-          <section className="form-section">
+          <section className="form-section form-section-autocomplete">
             <div className="form-section-header">
               <h2 className="font-heading text-base font-bold text-slate-800">Dados gerais</h2>
               <p className="mt-1 text-xs text-slate-400">
@@ -267,10 +283,17 @@ export default function LeadFormPage() {
               </div>
               <div>
                 <label className={labelClass}>Empresa</label>
-                <input
-                  className={inputClass}
+                <LeadAutocompleteInput
+                  type="company"
                   value={form.companyName ?? ''}
-                  onChange={(e) => updateField('companyName', e.target.value)}
+                  onChange={(value) => updateField('companyName', value)}
+                  onSelect={(option) =>
+                    setForm((current) => ({
+                      ...current,
+                      companyName: option.companyName ?? undefined,
+                      companyDocument: option.companyDocument ?? undefined,
+                    }))
+                  }
                 />
               </div>
               <div>
@@ -311,7 +334,7 @@ export default function LeadFormPage() {
             </div>
           </section>
 
-          <section className="form-section">
+          <section className="form-section form-section-autocomplete">
             <div className="form-section-header">
               <h2 className="font-heading text-base font-bold text-slate-800">Contato</h2>
               <p className="mt-1 text-xs text-slate-400">
@@ -321,10 +344,18 @@ export default function LeadFormPage() {
             <div className="form-section-body lg:grid-cols-3">
               <div>
                 <label className={labelClass}>Nome</label>
-                <input
-                  className={inputClass}
+                <LeadAutocompleteInput
+                  type="contact"
                   value={form.contactName ?? ''}
-                  onChange={(e) => updateField('contactName', e.target.value)}
+                  onChange={(value) => updateField('contactName', value)}
+                  onSelect={(option) =>
+                    setForm((current) => ({
+                      ...current,
+                      contactName: option.contactName ?? undefined,
+                      contactEmail: option.contactEmail ?? undefined,
+                      contactPhone: option.contactPhone ?? undefined,
+                    }))
+                  }
                 />
               </div>
               <div>
@@ -383,6 +414,31 @@ export default function LeadFormPage() {
                     </option>
                   ))}
                 </select>
+                {selectedCommercialPartner && (
+                  <div className="mt-4 grid gap-3 rounded-xl border border-brand-purple/20 bg-purple-50/50 p-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-medium text-slate-500">
+                        Percentual da comissão padrão
+                      </p>
+                      <p className="mt-1 text-lg font-bold text-brand-purple-dark">
+                        {selectedCommercialPartner.commissionPercentage === null
+                          ? 'Não cadastrado'
+                          : `${commercialCommissionPercentage.toLocaleString('pt-BR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}%`}
+                      </p>
+                    </div>
+                    <div className="sm:text-right">
+                      <p className="text-xs font-medium text-slate-500">
+                        Comissão sobre o valor CAPEX
+                      </p>
+                      <p className="mt-1 text-lg font-bold text-brand-purple-dark">
+                        {formatCurrency(commercialCommissionValue)}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </section>
@@ -461,7 +517,10 @@ export default function LeadFormPage() {
                   {projectTypes.map((projectType) => {
                     const checked = form.projectTypeIds?.includes(projectType.id) ?? false;
                     return (
-                      <label key={projectType.id} className="flex cursor-pointer items-center gap-2 rounded-lg p-2 text-sm hover:bg-purple-50">
+                      <label
+                        key={projectType.id}
+                        className="flex cursor-pointer items-center gap-2 rounded-lg p-2 text-sm hover:bg-purple-50"
+                      >
                         <input
                           type="checkbox"
                           checked={checked}
@@ -478,6 +537,68 @@ export default function LeadFormPage() {
                       </label>
                     );
                   })}
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>
+                  Valor estimado dos produtos selecionados (unitário)
+                </label>
+                <div className="min-h-[7.5rem] rounded-xl border border-brand-purple/20 bg-gradient-to-br from-purple-50 to-white p-4">
+                  {selectedProjectTypes.length ? (
+                    <div className="space-y-4">
+                      {selectedProjectTypes.map((projectType) => {
+                        const totals = projectType.services.reduce<Record<string, number>>(
+                          (result, { service }) => ({
+                            ...result,
+                            [service.billingUnit]:
+                              (result[service.billingUnit] ?? 0) + Number(service.price),
+                          }),
+                          {},
+                        );
+                        return (
+                          <div key={projectType.id}>
+                            <p className="text-sm font-bold text-brand-purple-dark">
+                              {projectType.name}
+                            </p>
+                            <div className="mt-1 space-y-1">
+                              {projectType.services.map(({ service }) => (
+                                <div
+                                  key={service.id}
+                                  className="flex justify-between gap-3 text-xs text-slate-500"
+                                >
+                                  <span>{service.name}</span>
+                                  <span className="whitespace-nowrap">
+                                    {formatCurrency(service.price)}/
+                                    {SERVICE_UNIT_LABELS[service.billingUnit]}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {Object.entries(totals).map(([unit, total]) => (
+                                <span
+                                  key={unit}
+                                  className="rounded-full bg-brand-purple px-2.5 py-1 text-xs font-semibold text-white"
+                                >
+                                  {formatCurrency(total)}/
+                                  {SERVICE_UNIT_LABELS[unit as keyof typeof SERVICE_UNIT_LABELS]}
+                                </span>
+                              ))}
+                              {!projectType.services.length && (
+                                <span className="text-xs text-slate-400">
+                                  Sem serviços vinculados
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex min-h-[5.5rem] items-center justify-center text-center text-sm text-slate-400">
+                      Selecione um tipo de produto para visualizar os serviços e valores.
+                    </div>
+                  )}
                 </div>
               </div>
               {canViewAll && (
@@ -578,9 +699,7 @@ export default function LeadFormPage() {
 
           <section className="form-section">
             <div className="form-section-header">
-              <h2 className="font-heading text-base font-bold text-slate-800">
-                Parceiro técnico
-              </h2>
+              <h2 className="font-heading text-base font-bold text-slate-800">Parceiro técnico</h2>
               <p className="mt-1 text-xs text-slate-400">
                 Empresa parceira responsável pelo apoio técnico nesta oportunidade.
               </p>
@@ -614,6 +733,14 @@ export default function LeadFormPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className={labelClass}>Valor total do serviço prestado (R$)</label>
+                <CurrencyInput
+                  className={inputClass}
+                  value={form.technicalServiceValue}
+                  onValueChange={(value) => updateField('technicalServiceValue', value)}
+                />
               </div>
             </div>
           </section>
@@ -739,7 +866,10 @@ export default function LeadFormPage() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 id="quick-create-title" className="font-heading text-lg font-bold text-slate-800">
+                  <h2
+                    id="quick-create-title"
+                    className="font-heading text-lg font-bold text-slate-800"
+                  >
                     {quickCreateConfig[quickCreateKind].title}
                   </h2>
                   <p className="mt-1 text-sm text-slate-400">

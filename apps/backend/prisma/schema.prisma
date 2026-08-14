@@ -311,8 +311,9 @@ model ProjectType {
   description String?
   category    String?
 
-  leads           Lead[]            @relation("LeadPrimaryProjectType")
+  leads           Lead[]               @relation("LeadPrimaryProjectType")
   leadAssignments LeadProjectType[]
+  services        ProjectTypeService[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -320,6 +321,40 @@ model ProjectType {
   deletedAt DateTime?
 
   @@map("project_types")
+}
+
+enum ServiceBillingUnit {
+  MONTH
+  HOUR
+  ONE_TIME
+}
+
+model Service {
+  id          String             @id @default(uuid())
+  name        String             @unique
+  description String?
+  price       Decimal            @db.Decimal(14, 2)
+  billingUnit ServiceBillingUnit
+
+  projectTypes ProjectTypeService[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@map("services")
+}
+
+model ProjectTypeService {
+  projectTypeId String
+  projectType   ProjectType @relation(fields: [projectTypeId], references: [id], onDelete: Cascade)
+  serviceId     String
+  service       Service     @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@id([projectTypeId, serviceId])
+  @@index([serviceId])
+  @@map("project_type_services")
 }
 
 enum CustomFieldType {
@@ -401,8 +436,9 @@ model Lead {
   partnerId String?
   partner   Partner? @relation("LeadReferralPartner", fields: [partnerId], references: [id])
 
-  technicalPartnerId String?
-  technicalPartner   Partner? @relation("LeadTechnicalPartner", fields: [technicalPartnerId], references: [id])
+  technicalPartnerId    String?
+  technicalPartner      Partner? @relation("LeadTechnicalPartner", fields: [technicalPartnerId], references: [id])
+  technicalServiceValue Decimal? @db.Decimal(14, 2)
 
   successProbability Int?
   capexValue         Decimal?        @db.Decimal(14, 2)

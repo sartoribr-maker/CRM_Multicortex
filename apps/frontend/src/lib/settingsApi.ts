@@ -4,6 +4,7 @@ import type {
   DealSize,
   Priority,
   ProjectType,
+  ServiceCatalogItem,
   Segment,
   Source,
   Stage,
@@ -39,6 +40,7 @@ export const dealSizesApi = makeCrud<DealSize>('/deal-sizes');
 export const sourcesApi = makeCrud<Source>('/sources');
 export const segmentsApi = makeCrud<Segment>('/segments');
 export const projectTypesApi = makeCrud<ProjectType>('/project-types');
+export const servicesApi = makeCrud<ServiceCatalogItem>('/services');
 export const customFieldsApi = makeCrud<CustomField>('/custom-fields');
 export const emailSettingsApi = {
   get: () => apiJson<EmailSettings>('/email-settings'),

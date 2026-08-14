@@ -15,6 +15,7 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { ListLeadsQueryDto } from './dto/list-leads.query.dto';
 import { AddCommentDto } from './dto/add-comment.dto';
+import { AutocompleteLeadsQueryDto } from './dto/autocomplete-leads.query.dto';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { PERMISSIONS } from '../auth/constants/permissions';
@@ -29,6 +30,12 @@ export class LeadsController {
   @RequirePermissions(PERMISSIONS.LEADS_VIEW)
   findAll(@Query() query: ListLeadsQueryDto, @CurrentUser() currentUser: JwtPayload) {
     return this.leadsService.findAll(query, currentUser);
+  }
+
+  @Get('autocomplete')
+  @RequirePermissions(PERMISSIONS.LEADS_VIEW)
+  autocomplete(@Query() query: AutocompleteLeadsQueryDto, @CurrentUser() currentUser: JwtPayload) {
+    return this.leadsService.autocomplete(query, currentUser);
   }
 
   @Get(':id')

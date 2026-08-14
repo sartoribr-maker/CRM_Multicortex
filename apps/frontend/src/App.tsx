@@ -154,6 +154,7 @@ function App() {
       <Route path="/settings/sources" element={<SettingsScreen section="sources" />} />
       <Route path="/settings/segments" element={<SettingsScreen section="segments" />} />
       <Route path="/settings/project-types" element={<SettingsScreen section="projectTypes" />} />
+      <Route path="/settings/services" element={<SettingsScreen section="services" />} />
       <Route path="/settings/custom-fields" element={<SettingsScreen section="customFields" />} />
       <Route path="/settings/email" element={<SettingsScreen section="email" />} />
       <Route path="/settings/whatsapp" element={<SettingsScreen section="whatsapp" />} />

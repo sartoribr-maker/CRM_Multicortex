@@ -6,15 +6,16 @@ import { SimpleCatalogPanel } from './SimpleCatalogPanel';
 import { CustomFieldsPanel } from './CustomFieldsPanel';
 import { EmailSettingsPanel } from './EmailSettingsPanel';
 import { WhatsAppSettingsPanel } from './WhatsAppSettingsPanel';
+import { ServicesPanel } from './ServicesPanel';
+import { ProductTypesPanel } from './ProductTypesPanel';
 import {
   stagesApi,
   prioritiesApi,
   dealSizesApi,
   sourcesApi,
   segmentsApi,
-  projectTypesApi,
 } from '../../lib/settingsApi';
-import type { DealSize, Priority, ProjectType, Segment, Source, Stage } from '../../types/settings';
+import type { DealSize, Priority, Segment, Source, Stage } from '../../types/settings';
 
 export type SettingsSection =
   | 'stages'
@@ -23,6 +24,7 @@ export type SettingsSection =
   | 'sources'
   | 'segments'
   | 'projectTypes'
+  | 'services'
   | 'customFields'
   | 'email'
   | 'whatsapp';
@@ -49,8 +51,12 @@ const SECTIONS: Record<SettingsSection, { title: string; description: string }> 
     description: 'Mantenha as opções disponíveis no cadastro de empresas e oportunidades.',
   },
   projectTypes: {
-    title: 'Tipos de Projeto',
-    description: 'Configure as categorias de produtos e projetos vendidos.',
+    title: 'Tipos de Produto',
+    description: 'Configure os produtos vendidos e os serviços embarcados.',
+  },
+  services: {
+    title: 'Serviços',
+    description: 'Cadastre os serviços, seus valores e unidades de cobrança.',
   },
   customFields: {
     title: 'Campos Personalizados',
@@ -185,15 +191,9 @@ export default function SettingsPage({ section }: { section: SettingsSection }) 
             />
           )}
 
-          {section === 'projectTypes' && (
-            <SimpleCatalogPanel<ProjectType>
-              title="Tipos de Projeto"
-              description="Categorias de projeto/produto vendido."
-              itemNoun="tipo de projeto"
-              api={projectTypesApi}
-              emptyDraft={{ name: '', description: '' }}
-            />
-          )}
+          {section === 'projectTypes' && <ProductTypesPanel />}
+
+          {section === 'services' && <ServicesPanel />}
 
           {section === 'customFields' && <CustomFieldsPanel />}
           {section === 'email' && <EmailSettingsPanel />}

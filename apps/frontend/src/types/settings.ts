@@ -46,6 +46,19 @@ export interface ProjectType {
   description: string | null;
   category: string | null;
   deletedAt: string | null;
+  services: Array<{ service: ServiceCatalogItem }>;
+}
+
+export type ServiceBillingUnit = 'MONTH' | 'HOUR' | 'ONE_TIME';
+
+export interface ServiceCatalogItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: string | number;
+  billingUnit: ServiceBillingUnit;
+  deletedAt: string | null;
+  _count?: { projectTypes: number };
 }
 
 export type CustomFieldType =

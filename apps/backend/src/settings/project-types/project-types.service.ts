@@ -15,12 +15,16 @@ export class ProjectTypesService {
   findAll(query: ListSettingsQueryDto) {
     return this.prisma.projectType.findMany({
       where: query.includeArchived ? {} : { deletedAt: null },
+      include: { services: { include: { service: true } } },
       orderBy: { name: 'asc' },
     });
   }
 
   async findOne(id: string) {
-    const projectType = await this.prisma.projectType.findFirst({ where: { id, deletedAt: null } });
+    const projectType = await this.prisma.projectType.findFirst({
+      where: { id, deletedAt: null },
+      include: { services: { include: { service: true } } },
+    });
     if (!projectType) {
       throw new NotFoundException('Tipo de projeto não encontrado.');
     }
@@ -28,8 +32,14 @@ export class ProjectTypesService {
   }
 
   async create(dto: CreateProjectTypeDto, actorUserId: string) {
+    const { serviceIds = [], ...data } = dto;
     const projectType = await this.prisma.projectType.create({
-      data: { ...dto, createdBy: actorUserId },
+      data: {
+        ...data,
+        createdBy: actorUserId,
+        services: { create: [...new Set(serviceIds)].map((serviceId) => ({ serviceId })) },
+      },
+      include: { services: { include: { service: true } } },
     });
 
     await this.auditService.record({
@@ -45,7 +55,22 @@ export class ProjectTypesService {
 
   async update(id: string, dto: UpdateProjectTypeDto, actorUserId: string) {
     await this.findOne(id);
-    const projectType = await this.prisma.projectType.update({ where: { id }, data: dto });
+    const { serviceIds, ...data } = dto;
+    const projectType = await this.prisma.projectType.update({
+      where: { id },
+      data: {
+        ...data,
+        ...(serviceIds !== undefined
+          ? {
+              services: {
+                deleteMany: {},
+                create: [...new Set(serviceIds)].map((serviceId) => ({ serviceId })),
+              },
+            }
+          : {}),
+      },
+      include: { services: { include: { service: true } } },
+    });
 
     await this.auditService.record({
       action: 'SETTINGS_ITEM_UPDATED',

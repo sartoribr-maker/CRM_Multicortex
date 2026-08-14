@@ -14,6 +14,7 @@ import { DealSizesModule } from './settings/deal-sizes/deal-sizes.module';
 import { SourcesModule } from './settings/sources/sources.module';
 import { SegmentsModule } from './settings/segments/segments.module';
 import { ProjectTypesModule } from './settings/project-types/project-types.module';
+import { ServicesModule } from './settings/services/services.module';
 import { CustomFieldsModule } from './settings/custom-fields/custom-fields.module';
 import { StorageModule } from './storage/storage.module';
 import { LeadsModule } from './leads/leads.module';
@@ -44,6 +45,7 @@ import { WhatsAppSettingsModule } from './notifications/whatsapp-settings.module
     SourcesModule,
     SegmentsModule,
     ProjectTypesModule,
+    ServicesModule,
     CustomFieldsModule,
     StorageModule,
     LeadsModule,

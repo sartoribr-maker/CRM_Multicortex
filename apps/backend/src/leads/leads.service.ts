@@ -7,6 +7,7 @@ import type { JwtPayload } from '../auth/types/jwt-payload.interface';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { ListLeadsQueryDto } from './dto/list-leads.query.dto';
+import { AutocompleteLeadsQueryDto } from './dto/autocomplete-leads.query.dto';
 import type { CustomFieldValueInputDto } from './dto/custom-field-value-input.dto';
 import { EmailNotificationsService } from '../notifications/email-notifications.service';
 import { AuditService } from '../audit/audit.service';
@@ -119,6 +120,40 @@ export class LeadsService {
       pageSize: query.pageSize,
       totalPages: Math.ceil(total / query.pageSize),
     };
+  }
+
+  async autocomplete(query: AutocompleteLeadsQueryDto, currentUser: JwtPayload) {
+    const isCompany = query.type === 'company';
+    const search = query.search.trim();
+    const rows = await this.prisma.lead.findMany({
+      where: {
+        deletedAt: null,
+        ...this.ownershipFilter(currentUser),
+        ...(isCompany
+          ? { companyName: { contains: search, mode: 'insensitive' } }
+          : { contactName: { contains: search, mode: 'insensitive' } }),
+      },
+      select: {
+        companyName: true,
+        companyDocument: true,
+        contactName: true,
+        contactEmail: true,
+        contactPhone: true,
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 30,
+    });
+
+    const seen = new Set<string>();
+    return rows
+      .filter((row) => {
+        const value = isCompany ? row.companyName : row.contactName;
+        const key = value?.trim().toLocaleLowerCase('pt-BR');
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 8);
   }
 
   async findOne(id: string, currentUser: JwtPayload) {
@@ -253,6 +288,7 @@ export class LeadsService {
           sourceId: dto.sourceId,
           partnerId: dto.partnerId,
           technicalPartnerId: dto.technicalPartnerId,
+          technicalServiceValue: dto.technicalServiceValue,
           successProbability: dto.successProbability,
           capexValue: dto.capexValue,
           opexValue: dto.opexValue,
@@ -356,6 +392,7 @@ export class LeadsService {
       contactName: dto.contactName,
       contactEmail: dto.contactEmail,
       contactPhone: dto.contactPhone,
+      technicalServiceValue: dto.technicalServiceValue,
       successProbability: dto.successProbability,
       capexValue: dto.capexValue,
       opexValue: dto.opexValue,

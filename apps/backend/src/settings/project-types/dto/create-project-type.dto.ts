@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
 
 export class CreateProjectTypeDto {
   @ApiProperty()
@@ -16,4 +16,10 @@ export class CreateProjectTypeDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  serviceIds?: string[];
 }

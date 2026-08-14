@@ -16,9 +16,7 @@ const navItems: Array<{ to: string; label: string; icon: IconName; permission?: 
   { to: '/tasks', label: 'Tarefas', icon: 'file', permission: 'tasks.view' },
 ];
 
-const reportItems = [
-  { to: '/reports/pipeline', label: 'Pipeline', permission: 'leads.view.all' },
-];
+const reportItems = [{ to: '/reports/pipeline', label: 'Pipeline', permission: 'leads.view.all' }];
 
 const settingsItems = [
   { to: '/settings/stages', label: 'Etapas do Funil', permission: 'settings.manage' },
@@ -26,7 +24,8 @@ const settingsItems = [
   { to: '/settings/deal-sizes', label: 'Portes do Negócio', permission: 'settings.manage' },
   { to: '/settings/sources', label: 'Origens do Lead', permission: 'settings.manage' },
   { to: '/settings/segments', label: 'Segmentos de Mercado', permission: 'settings.manage' },
-  { to: '/settings/project-types', label: 'Tipos de Projeto', permission: 'settings.manage' },
+  { to: '/settings/project-types', label: 'Tipos de Produto', permission: 'settings.manage' },
+  { to: '/settings/services', label: 'Serviços', permission: 'settings.manage' },
   { to: '/settings/custom-fields', label: 'Campos Personalizados', permission: 'settings.manage' },
   { to: '/settings/email', label: 'Configuração de E-mail', permission: 'settings.manage' },
   { to: '/settings/whatsapp', label: 'Configuração do WhatsApp', permission: 'settings.manage' },
@@ -54,9 +53,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const visibleSettings = settingsItems.filter((item) =>
     user?.permissions.includes(item.permission),
   );
-  const visibleReports = reportItems.filter((item) =>
-    user?.permissions.includes(item.permission),
-  );
+  const visibleReports = reportItems.filter((item) => user?.permissions.includes(item.permission));
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');

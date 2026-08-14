@@ -47,6 +47,7 @@ export interface LeadListItem {
   projectTypes: Array<{ projectType: RefName }>;
   partner: RefName | null;
   technicalPartner: RefName | null;
+  technicalServiceValue: string | number | null;
   owner: { id: string; name: string; email: string; avatarUrl: string | null };
   assignees: Array<{
     user: { id: string; name: string; email: string; avatarUrl: string | null };

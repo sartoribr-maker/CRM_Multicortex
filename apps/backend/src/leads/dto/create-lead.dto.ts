@@ -97,6 +97,12 @@ export class CreateLeadDto {
   @IsUUID()
   technicalPartnerId?: string | null;
 
+  @ApiPropertyOptional({ description: 'Valor total do serviço prestado pelo parceiro técnico' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  technicalServiceValue?: number;
+
   @ApiPropertyOptional({ minimum: 0, maximum: 100 })
   @IsOptional()
   @IsInt()

@@ -308,6 +308,10 @@ function OverviewTab({ lead }: { lead: LeadDetail }) {
             <Field label="Origem" value={lead.source?.name} />
             <Field label="Parceiro comercial" value={lead.partner?.name} />
             <Field label="Parceiro técnico" value={lead.technicalPartner?.name} />
+            <Field
+              label="Valor do serviço técnico"
+              value={formatCurrency(lead.technicalServiceValue)}
+            />
             <Field label="Etapa atual" value={lead.stage.name} accent />
           </dl>
         </section>

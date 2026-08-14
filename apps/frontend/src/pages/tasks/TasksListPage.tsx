@@ -14,6 +14,21 @@ import {
   type TaskFilters,
 } from '../../types/tasks';
 type Sort = 'title' | 'dueDate' | 'priority' | 'status' | 'assignee';
+
+function deadlineState(dueDate: string): 'overdue' | 'today' | 'upcoming' {
+  const deadline = new Date(dueDate);
+  const today = new Date();
+  deadline.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  if (deadline < today) return 'overdue';
+  if (deadline.getTime() === today.getTime()) return 'today';
+  return 'upcoming';
+}
+const DEADLINE_TEXT_COLORS = {
+  overdue: 'text-red-600',
+  today: 'text-amber-500',
+  upcoming: 'text-emerald-600',
+} as const;
 export default function TasksListPage() {
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
@@ -85,7 +100,7 @@ export default function TasksListPage() {
     </button>
   );
   const overdue = (t: Task) =>
-    !['DONE', 'CANCELED'].includes(t.status) && new Date(t.dueDate) < new Date();
+    !['DONE', 'CANCELED'].includes(t.status) && deadlineState(t.dueDate) === 'overdue';
   const assignedDays = (task: Task) => {
     const assignedAt = new Date(task.assigneeAssignedAt);
     const elapsed = Date.now() - assignedAt.getTime();
@@ -298,7 +313,7 @@ export default function TasksListPage() {
                     </button>
                   </td>
                   <td>
-                    <span className={overdue(t) ? 'font-bold text-red-600' : 'text-slate-600'}>
+                    <span className={`font-bold ${DEADLINE_TEXT_COLORS[deadlineState(t.dueDate)]}`}>
                       {formatDate(t.dueDate)}
                     </span>
                     {overdue(t) && (

@@ -1,0 +1,2 @@
+import { apiJson } from './api';
+export const rolesApi = { list: () => apiJson('/roles'), get: (id) => apiJson(`/roles/${id}`), permissions: () => apiJson('/roles/permissions-catalog'), create: (payload) => apiJson('/roles', { method: 'POST', body: JSON.stringify(payload) }), update: (id, payload) => apiJson(`/roles/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }), remove: (id) => apiJson(`/roles/${id}`, { method: 'DELETE' }), setPermissions: (id, permissionKeys) => apiJson(`/roles/${id}/permissions`, { method: 'PUT', body: JSON.stringify({ permissionKeys }) }) };

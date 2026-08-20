@@ -27,6 +27,7 @@ export class DashboardService {
         where: leadWhere,
         select: {
           id: true,
+          businessCode: true,
           name: true,
           companyName: true,
           status: true,

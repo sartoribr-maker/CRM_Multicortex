@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { LeadPeriodicity } from '@prisma/client';
+import { LeadLine, LeadPeriodicity } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -20,6 +20,10 @@ import {
 import { CustomFieldValueInputDto } from './custom-field-value-input.dto';
 
 export class CreateLeadDto {
+  @ApiProperty({ enum: LeadLine })
+  @IsEnum(LeadLine)
+  line!: LeadLine;
+
   @ApiProperty()
   @IsString()
   @MinLength(1)

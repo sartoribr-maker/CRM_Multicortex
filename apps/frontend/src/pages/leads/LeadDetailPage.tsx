@@ -8,6 +8,7 @@ import { avatarUrl } from '../../lib/usersApi';
 import { useAuthStore } from '../../store/useAuthStore';
 import {
   LEAD_ACTIVITY_LABELS,
+  LEAD_LINE_LABELS,
   LEAD_PERIODICITY_LABELS,
   LEAD_STATUS_LABELS,
   type LeadActivity,
@@ -87,7 +88,9 @@ export default function LeadDetailPage() {
         <PageHeader
           eyebrow="Detalhes da oportunidade"
           title={lead.name}
-          description={lead.companyName ?? 'Empresa não informada'}
+          description={[lead.businessCode, lead.companyName ?? 'Empresa não informada']
+            .filter(Boolean)
+            .join(' · ')}
           actions={
             <>
               <button onClick={() => navigate(returnTo)} className="btn-secondary">
@@ -305,6 +308,8 @@ function OverviewTab({ lead }: { lead: LeadDetail }) {
             <p className="mt-1 text-xs text-slate-400">Contexto comercial da oportunidade</p>
           </div>
           <dl className="grid gap-x-6 gap-y-5 p-5 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="ID da oportunidade" value={lead.businessCode} accent />
+            <Field label="Linha" value={lead.line ? LEAD_LINE_LABELS[lead.line] : null} />
             <Field label="Empresa" value={lead.companyName} accent />
             <Field label="Documento" value={lead.companyDocument} />
             <Field label="Segmento" value={lead.companySegment} />

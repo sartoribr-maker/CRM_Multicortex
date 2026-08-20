@@ -16,7 +16,7 @@ import {
 } from '../../lib/settingsApi';
 import { avatarUrl, usersApi, type UserOption } from '../../lib/usersApi';
 import { useAuthStore } from '../../store/useAuthStore';
-import type { LeadListItem } from '../../types/leads';
+import { LEAD_LINE_LABELS, type LeadListItem } from '../../types/leads';
 import type { Partner } from '../../types/partners';
 import type { DealSize, Priority, ProjectType, Source, Stage } from '../../types/settings';
 
@@ -269,6 +269,18 @@ export default function LeadsKanbanPage() {
           </label>
           <select
             className="form-control"
+            value={filters.line ?? ''}
+            onChange={(event) => updateFilter('line', event.target.value)}
+          >
+            <option value="">Todas as linhas</option>
+            {Object.entries(LEAD_LINE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-control"
             value={filters.stageId ?? ''}
             onChange={(event) => updateFilter('stageId', event.target.value)}
           >
@@ -486,7 +498,9 @@ export default function LeadsKanbanPage() {
                               {lead.name}
                             </h3>
                             <p className="mt-1 line-clamp-1 text-xs text-slate-400">
-                              {lead.companyName || 'Empresa não informada'}
+                              {[lead.businessCode, lead.companyName || 'Empresa não informada']
+                                .filter(Boolean)
+                                .join(' · ')}
                             </p>
                           </div>
                           {lead.priority && (
@@ -513,7 +527,9 @@ export default function LeadsKanbanPage() {
                           </div>
                           <span className="text-[10px] font-semibold text-slate-400">
                             {lead.projectTypes.length
-                              ? lead.projectTypes.map(({ projectType }) => projectType.name).join(', ')
+                              ? lead.projectTypes
+                                  .map(({ projectType }) => projectType.name)
+                                  .join(', ')
                               : 'Sem categoria'}
                           </span>
                         </div>

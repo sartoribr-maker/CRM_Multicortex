@@ -224,7 +224,9 @@ export default function HomePage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-red-700">{lead.name}</p>
                   <p className="mt-0.5 truncate text-[11px] text-red-400">
-                    {lead.companyName || 'Sem empresa'} · {lead.owner.name}
+                    {[lead.businessCode, lead.companyName || 'Sem empresa', lead.owner.name]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </p>
                 </div>
                 <span className="rounded-lg bg-red-100 px-2 py-1 text-[10px] font-bold text-red-600">
@@ -271,7 +273,9 @@ export default function HomePage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-slate-700">{l.name}</p>
                   <p className="mt-0.5 text-[11px] text-slate-400">
-                    {l.companyName || 'Sem empresa'} · {l.owner.name}
+                    {[l.businessCode, l.companyName || 'Sem empresa', l.owner.name]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </p>
                 </div>
                 <div className="text-right">

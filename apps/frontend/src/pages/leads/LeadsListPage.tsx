@@ -15,7 +15,7 @@ import {
 } from '../../lib/settingsApi';
 import { avatarUrl, usersApi, type UserOption } from '../../lib/usersApi';
 import { useAuthStore } from '../../store/useAuthStore';
-import type { LeadListItem } from '../../types/leads';
+import { LEAD_LINE_LABELS, type LeadLine, type LeadListItem } from '../../types/leads';
 import type { Partner } from '../../types/partners';
 import type { DealSize, Priority, ProjectType, Source, Stage } from '../../types/settings';
 
@@ -181,10 +181,7 @@ export default function LeadsListPage() {
             b.assignees.map((item) => item.user.name).join(','),
           ],
           partner: [a.partner?.name ?? '', b.partner?.name ?? ''],
-          technicalPartner: [
-            a.technicalPartner?.name ?? '',
-            b.technicalPartner?.name ?? '',
-          ],
+          technicalPartner: [a.technicalPartner?.name ?? '', b.technicalPartner?.name ?? ''],
           dealSize: [a.dealSize?.name ?? '', b.dealSize?.name ?? ''],
           successProbability: [a.successProbability ?? -1, b.successProbability ?? -1],
           stageEnteredAt: [a.stageEnteredAt, b.stageEnteredAt],
@@ -268,6 +265,20 @@ export default function LeadsListPage() {
                 onChange={(e) => updateFilter({ search: e.target.value || undefined })}
               />
             </label>
+            <select
+              className="form-control"
+              value={filters.line ?? ''}
+              onChange={(e) =>
+                updateFilter({ line: (e.target.value || undefined) as LeadLine | undefined })
+              }
+            >
+              <option value="">Todas as linhas</option>
+              {Object.entries(LEAD_LINE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
             {[
               [stages, 'stageId', 'Todas as etapas'],
               [priorities, 'priorityId', 'Todas as prioridades'],
@@ -304,9 +315,7 @@ export default function LeadsListPage() {
             <select
               className="form-control"
               value={filters.technicalPartnerId ?? ''}
-              onChange={(e) =>
-                updateFilter({ technicalPartnerId: e.target.value || undefined })
-              }
+              onChange={(e) => updateFilter({ technicalPartnerId: e.target.value || undefined })}
             >
               <option value="">Todos os parceiros técnicos</option>
               {partners.map((partner) => (
@@ -422,7 +431,9 @@ export default function LeadsListPage() {
                         {lead.name}
                       </p>
                       <p className="mt-0.5 text-xs text-slate-400">
-                        {lead.companyName || 'Sem empresa informada'}
+                        {[lead.businessCode, lead.companyName || 'Sem empresa informada']
+                          .filter(Boolean)
+                          .join(' · ')}
                       </p>
                     </button>
                   </td>

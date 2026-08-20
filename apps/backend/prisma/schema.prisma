@@ -405,9 +405,17 @@ enum LeadStatus {
   LOST
 }
 
+enum LeadLine {
+  ENTERPRISE
+  PRIVACY
+  MIX
+}
+
 model Lead {
-  id   String @id @default(uuid())
-  name String
+  id           String    @id @default(uuid())
+  businessCode String?   @unique
+  line         LeadLine?
+  name         String
 
   companyName     String?
   companyDocument String?
@@ -470,6 +478,7 @@ model Lead {
   deletedAt DateTime?
 
   @@index([technicalPartnerId])
+  @@index([line])
   @@map("leads")
 }
 

@@ -18,7 +18,12 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { CustomFieldsFormSection } from '../../components/CustomFieldsFormSection';
 import { LeadAutocompleteInput } from '../../components/LeadAutocompleteInput';
 import { CurrencyInput, DateInput, PhoneInput } from '../../components/MaskedInputs';
-import { LEAD_PERIODICITY_LABELS, type LeadPeriodicity } from '../../types/leads';
+import {
+  LEAD_LINE_LABELS,
+  LEAD_PERIODICITY_LABELS,
+  type LeadLine,
+  type LeadPeriodicity,
+} from '../../types/leads';
 import type { DealSize, Priority, ProjectType, Segment, Source, Stage } from '../../types/settings';
 import { formatCurrency } from '../../lib/formatters';
 import { SERVICE_UNIT_LABELS } from '../settings/ServicesPanel';
@@ -104,6 +109,7 @@ export default function LeadFormPage() {
       .then((lead) => {
         setForm({
           name: lead.name,
+          line: lead.line ?? undefined,
           companyName: lead.companyName ?? undefined,
           companyDocument: lead.companyDocument ?? undefined,
           companySegment: lead.companySegment ?? undefined,
@@ -118,9 +124,7 @@ export default function LeadFormPage() {
           partnerId: lead.partner?.id,
           technicalPartnerId: lead.technicalPartner?.id,
           technicalServiceValue:
-            lead.technicalServiceValue === null
-              ? undefined
-              : Number(lead.technicalServiceValue),
+            lead.technicalServiceValue === null ? undefined : Number(lead.technicalServiceValue),
           successProbability: lead.successProbability ?? undefined,
           capexValue: lead.capexValue === null ? undefined : Number(lead.capexValue),
           opexValue: lead.opexValue === null ? undefined : Number(lead.opexValue),
@@ -215,8 +219,7 @@ export default function LeadFormPage() {
   const commercialCommissionPercentage = Number(
     selectedCommercialPartner?.commissionPercentage ?? 0,
   );
-  const commercialCommissionValue =
-    (form.capexValue ?? 0) * (commercialCommissionPercentage / 100);
+  const commercialCommissionValue = (form.capexValue ?? 0) * (commercialCommissionPercentage / 100);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -278,6 +281,22 @@ export default function LeadFormPage() {
               </p>
             </div>
             <div className="form-section-body">
+              <div>
+                <label className={labelClass}>Linha *</label>
+                <select
+                  required
+                  className={inputClass}
+                  value={form.line ?? ''}
+                  onChange={(e) => updateField('line', e.target.value as LeadLine)}
+                >
+                  <option value="">Selecione…</option>
+                  {Object.entries(LEAD_LINE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="md:col-span-2">
                 <label className={labelClass}>Nome do lead/oportunidade *</label>
                 <input

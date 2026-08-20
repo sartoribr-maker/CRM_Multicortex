@@ -1,6 +1,7 @@
 import type { TaskPriority } from './tasks';
 export interface DashboardLead {
   id: string;
+  businessCode: string | null;
   name: string;
   companyName: string | null;
   status: 'OPEN' | 'WON' | 'LOST';

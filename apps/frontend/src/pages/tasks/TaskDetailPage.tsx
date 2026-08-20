@@ -24,6 +24,7 @@ export default function TaskDetailPage() {
   const { id } = useParams();
   const nav = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const canCreate = user?.permissions.includes('tasks.create') ?? false;
   const canEdit = user?.permissions.includes('tasks.edit') ?? false;
   const canDelete = user?.permissions.includes('tasks.delete') ?? false;
   const isAdministrator = user?.role.name.trim().toLocaleLowerCase('pt-BR') === 'administrador';
@@ -180,6 +181,12 @@ export default function TaskDetailPage() {
                 <Icon name="arrow-left" className="h-4 w-4" />
                 Voltar
               </button>
+              {canCreate && (
+                <button className="btn-secondary" onClick={() => nav('/tasks/nova')}>
+                  <Icon name="plus" className="h-4 w-4" />
+                  Nova tarefa
+                </button>
+              )}
               {canEdit && (
                 <button className="btn-primary" onClick={() => nav(`/tasks/${task.id}/editar`)}>
                   <Icon name="edit" className="h-4 w-4" />

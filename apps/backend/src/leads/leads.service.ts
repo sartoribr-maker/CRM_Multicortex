@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { CustomFieldType, Prisma } from '@prisma/client';
+import { CustomFieldType, LeadLine, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeadActivityService } from './lead-activity.service';
 import { PERMISSIONS } from '../auth/constants/permissions';
@@ -33,6 +33,12 @@ const LEAD_DETAIL_INCLUDE = {
   ...LEAD_LIST_INCLUDE,
   customFieldValues: { include: { customField: true } },
 } satisfies Prisma.LeadInclude;
+
+const LEAD_LINE_PREFIX: Record<LeadLine, string> = {
+  ENTERPRISE: 'ENT',
+  PRIVACY: 'PRI',
+  MIX: 'MIX',
+};
 
 @Injectable()
 export class LeadsService {
@@ -74,6 +80,7 @@ export class LeadsService {
           : {},
       ],
       ...(query.stageId ? { stageId: query.stageId } : {}),
+      ...(query.line ? { line: query.line } : {}),
       ...(query.priorityId ? { priorityId: query.priorityId } : {}),
       ...(query.dealSizeId ? { dealSizeId: query.dealSizeId } : {}),
       ...(query.sourceId ? { sourceId: query.sourceId } : {}),
@@ -94,6 +101,7 @@ export class LeadsService {
       ...(query.search
         ? {
             OR: [
+              { businessCode: { contains: query.search, mode: 'insensitive' } },
               { name: { contains: query.search, mode: 'insensitive' } },
               { companyName: { contains: query.search, mode: 'insensitive' } },
               { contactName: { contains: query.search, mode: 'insensitive' } },
@@ -267,13 +275,28 @@ export class LeadsService {
     ];
     const ownerId = requestedOwnerIds[0];
     const requestedProjectTypeIds = [
-      ...new Set(dto.projectTypeIds?.length ? dto.projectTypeIds : dto.projectTypeId ? [dto.projectTypeId] : []),
+      ...new Set(
+        dto.projectTypeIds?.length
+          ? dto.projectTypeIds
+          : dto.projectTypeId
+            ? [dto.projectTypeId]
+            : [],
+      ),
     ];
 
     const estimatedValue = this.calculateEstimatedValue(dto.capexValue, dto.opexValue);
     const lead = await this.prisma.$transaction(async (tx) => {
+      const [sequence] = await tx.$queryRaw<Array<{ value: number }>>`
+        SELECT nextval('lead_business_code_seq')::int AS value
+      `;
+      if (sequence.value > 99999) {
+        throw new BadRequestException('A sequência de IDs de oportunidades atingiu o limite.');
+      }
+      const businessCode = `${LEAD_LINE_PREFIX[dto.line]}${String(sequence.value).padStart(5, '0')}`;
       const created = await tx.lead.create({
         data: {
+          businessCode,
+          line: dto.line,
           name: dto.name,
           companyName: dto.companyName,
           companyDocument: dto.companyDocument,
@@ -385,6 +408,7 @@ export class LeadsService {
     const capexValue = dto.capexValue ?? Number(existing.capexValue ?? 0);
     const opexValue = dto.opexValue ?? Number(existing.opexValue ?? 0);
     const data: Prisma.LeadUpdateInput = {
+      ...(dto.line ? { line: dto.line } : {}),
       name: dto.name,
       companyName: dto.companyName,
       companyDocument: dto.companyDocument,
@@ -413,9 +437,7 @@ export class LeadsService {
       ...(dto.sourceId !== undefined ? { source: { connect: { id: dto.sourceId } } } : {}),
       ...(dto.partnerId !== undefined
         ? {
-            partner: dto.partnerId
-              ? { connect: { id: dto.partnerId } }
-              : { disconnect: true },
+            partner: dto.partnerId ? { connect: { id: dto.partnerId } } : { disconnect: true },
           }
         : {}),
       ...(dto.technicalPartnerId !== undefined
@@ -433,6 +455,20 @@ export class LeadsService {
     };
 
     await this.prisma.$transaction(async (tx) => {
+      if (dto.line) {
+        if (existing.businessCode) {
+          data.businessCode = `${LEAD_LINE_PREFIX[dto.line]}${existing.businessCode.slice(3)}`;
+        } else {
+          const [sequence] = await tx.$queryRaw<Array<{ value: number }>>`
+            SELECT nextval('lead_business_code_seq')::int AS value
+          `;
+          if (sequence.value > 99999) {
+            throw new BadRequestException('A sequência de IDs de oportunidades atingiu o limite.');
+          }
+          data.businessCode = `${LEAD_LINE_PREFIX[dto.line]}${String(sequence.value).padStart(5, '0')}`;
+        }
+      }
+
       if (dto.stageId && dto.stageId !== existing.stageId) {
         if (!dto.actionDescription?.trim()) {
           throw new BadRequestException('Descreva a ação realizada ao alterar a etapa.');

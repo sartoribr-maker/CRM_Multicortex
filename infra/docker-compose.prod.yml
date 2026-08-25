@@ -43,8 +43,9 @@ services:
       timeout: 5s
       start_period: 20s
       retries: 3
-    networks: [internal]
-
+    networks:
+    - internal
+    - public
   frontend:
     build:
       context: ..

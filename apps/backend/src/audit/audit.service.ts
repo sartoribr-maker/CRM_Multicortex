@@ -33,6 +33,7 @@ export type AuditAction =
   | 'TASK_DELETED'
   | 'TASK_DEADLINE_EXTENDED'
   | 'TASK_TRANSFERRED'
+  | 'TASK_REMINDER_SENT'
   | 'LEAD_DELETED';
 
 interface RecordParams {

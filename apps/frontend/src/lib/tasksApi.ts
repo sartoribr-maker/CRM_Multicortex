@@ -1,5 +1,12 @@
 import { apiFetch, apiJson } from './api';
-import type { Task, TaskAttachment, TaskFilters, TaskHistoryEntry, TaskListResponse, TaskPayload } from '../types/tasks';
+import type {
+  Task,
+  TaskAttachment,
+  TaskFilters,
+  TaskHistoryEntry,
+  TaskListResponse,
+  TaskPayload,
+} from '../types/tasks';
 function qs(filters: TaskFilters) {
   const p = new URLSearchParams();
   Object.entries(filters).forEach(([k, v]) => v !== undefined && v !== '' && p.set(k, String(v)));
@@ -13,6 +20,8 @@ export const tasksApi = {
   update: (id: string, payload: Partial<TaskPayload>) =>
     apiJson<Task>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   complete: (id: string) => apiJson<Task>(`/tasks/${id}/complete`, { method: 'POST' }),
+  sendReminder: (id: string) =>
+    apiJson<{ success: boolean }>(`/tasks/${id}/reminder`, { method: 'POST' }),
   extendDeadline: (id: string, dueDate: string, reason: string) =>
     apiJson<Task>(`/tasks/${id}/extend-deadline`, {
       method: 'POST',
@@ -27,8 +36,7 @@ export const tasksApi = {
   archive: (id: string) =>
     apiJson<{ success: boolean }>(`/tasks/${id}/archive`, { method: 'POST' }),
   remove: (id: string) => apiJson<{ success: boolean }>(`/tasks/${id}`, { method: 'DELETE' }),
-  listAttachments: (taskId: string) =>
-    apiJson<TaskAttachment[]>(`/tasks/${taskId}/attachments`),
+  listAttachments: (taskId: string) => apiJson<TaskAttachment[]>(`/tasks/${taskId}/attachments`),
   uploadAttachment: async (taskId: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);

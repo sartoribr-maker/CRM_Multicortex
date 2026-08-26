@@ -55,6 +55,12 @@ export class TasksController {
   ) {
     return this.service.update(id, { status: 'DONE' }, user);
   }
+  @Post(':id/reminder') @RequirePermissions(PERMISSIONS.TASKS_EDIT) sendReminder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.sendReminder(id, user);
+  }
   @Post(':id/extend-deadline') @RequirePermissions(PERMISSIONS.TASKS_EDIT) extendDeadline(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ExtendTaskDeadlineDto,

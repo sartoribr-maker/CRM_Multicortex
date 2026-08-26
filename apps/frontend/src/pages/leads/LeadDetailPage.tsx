@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
 import { leadsApi } from '../../lib/leadsApi';
+import { tasksApi } from '../../lib/tasksApi';
 import { formatCurrency, formatDate, formatPhone } from '../../lib/formatters';
 import { avatarUrl } from '../../lib/usersApi';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -15,8 +16,14 @@ import {
   type LeadAttachment,
   type LeadDetail,
 } from '../../types/leads';
+import {
+  TASK_PRIORITY_COLORS,
+  TASK_PRIORITY_LABELS,
+  TASK_STATUS_LABELS,
+  type Task,
+} from '../../types/tasks';
 
-type Tab = 'overview' | 'timeline' | 'attachments';
+type Tab = 'overview' | 'tasks' | 'timeline' | 'attachments';
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -41,9 +48,11 @@ export default function LeadDetailPage() {
   const canCreate = user?.permissions.includes('leads.create') ?? false;
   const canDelete = user?.permissions.includes('leads.delete') ?? false;
   const canCreateTask = user?.permissions.includes('tasks.create') ?? false;
+  const canViewTasks = user?.permissions.includes('tasks.view') ?? false;
 
   const [lead, setLead] = useState<LeadDetail | null>(null);
-  const [tab, setTab] = useState<Tab>('overview');
+  const requestedTab = new URLSearchParams(location.search).get('tab');
+  const [tab, setTab] = useState<Tab>(requestedTab === 'tasks' ? 'tasks' : 'overview');
   const [error, setError] = useState<string | null>(null);
 
   function loadLead() {
@@ -184,6 +193,7 @@ export default function LeadDetailPage() {
           {(
             [
               ['overview', 'Visão Geral'],
+              ['tasks', 'Tarefas'],
               ['timeline', 'Linha do Tempo'],
               ['attachments', 'Anexos'],
             ] as [Tab, string][]
@@ -204,6 +214,9 @@ export default function LeadDetailPage() {
 
         <div className={tab === 'overview' ? 'mt-5' : 'mt-5 card p-5 md:p-7'}>
           {tab === 'overview' && <OverviewTab lead={lead} />}
+          {tab === 'tasks' && (
+            <TasksTab leadId={lead.id} canView={canViewTasks} canCreate={canCreateTask} />
+          )}
           {tab === 'timeline' && <TimelineTab leadId={lead.id} canComment={canEdit} />}
           {tab === 'attachments' && (
             <AttachmentsTab leadId={lead.id} canEdit={canEdit} onUploaded={loadLead} />
@@ -211,6 +224,190 @@ export default function LeadDetailPage() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function TasksTab({
+  leadId,
+  canView,
+  canCreate,
+}: {
+  leadId: string;
+  canView: boolean;
+  canCreate: boolean;
+}) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const user = useAuthStore((state) => state.user);
+  const canSendReminder = user?.permissions.includes('tasks.edit') ?? false;
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(canView);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!canView) return;
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    async function loadTasks() {
+      const firstPage = await tasksApi.list({ leadId, page: 1, pageSize: 100 });
+      const remainingPages = await Promise.all(
+        Array.from({ length: Math.max(0, firstPage.totalPages - 1) }, (_, index) =>
+          tasksApi.list({ leadId, page: index + 2, pageSize: 100 }),
+        ),
+      );
+      return [firstPage, ...remainingPages].flatMap((page) => page.items);
+    }
+
+    loadTasks()
+      .then((items) => {
+        if (!cancelled) setTasks(items);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Erro ao carregar tarefas.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canView, leadId]);
+
+  if (!canView) {
+    return (
+      <p className="py-8 text-center text-sm text-slate-500">
+        Você não tem permissão para visualizar tarefas.
+      </p>
+    );
+  }
+
+  if (loading) {
+    return <p className="py-8 text-center text-sm text-slate-400">Carregando tarefas…</p>;
+  }
+
+  if (error) {
+    return <p className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</p>;
+  }
+
+  const openTask = (taskId: string) =>
+    navigate(`/tasks/${taskId}`, {
+      state: { returnTo: `${location.pathname}?tab=tasks` },
+    });
+
+  async function sendReminder(task: Task) {
+    const recipients = task.assignees.map(({ user: assignee }) => assignee.name).join(', ');
+    if (!window.confirm(`Enviar um e-mail de lembrete para ${recipients}?`)) return;
+    setSendingReminderId(task.id);
+    setError(null);
+    try {
+      await tasksApi.sendReminder(task.id);
+      window.alert('E-mail de lembrete enviado com sucesso.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao enviar o lembrete.');
+    } finally {
+      setSendingReminderId(null);
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-heading text-lg font-bold text-slate-800">Tarefas da oportunidade</h2>
+          <p className="mt-1 text-xs text-slate-400">
+            {tasks.length} tarefa{tasks.length === 1 ? '' : 's'} vinculada
+            {tasks.length === 1 ? '' : 's'}
+          </p>
+        </div>
+        {canCreate && (
+          <button className="btn-primary" onClick={() => navigate(`/tasks/nova?leadId=${leadId}`)}>
+            <Icon name="plus" className="h-4 w-4" />
+            Nova tarefa
+          </button>
+        )}
+      </div>
+
+      <div className="overflow-x-auto rounded-card border border-slate-200">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Tarefa</th>
+              <th>Prazo</th>
+              <th>Prioridade</th>
+              <th>Status</th>
+              <th>Responsável</th>
+              <th className="text-right">Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tasks.map((task) => (
+              <tr key={task.id}>
+                <td>
+                  <button
+                    className="text-left font-semibold text-slate-800 hover:text-brand-purple"
+                    onClick={() => openTask(task.id)}
+                  >
+                    {task.title}
+                  </button>
+                  {task.description && (
+                    <p className="mt-1 max-w-sm truncate text-xs text-slate-400">
+                      {task.description}
+                    </p>
+                  )}
+                </td>
+                <td className="whitespace-nowrap font-semibold text-slate-600">
+                  {formatDate(task.dueDate)}
+                </td>
+                <td>
+                  <span
+                    className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-bold ${TASK_PRIORITY_COLORS[task.priority]}`}
+                  >
+                    {TASK_PRIORITY_LABELS[task.priority]}
+                  </span>
+                </td>
+                <td className="whitespace-nowrap">{TASK_STATUS_LABELS[task.status]}</td>
+                <td>{task.assignees.map(({ user: assignee }) => assignee.name).join(', ')}</td>
+                <td className="text-right">
+                  <div className="flex justify-end gap-1">
+                    {canSendReminder && (
+                      <button
+                        className="icon-button"
+                        title="Enviar lembrete por e-mail"
+                        disabled={sendingReminderId === task.id}
+                        onClick={() => void sendReminder(task)}
+                      >
+                        <Icon name="mail" className="h-4 w-4" />
+                      </button>
+                    )}
+                    <button
+                      className="icon-button"
+                      title="Abrir tarefa"
+                      onClick={() => openTask(task.id)}
+                    >
+                      <Icon name="external" className="h-4 w-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {tasks.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-sm text-slate-400">
+                  Nenhuma tarefa vinculada a esta oportunidade.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

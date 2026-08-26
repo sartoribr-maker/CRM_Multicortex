@@ -1,5 +1,5 @@
 import { type ChangeEvent, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
 import { brazilianDateToIso, formatDate, isoToBrazilianDate } from '../../lib/formatters';
@@ -23,6 +23,13 @@ function formatBytes(bytes: number): string {
 export default function TaskDetailPage() {
   const { id } = useParams();
   const nav = useNavigate();
+  const location = useLocation();
+  const requestedReturnTo = (location.state as { returnTo?: unknown } | null)?.returnTo;
+  const returnTo =
+    typeof requestedReturnTo === 'string' &&
+    /^\/leads\/[0-9a-f-]+\?tab=tasks$/i.test(requestedReturnTo)
+      ? requestedReturnTo
+      : '/tasks';
   const user = useAuthStore((s) => s.user);
   const canCreate = user?.permissions.includes('tasks.create') ?? false;
   const canEdit = user?.permissions.includes('tasks.edit') ?? false;
@@ -43,10 +50,20 @@ export default function TaskDetailPage() {
   }, [id]);
   useEffect(() => {
     if (id) {
-      tasksApi.listAttachments(id).then(setAttachments).catch(() => undefined);
-      tasksApi.history(id).then(setHistory).catch(() => undefined);
+      tasksApi
+        .listAttachments(id)
+        .then(setAttachments)
+        .catch(() => undefined);
+      tasksApi
+        .history(id)
+        .then(setHistory)
+        .catch(() => undefined);
     }
-    if (isAdministrator) usersApi.list().then(setUsers).catch(() => undefined);
+    if (isAdministrator)
+      usersApi
+        .list()
+        .then(setUsers)
+        .catch(() => undefined);
   }, [id, isAdministrator]);
   async function upload(event: ChangeEvent<HTMLInputElement>) {
     if (!id) return;
@@ -177,7 +194,7 @@ export default function TaskDetailPage() {
           description={`Criada por ${task.createdByUser.name}`}
           actions={
             <>
-              <button className="btn-secondary" onClick={() => nav('/tasks')}>
+              <button className="btn-secondary" onClick={() => nav(returnTo)}>
                 <Icon name="arrow-left" className="h-4 w-4" />
                 Voltar
               </button>
@@ -306,7 +323,9 @@ export default function TaskDetailPage() {
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <div>
               <h2 className="font-heading font-bold text-slate-800">Anexos</h2>
-              <p className="mt-1 text-xs text-slate-400">Documentos e arquivos relacionados à tarefa</p>
+              <p className="mt-1 text-xs text-slate-400">
+                Documentos e arquivos relacionados à tarefa
+              </p>
             </div>
             {canEdit && (
               <label className="btn-secondary cursor-pointer">
@@ -326,7 +345,10 @@ export default function TaskDetailPage() {
           {attachments.length ? (
             <ul className="divide-y divide-slate-100">
               {attachments.map((attachment) => (
-                <li key={attachment.id} className="flex items-center justify-between gap-3 px-5 py-4">
+                <li
+                  key={attachment.id}
+                  className="flex items-center justify-between gap-3 px-5 py-4"
+                >
                   <div className="flex min-w-0 items-center gap-3">
                     <Icon name="file" className="h-5 w-5 shrink-0 text-brand-purple" />
                     <div className="min-w-0">
@@ -346,7 +368,9 @@ export default function TaskDetailPage() {
                     </button>
                     <button
                       className="btn-secondary"
-                      onClick={() => tasksApi.downloadAttachment(task.id, attachment.id, attachment.fileName)}
+                      onClick={() =>
+                        tasksApi.downloadAttachment(task.id, attachment.id, attachment.fileName)
+                      }
                     >
                       Baixar
                     </button>
@@ -365,7 +389,9 @@ export default function TaskDetailPage() {
         </section>
         <section className="card mt-5 overflow-hidden">
           <div className="border-b border-slate-100 px-5 py-4">
-            <h2 className="font-heading font-bold text-slate-800">Histórico de prorrogações e transferências</h2>
+            <h2 className="font-heading font-bold text-slate-800">
+              Histórico de prorrogações e transferências
+            </h2>
           </div>
           {history.length ? (
             <ul className="divide-y divide-slate-100">
@@ -373,7 +399,9 @@ export default function TaskDetailPage() {
                 <li key={entry.id} className="px-5 py-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-bold text-slate-700">
-                      {entry.type === 'DEADLINE_EXTENDED' ? 'Prazo prorrogado' : 'Tarefa transferida'}
+                      {entry.type === 'DEADLINE_EXTENDED'
+                        ? 'Prazo prorrogado'
+                        : 'Tarefa transferida'}
                     </p>
                     <p className="text-xs text-slate-400">
                       {formatDate(entry.createdAt)} · {entry.actorUser.name}
@@ -389,7 +417,9 @@ export default function TaskDetailPage() {
               ))}
             </ul>
           ) : (
-            <p className="p-8 text-center text-sm text-slate-400">Nenhuma prorrogação ou transferência registrada.</p>
+            <p className="p-8 text-center text-sm text-slate-400">
+              Nenhuma prorrogação ou transferência registrada.
+            </p>
           )}
         </section>
       </div>

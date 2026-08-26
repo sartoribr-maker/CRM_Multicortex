@@ -135,10 +135,20 @@ export class EmailNotificationsService {
     );
   }
 
+  async taskReminder(data: TaskEmailData): Promise<void> {
+    await this.taskNotification(
+      data,
+      'Lembrete de tarefa',
+      'Este é um lembrete para uma tarefa sob sua responsabilidade.',
+      true,
+    );
+  }
+
   private async taskNotification(
     data: TaskEmailData,
     title: string,
     greeting: string,
+    throwOnError = false,
   ): Promise<void> {
     await this.sendToEach(
       data.assignees?.length ? data.assignees : [data.assignee],
@@ -151,7 +161,12 @@ export class EmailNotificationsService {
           ...(data.description
             ? ([['Descrição', data.description]] as Array<[string, string]>)
             : []),
-          ['Responsáveis', (data.assignees?.length ? data.assignees : [data.assignee]).map((item) => item.name).join(', ')],
+          [
+            'Responsáveis',
+            (data.assignees?.length ? data.assignees : [data.assignee])
+              .map((item) => item.name)
+              .join(', '),
+          ],
           ...(data.createdByName
             ? ([['Criada por', data.createdByName]] as Array<[string, string]>)
             : []),
@@ -169,6 +184,7 @@ export class EmailNotificationsService {
         link: `${this.frontendUrl}/tasks/${data.id}`,
         linkLabel: 'Abrir tarefa',
       }),
+      throwOnError,
     );
   }
 

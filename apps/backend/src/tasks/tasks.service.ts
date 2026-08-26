@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
@@ -91,6 +96,30 @@ export class TasksService {
     if (!task) throw new NotFoundException('Tarefa não encontrada.');
     return task;
   }
+  async sendReminder(id: string, user: JwtPayload) {
+    const task = await this.findOne(id, user);
+    await this.emailNotifications.taskReminder({
+      id: task.id,
+      title: task.title,
+      dueDate: task.dueDate,
+      status: task.status,
+      priority: task.priority,
+      assignee: task.assignee,
+      assignees: task.assignees.map(({ user: assignee }) => assignee),
+      leadName: task.lead?.name,
+      description: task.description,
+      createdByName: task.createdByUser.name,
+      leadCompanyName: task.lead?.companyName,
+      leadStageName: task.lead?.stage.name,
+    });
+    await this.audit.record({
+      action: 'TASK_REMINDER_SENT',
+      actorUserId: user.sub,
+      targetType: 'Task',
+      targetId: task.id,
+    });
+    return { success: true };
+  }
   async create(dto: CreateTaskDto, user: JwtPayload) {
     const assigneeIds = [
       ...new Set(dto.assigneeIds?.length ? dto.assigneeIds : [dto.assigneeId ?? user.sub]),
@@ -146,7 +175,10 @@ export class TasksService {
       : dto.assigneeId
         ? [dto.assigneeId]
         : undefined;
-    if (requestedAssigneeIds?.some((assigneeId) => assigneeId !== user.sub) && !this.canViewAll(user))
+    if (
+      requestedAssigneeIds?.some((assigneeId) => assigneeId !== user.sub) &&
+      !this.canViewAll(user)
+    )
       throw new ForbiddenException('Você não pode reatribuir esta tarefa.');
     const completedAt = dto.status
       ? dto.status === 'DONE'
@@ -174,7 +206,11 @@ export class TasksService {
       if (requestedAssigneeIds) {
         await tx.taskAssignee.deleteMany({ where: { taskId: id } });
         await tx.taskAssignee.createMany({
-          data: requestedAssigneeIds.map((userId) => ({ taskId: id, userId, assignedBy: user.sub })),
+          data: requestedAssigneeIds.map((userId) => ({
+            taskId: id,
+            userId,
+            assignedBy: user.sub,
+          })),
         });
       }
       return tx.task.findUniqueOrThrow({ where: { id }, include: INCLUDE });

@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
+import { TaskDeadline } from '../../components/TaskDeadline';
 import { leadsApi } from '../../lib/leadsApi';
 import { tasksApi } from '../../lib/tasksApi';
 import { formatCurrency, formatDate, formatPhone } from '../../lib/formatters';
@@ -114,7 +115,11 @@ export default function LeadDetailPage() {
               )}
               {canCreateTask && (
                 <button
-                  onClick={() => navigate(`/tasks/nova?leadId=${lead.id}`)}
+                  onClick={() =>
+                    navigate(`/tasks/nova?leadId=${lead.id}`, {
+                      state: { returnTo: `/leads/${lead.id}?tab=tasks` },
+                    })
+                  }
                   className="btn-secondary"
                 >
                   <Icon name="plus" className="h-4 w-4" />
@@ -239,7 +244,8 @@ function TasksTab({
   const navigate = useNavigate();
   const location = useLocation();
   const user = useAuthStore((state) => state.user);
-  const canSendReminder = user?.permissions.includes('tasks.edit') ?? false;
+  const canEdit = user?.permissions.includes('tasks.edit') ?? false;
+  const canDelete = user?.permissions.includes('tasks.delete') ?? false;
   const [tasks, setTasks] = useState<Task[]>([]);
   const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
   const [loading, setLoading] = useState(canView);
@@ -301,6 +307,27 @@ function TasksTab({
       state: { returnTo: `${location.pathname}?tab=tasks` },
     });
 
+  const editTask = (taskId: string) =>
+    navigate(`/tasks/${taskId}/editar`, {
+      state: { returnTo: `${location.pathname}?tab=tasks` },
+    });
+
+  async function removeTask(task: Task) {
+    const confirmation = window.prompt(
+      `Esta exclusão é definitiva. Para confirmar, digite o título da tarefa:\n\n${task.title}`,
+    );
+    if (confirmation !== task.title) {
+      if (confirmation !== null) window.alert('O título informado não corresponde à tarefa.');
+      return;
+    }
+    try {
+      await tasksApi.remove(task.id);
+      setTasks((current) => current.filter((item) => item.id !== task.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao excluir a tarefa.');
+    }
+  }
+
   async function sendReminder(task: Task) {
     const recipients = task.assignees.map(({ user: assignee }) => assignee.name).join(', ');
     if (!window.confirm(`Enviar um e-mail de lembrete para ${recipients}?`)) return;
@@ -327,7 +354,14 @@ function TasksTab({
           </p>
         </div>
         {canCreate && (
-          <button className="btn-primary" onClick={() => navigate(`/tasks/nova?leadId=${leadId}`)}>
+          <button
+            className="btn-primary"
+            onClick={() =>
+              navigate(`/tasks/nova?leadId=${leadId}`, {
+                state: { returnTo: `${location.pathname}?tab=tasks` },
+              })
+            }
+          >
             <Icon name="plus" className="h-4 w-4" />
             Nova tarefa
           </button>
@@ -362,8 +396,8 @@ function TasksTab({
                     </p>
                   )}
                 </td>
-                <td className="whitespace-nowrap font-semibold text-slate-600">
-                  {formatDate(task.dueDate)}
+                <td>
+                  <TaskDeadline dueDate={task.dueDate} />
                 </td>
                 <td>
                   <span
@@ -376,7 +410,7 @@ function TasksTab({
                 <td>{task.assignees.map(({ user: assignee }) => assignee.name).join(', ')}</td>
                 <td className="text-right">
                   <div className="flex justify-end gap-1">
-                    {canSendReminder && (
+                    {canEdit && (
                       <button
                         className="icon-button"
                         title="Enviar lembrete por e-mail"
@@ -384,6 +418,24 @@ function TasksTab({
                         onClick={() => void sendReminder(task)}
                       >
                         <Icon name="mail" className="h-4 w-4" />
+                      </button>
+                    )}
+                    {canEdit && (
+                      <button
+                        className="icon-button"
+                        title="Editar tarefa"
+                        onClick={() => editTask(task.id)}
+                      >
+                        <Icon name="edit" className="h-4 w-4" />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        className="icon-button hover:!text-red-600"
+                        title="Excluir tarefa"
+                        onClick={() => void removeTask(task)}
+                      >
+                        <Icon name="trash" className="h-4 w-4" />
                       </button>
                     )}
                     <button

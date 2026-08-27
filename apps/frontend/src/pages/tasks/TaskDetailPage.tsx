@@ -161,7 +161,7 @@ export default function TaskDetailPage() {
   async function archive() {
     if (task && window.confirm('Arquivar esta tarefa?')) {
       await tasksApi.archive(task.id);
-      nav('/tasks');
+      nav(returnTo);
     }
   }
   async function remove() {
@@ -174,7 +174,7 @@ export default function TaskDetailPage() {
       return;
     }
     await tasksApi.remove(task.id);
-    nav('/tasks');
+    nav(returnTo);
   }
   if (error)
     return (
@@ -205,7 +205,10 @@ export default function TaskDetailPage() {
                 </button>
               )}
               {canEdit && (
-                <button className="btn-primary" onClick={() => nav(`/tasks/${task.id}/editar`)}>
+                <button
+                  className="btn-primary"
+                  onClick={() => nav(`/tasks/${task.id}/editar`, { state: { returnTo } })}
+                >
                   <Icon name="edit" className="h-4 w-4" />
                   Editar
                 </button>

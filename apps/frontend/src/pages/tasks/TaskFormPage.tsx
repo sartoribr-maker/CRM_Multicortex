@@ -1,5 +1,5 @@
 import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
 import { DateInput } from '../../components/MaskedInputs';
@@ -24,6 +24,13 @@ export default function TaskFormPage() {
   const editing = Boolean(id);
   const [params] = useSearchParams();
   const nav = useNavigate();
+  const location = useLocation();
+  const requestedReturnTo = (location.state as { returnTo?: unknown } | null)?.returnTo;
+  const returnTo =
+    typeof requestedReturnTo === 'string' &&
+    /^\/leads\/[0-9a-f-]+\?tab=tasks$/i.test(requestedReturnTo)
+      ? requestedReturnTo
+      : '/tasks';
   const user = useAuthStore((s) => s.user);
   const isAdministrator = user?.role.name.trim().toLocaleLowerCase('pt-BR') === 'administrador';
   const [form, setForm] = useState<TaskPayload>({
@@ -72,7 +79,7 @@ export default function TaskFormPage() {
       const payload = { ...form, dueDate: new Date(`${form.dueDate}T12:00:00`).toISOString() };
       const r = editing ? await tasksApi.update(id!, payload) : await tasksApi.create(payload);
       await Promise.all(files.map((file) => tasksApi.uploadAttachment(r.id, file)));
-      nav(`/tasks/${r.id}`);
+      nav(`/tasks/${r.id}`, { state: { returnTo } });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar tarefa.');
     } finally {
@@ -100,7 +107,7 @@ export default function TaskFormPage() {
           title={editing ? 'Editar tarefa' : 'Nova tarefa'}
           description="Organize o próximo passo, responsável e prazo da atividade."
           actions={
-            <button className="btn-secondary" onClick={() => nav('/tasks')}>
+            <button className="btn-secondary" onClick={() => nav(returnTo)}>
               <Icon name="x" className="h-4 w-4" />
               Cancelar
             </button>

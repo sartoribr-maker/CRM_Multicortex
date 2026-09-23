@@ -86,6 +86,21 @@ export class EmailNotificationsService {
     );
   }
 
+  async sendPasswordResetEmail(email: string, name: string, resetToken: string): Promise<void> {
+    const resetLink = `${this.frontendUrl}/reset-password?token=${resetToken}`;
+    await this.sendToEach(
+      [{ email, name }],
+      'Redefinição de senha — Multicortex CRM',
+      this.template({
+        title: 'Redefinição de senha',
+        greeting: `Olá ${escapeHtml(name)}, recebemos uma solicitação para redefinir a senha da sua conta no Multicortex CRM.`,
+        rows: [['E-mail', email]],
+        link: resetLink,
+        linkLabel: 'Redefinir minha senha',
+      }),
+    );
+  }
+
   async leadCreated(data: LeadEmailData): Promise<void> {
     await this.sendToEach(
       data.recipients,

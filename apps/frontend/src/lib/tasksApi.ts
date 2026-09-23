@@ -19,7 +19,8 @@ export const tasksApi = {
     apiJson<Task>('/tasks', { method: 'POST', body: JSON.stringify(payload) }),
   update: (id: string, payload: Partial<TaskPayload>) =>
     apiJson<Task>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
-  complete: (id: string) => apiJson<Task>(`/tasks/${id}/complete`, { method: 'POST' }),
+  complete: (id: string, reason: string) =>
+    apiJson<Task>(`/tasks/${id}/complete`, { method: 'POST', body: JSON.stringify({ reason }) }),
   sendReminder: (id: string) =>
     apiJson<{ success: boolean }>(`/tasks/${id}/reminder`, { method: 'POST' }),
   extendDeadline: (id: string, dueDate: string, reason: string) =>

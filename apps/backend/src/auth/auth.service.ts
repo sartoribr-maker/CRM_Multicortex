@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { EmailNotificationsService } from '../notifications/email-notifications.service';
 import type { JwtPayload } from './types/jwt-payload.interface';
 
 interface RequestMeta {
@@ -42,6 +43,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
+    private readonly emailNotifications: EmailNotificationsService,
   ) {}
 
   private hashToken(rawToken: string): string {
@@ -274,11 +276,11 @@ export class AuthService {
       },
     });
 
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
-    const resetLink = `${frontendUrl}/reset-password?token=${raw}`;
-
-    // SMTP real entra na Fase 6+; por ora, simulamos o envio via log.
-    this.logger.log(`[email simulado] Reset de senha para ${email}: ${resetLink}`);
+    try {
+      await this.emailNotifications.sendPasswordResetEmail(user.email, user.name, raw);
+    } catch (error) {
+      this.logger.error('Falha ao enviar e-mail de redefinição de senha', error);
+    }
 
     await this.auditService.record({
       action: 'PASSWORD_RESET_REQUESTED',

@@ -46,6 +46,7 @@ export default function TaskFormPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
+  const [originalStatus, setOriginalStatus] = useState<TaskStatus | null>(null);
   useEffect(() => {
     leadsApi.list({ pageSize: 100 }).then((r) => setLeads(r.items));
     if (isAdministrator) usersApi.list().then(setUsers);
@@ -54,7 +55,8 @@ export default function TaskFormPage() {
     if (!id) return;
     tasksApi
       .get(id)
-      .then((t) =>
+      .then((t) => {
+        setOriginalStatus(t.status);
         setForm({
           title: t.title,
           description: t.description ?? undefined,
@@ -63,8 +65,8 @@ export default function TaskFormPage() {
           dueDate: localDate(new Date(t.dueDate)),
           leadId: t.lead?.id,
           assigneeIds: t.assignees.map(({ user: assignee }) => assignee.id),
-        }),
-      )
+        });
+      })
       .catch((e) => setError(e instanceof Error ? e.message : 'Erro ao carregar.'))
       .finally(() => setLoading(false));
   }, [id]);
@@ -73,10 +75,22 @@ export default function TaskFormPage() {
   }
   async function submit(e: FormEvent) {
     e.preventDefault();
+    const payload: TaskPayload = {
+      ...form,
+      dueDate: new Date(`${form.dueDate}T12:00:00`).toISOString(),
+    };
+    const completing = form.status === 'DONE' && (!editing || originalStatus !== 'DONE');
+    if (completing) {
+      const reason = window.prompt('Informe a justificativa obrigatória para concluir a tarefa:');
+      if (!reason?.trim()) {
+        setError('A justificativa é obrigatória ao concluir a tarefa.');
+        return;
+      }
+      payload.completionReason = reason.trim();
+    }
     setSaving(true);
     setError(null);
     try {
-      const payload = { ...form, dueDate: new Date(`${form.dueDate}T12:00:00`).toISOString() };
       const r = editing ? await tasksApi.update(id!, payload) : await tasksApi.create(payload);
       await Promise.all(files.map((file) => tasksApi.uploadAttachment(r.id, file)));
       nav(`/tasks/${r.id}`, { state: { returnTo } });

@@ -14,6 +14,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { EmailNotificationsService } from '../notifications/email-notifications.service';
 import { ExtendTaskDeadlineDto } from './dto/extend-task-deadline.dto';
 import { TransferTaskDto } from './dto/transfer-task.dto';
+import { CompleteTaskDto } from './dto/complete-task.dto';
 
 const INCLUDE = {
   assignee: { select: { id: true, name: true, email: true } },
@@ -144,6 +145,20 @@ export class TasksService {
       await tx.taskAssignee.createMany({
         data: assigneeIds.map((userId) => ({ taskId: created.id, userId, assignedBy: user.sub })),
       });
+      if (dto.status === 'DONE') {
+        if (!dto.completionReason?.trim()) {
+          throw new BadRequestException('Informe a justificativa obrigatória ao concluir a tarefa.');
+        }
+        await tx.taskHistoryEntry.create({
+          data: {
+            taskId: created.id,
+            type: 'COMPLETED',
+            reason: dto.completionReason.trim(),
+            actorUserId: user.sub,
+            metadata: { completedAt: new Date().toISOString() },
+          },
+        });
+      }
       return tx.task.findUniqueOrThrow({ where: { id: created.id }, include: INCLUDE });
     });
     await this.audit.record({
@@ -185,6 +200,10 @@ export class TasksService {
         ? (existing.completedAt ?? new Date())
         : null
       : undefined;
+    const transitioningToDone = existing.status !== 'DONE' && dto.status === 'DONE';
+    if (transitioningToDone && !dto.completionReason?.trim()) {
+      throw new BadRequestException('Informe a justificativa obrigatória ao concluir a tarefa.');
+    }
     const task = await this.prisma.$transaction(async (tx) => {
       await tx.task.update({
         where: { id },
@@ -213,6 +232,17 @@ export class TasksService {
           })),
         });
       }
+      if (transitioningToDone) {
+        await tx.taskHistoryEntry.create({
+          data: {
+            taskId: id,
+            type: 'COMPLETED',
+            reason: dto.completionReason!.trim(),
+            actorUserId: user.sub,
+            metadata: { completedAt: (completedAt ?? new Date()).toISOString() },
+          },
+        });
+      }
       return tx.task.findUniqueOrThrow({ where: { id }, include: INCLUDE });
     });
     await this.audit.record({
@@ -220,6 +250,52 @@ export class TasksService {
       actorUserId: user.sub,
       targetType: 'Task',
       targetId: id,
+    });
+    await this.emailNotifications.taskUpdated({
+      id: task.id,
+      title: task.title,
+      dueDate: task.dueDate,
+      status: task.status,
+      priority: task.priority,
+      assignee: task.assignee,
+      assignees: task.assignees.map(({ user: assignee }) => assignee),
+      leadName: task.lead?.name,
+      description: task.description,
+      createdByName: task.createdByUser.name,
+      leadCompanyName: task.lead?.companyName,
+      leadStageName: task.lead?.stage.name,
+    });
+    return task;
+  }
+  async complete(id: string, dto: CompleteTaskDto, user: JwtPayload) {
+    const existing = await this.findOne(id, user);
+    if (existing.status === 'DONE') {
+      throw new BadRequestException('Esta tarefa já está concluída.');
+    }
+    const task = await this.prisma.$transaction(async (tx) => {
+      const completedAt = existing.completedAt ?? new Date();
+      const updated = await tx.task.update({
+        where: { id },
+        data: { status: 'DONE', completedAt },
+        include: INCLUDE,
+      });
+      await tx.taskHistoryEntry.create({
+        data: {
+          taskId: id,
+          type: 'COMPLETED',
+          reason: dto.reason.trim(),
+          actorUserId: user.sub,
+          metadata: { completedAt: completedAt.toISOString() },
+        },
+      });
+      return updated;
+    });
+    await this.audit.record({
+      action: 'TASK_COMPLETED',
+      actorUserId: user.sub,
+      targetType: 'Task',
+      targetId: id,
+      metadata: { reason: dto.reason },
     });
     await this.emailNotifications.taskUpdated({
       id: task.id,

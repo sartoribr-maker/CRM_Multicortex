@@ -48,6 +48,7 @@ export interface TaskPayload {
   leadId?: string;
   assigneeId?: string;
   assigneeIds?: string[];
+  completionReason?: string;
 }
 export interface TaskAttachment {
   id: string;
@@ -56,7 +57,7 @@ export interface TaskAttachment {
   sizeBytes: number;
   createdAt: string;
 }
-export type TaskHistoryType = 'DEADLINE_EXTENDED' | 'TRANSFERRED';
+export type TaskHistoryType = 'DEADLINE_EXTENDED' | 'TRANSFERRED' | 'COMPLETED';
 export interface TaskHistoryEntry {
   id: string;
   type: TaskHistoryType;
@@ -66,6 +67,7 @@ export interface TaskHistoryEntry {
     newDueDate?: string;
     previousAssignees?: Array<{ id: string; name: string }>;
     newAssignee?: { id: string; name: string };
+    completedAt?: string;
   };
   actorUser: { id: string; name: string };
   createdAt: string;

@@ -94,8 +94,10 @@ export default function TasksListPage() {
     return Math.max(0, Math.floor(elapsed / 86_400_000));
   };
   async function complete(t: Task) {
+    const reason = window.prompt('Informe a justificativa obrigatória para concluir a tarefa:');
+    if (!reason?.trim()) return;
     try {
-      const u = await tasksApi.complete(t.id);
+      const u = await tasksApi.complete(t.id, reason.trim());
       setItems((c) => c.map((i) => (i.id === t.id ? u : i)));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao concluir.');

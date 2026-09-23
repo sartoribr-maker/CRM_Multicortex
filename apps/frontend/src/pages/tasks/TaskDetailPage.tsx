@@ -156,7 +156,16 @@ export default function TaskDetailPage() {
     }
   }
   async function complete() {
-    if (task) setTask(await tasksApi.complete(task.id));
+    if (!task) return;
+    const reason = window.prompt('Informe a justificativa obrigatória para concluir a tarefa:');
+    if (!reason?.trim()) return;
+    try {
+      const updated = await tasksApi.complete(task.id, reason.trim());
+      setTask(updated);
+      setHistory(await tasksApi.history(task.id));
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Erro ao concluir tarefa.');
+    }
   }
   async function archive() {
     if (task && window.confirm('Arquivar esta tarefa?')) {
@@ -392,9 +401,7 @@ export default function TaskDetailPage() {
         </section>
         <section className="card mt-5 overflow-hidden">
           <div className="border-b border-slate-100 px-5 py-4">
-            <h2 className="font-heading font-bold text-slate-800">
-              Histórico de prorrogações e transferências
-            </h2>
+            <h2 className="font-heading font-bold text-slate-800">Histórico da tarefa</h2>
           </div>
           {history.length ? (
             <ul className="divide-y divide-slate-100">
@@ -402,18 +409,22 @@ export default function TaskDetailPage() {
                 <li key={entry.id} className="px-5 py-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-bold text-slate-700">
-                      {entry.type === 'DEADLINE_EXTENDED'
-                        ? 'Prazo prorrogado'
-                        : 'Tarefa transferida'}
+                      {entry.type === 'COMPLETED'
+                        ? 'Tarefa concluída'
+                        : entry.type === 'DEADLINE_EXTENDED'
+                          ? 'Prazo prorrogado'
+                          : 'Tarefa transferida'}
                     </p>
                     <p className="text-xs text-slate-400">
                       {formatDate(entry.createdAt)} · {entry.actorUser.name}
                     </p>
                   </div>
                   <p className="mt-2 text-sm text-slate-600">
-                    {entry.type === 'DEADLINE_EXTENDED'
-                      ? `${formatDate(entry.metadata.previousDueDate)} → ${formatDate(entry.metadata.newDueDate)}`
-                      : `${entry.metadata.previousAssignees?.map((item) => item.name).join(', ')} → ${entry.metadata.newAssignee?.name}`}
+                    {entry.type === 'COMPLETED'
+                      ? `Concluída em ${formatDate(entry.metadata.completedAt ?? entry.createdAt)}`
+                      : entry.type === 'DEADLINE_EXTENDED'
+                        ? `${formatDate(entry.metadata.previousDueDate)} → ${formatDate(entry.metadata.newDueDate)}`
+                        : `${entry.metadata.previousAssignees?.map((item) => item.name).join(', ')} → ${entry.metadata.newAssignee?.name}`}
                   </p>
                   <p className="mt-1 text-sm text-slate-500">Justificativa: {entry.reason}</p>
                 </li>
@@ -421,7 +432,7 @@ export default function TaskDetailPage() {
             </ul>
           ) : (
             <p className="p-8 text-center text-sm text-slate-400">
-              Nenhuma prorrogação ou transferência registrada.
+              Nenhum registro de histórico.
             </p>
           )}
         </section>

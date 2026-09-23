@@ -20,6 +20,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { TasksService } from './tasks.service';
 import { ExtendTaskDeadlineDto } from './dto/extend-task-deadline.dto';
 import { TransferTaskDto } from './dto/transfer-task.dto';
+import { CompleteTaskDto } from './dto/complete-task.dto';
 @ApiTags('tasks')
 @Controller('tasks')
 export class TasksController {
@@ -51,9 +52,10 @@ export class TasksController {
   }
   @Post(':id/complete') @RequirePermissions(PERMISSIONS.TASKS_EDIT) complete(
     @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CompleteTaskDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.service.update(id, { status: 'DONE' }, user);
+    return this.service.complete(id, dto, user);
   }
   @Post(':id/reminder') @RequirePermissions(PERMISSIONS.TASKS_EDIT) sendReminder(
     @Param('id', ParseUUIDPipe) id: string,

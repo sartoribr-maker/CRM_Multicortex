@@ -16,4 +16,9 @@ export class CreateTaskDto {
   @ArrayMinSize(1)
   @IsUUID('4', { each: true })
   assigneeIds?: string[];
+  @ApiPropertyOptional({ description: 'Justificativa obrigatória ao concluir a tarefa' })
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  completionReason?: string;
 }

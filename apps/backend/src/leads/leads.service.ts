@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CustomFieldType, LeadLine, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeadActivityService } from './lead-activity.service';
@@ -253,7 +253,66 @@ export class LeadsService {
     }
   }
 
+  private async findExistingSiteLead(
+    dto: CreateLeadDto,
+    currentUser: JwtPayload,
+  ) {
+    const existing = await this.prisma.lead.findUnique({
+      where: { siteSubmissionId: dto.siteSubmissionId },
+      include: LEAD_DETAIL_INCLUDE,
+    });
+
+    if (!existing) return null;
+
+    if (
+      existing.deletedAt !== null ||
+      existing.createdBy !== currentUser.sub ||
+      existing.sourceId !== dto.sourceId ||
+      existing.contactEmail !== dto.contactEmail ||
+      existing.companyName !== dto.companyName
+    ) {
+      throw new ConflictException(
+        'O identificador da submissão já está associado a outra oportunidade.',
+      );
+    }
+
+    // A conta técnica pode confirmar uma submissão criada por ela,
+    // mesmo após a oportunidade ser transferida para um vendedor.
+    // A resposta é limitada ao identificador da oportunidade.
+    return { id: existing.id };
+  }
+
   async create(dto: CreateLeadDto, currentUser: JwtPayload) {
+    if (dto.siteSubmissionId !== undefined) {
+      const siteSourceId =
+        process.env.CRM_SITE_SOURCE_ID ??
+        '59c1b75b-0be5-4321-af47-66fdda1b522c';
+
+      if (
+        currentUser.email.toLowerCase() !== 'multicortex@multicortex.ai' ||
+        currentUser.roleName !== 'Integração SITE'
+      ) {
+        throw new ForbiddenException(
+          'Identificador de submissão reservado à integração SITE.',
+        );
+      }
+
+      if (
+        !dto.siteSubmissionId.trim() ||
+        dto.sourceId !== siteSourceId ||
+        (dto.ownerId && dto.ownerId !== currentUser.sub) ||
+        (dto.ownerIds?.length &&
+          (dto.ownerIds.length !== 1 || dto.ownerIds[0] !== currentUser.sub))
+      ) {
+        throw new BadRequestException(
+          'Identificador, origem ou responsável inválido para a integração SITE.',
+        );
+      }
+
+      const existing = await this.findExistingSiteLead(dto, currentUser);
+      if (existing) return existing;
+    }
+
     await this.validateCustomFieldValues(dto.customFieldValues, { enforceRequired: true });
 
     const stage = dto.stageId
@@ -285,7 +344,9 @@ export class LeadsService {
     ];
 
     const estimatedValue = this.calculateEstimatedValue(dto.capexValue, dto.opexValue);
-    const lead = await this.prisma.$transaction(async (tx) => {
+    let lead: Awaited<ReturnType<typeof this.prisma.lead.create>> | undefined;
+    try {
+    lead = await this.prisma.$transaction(async (tx) => {
       const [sequence] = await tx.$queryRaw<Array<{ value: number }>>`
         SELECT nextval('lead_business_code_seq')::int AS value
       `;
@@ -296,6 +357,7 @@ export class LeadsService {
       const created = await tx.lead.create({
         data: {
           businessCode,
+          siteSubmissionId: dto.siteSubmissionId,
           line: dto.line,
           name: dto.name,
           companyName: dto.companyName,
@@ -365,6 +427,23 @@ export class LeadsService {
 
       return created;
     });
+    } catch (error) {
+      if (
+        dto.siteSubmissionId &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        Array.isArray(error.meta?.target) &&
+        error.meta.target.includes('siteSubmissionId')
+      ) {
+        const existing = await this.findExistingSiteLead(dto, currentUser);
+        if (existing) return existing;
+      }
+      throw error;
+    }
+
+    if (!lead) {
+      throw new Error('A criação do lead não retornou um resultado.');
+    }
 
     await this.leadActivityService.record({
       leadId: lead.id,

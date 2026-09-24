@@ -414,6 +414,7 @@ enum LeadLine {
 model Lead {
   id           String    @id @default(uuid())
   businessCode String?   @unique
+  siteSubmissionId String? @unique
   line         LeadLine?
   name         String
 

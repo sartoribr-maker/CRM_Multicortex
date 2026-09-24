@@ -20,6 +20,11 @@ import {
 import { CustomFieldValueInputDto } from './custom-field-value-input.dto';
 
 export class CreateLeadDto {
+  @ApiPropertyOptional({ description: 'Identificador único da submissão no SITE' })
+  @IsOptional()
+  @IsString()
+  siteSubmissionId?: string;
+
   @ApiProperty({ enum: LeadLine })
   @IsEnum(LeadLine)
   line!: LeadLine;

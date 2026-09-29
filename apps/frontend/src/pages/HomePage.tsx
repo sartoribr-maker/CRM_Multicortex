@@ -211,7 +211,9 @@ export default function HomePage() {
         <section className="card overflow-hidden">
           <div className="border-b border-slate-100 p-5">
             <h2 className="font-heading font-bold text-slate-800">Atenção imediata</h2>
-            <p className="mt-1 text-xs text-slate-400">Oportunidades com prioridade Mandatória.</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Oportunidades mandatórias fora das etapas Ganho (Projeto ativo) e Perdido.
+            </p>
           </div>
           {data.mandatoryLeads.length ? (
             data.mandatoryLeads.map((lead) => (
@@ -235,7 +237,7 @@ export default function HomePage() {
               </button>
             ))
           ) : (
-            <Empty>Nenhuma oportunidade com prioridade Mandatória.</Empty>
+            <Empty>Nenhuma oportunidade mandatória nessas condições.</Empty>
           )}
           <button
             className="w-full border-t border-slate-100 py-3 text-xs font-bold text-brand-purple hover:bg-purple-50"

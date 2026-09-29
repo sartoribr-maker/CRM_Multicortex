@@ -55,7 +55,6 @@ export default function LeadsListPage() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const tableScrollRef = useRef<HTMLDivElement>(null);
-  const leadClickTimerRef = useRef<number | null>(null);
   const [leads, setLeads] = useState<LeadListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -138,35 +137,10 @@ export default function LeadsListPage() {
       setError(err instanceof Error ? err.message : 'Não foi possível excluir a oportunidade.');
     }
   }
-  async function markAsMandatory(lead: LeadListItem) {
-    if (!canEdit || isMandatoryPriority(lead)) return;
-    const mandatoryPriority = priorities.find(
-      (priority) =>
-        priority.name
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLowerCase() === 'mandatoria',
-    );
-    if (!mandatoryPriority) {
-      setError('A prioridade Mandatória não foi encontrada nas configurações.');
-      return;
-    }
-    try {
-      const updated = await leadsApi.update(lead.id, { priorityId: mandatoryPriority.id });
-      setLeads((items) => items.map((item) => (item.id === lead.id ? updated : item)));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível alterar a prioridade.');
-    }
-  }
-  function openLeadAfterClick(leadId: string) {
-    if (leadClickTimerRef.current) window.clearTimeout(leadClickTimerRef.current);
-    leadClickTimerRef.current = window.setTimeout(
-      () =>
-        navigate(`/leads/${leadId}`, {
-          state: { returnTo: `${location.pathname}${location.search}` },
-        }),
-      250,
-    );
+  function openLead(leadId: string) {
+    navigate(`/leads/${leadId}`, {
+      state: { returnTo: `${location.pathname}${location.search}` },
+    });
   }
   const sortedLeads = useMemo(
     () =>
@@ -394,19 +368,7 @@ export default function LeadsListPage() {
             </thead>
             <tbody>
               {sortedLeads.map((lead) => (
-                <tr
-                  key={lead.id}
-                  className={isMandatoryPriority(lead) ? 'mandatory-lead-row' : ''}
-                  onDoubleClick={(event) => {
-                    if ((event.target as HTMLElement).closest('button')) return;
-                    void markAsMandatory(lead);
-                  }}
-                  title={
-                    canEdit && !isMandatoryPriority(lead)
-                      ? 'Duplo clique para marcar como prioridade Mandatória'
-                      : undefined
-                  }
-                >
+                <tr key={lead.id} className={isMandatoryPriority(lead) ? 'mandatory-lead-row' : ''}>
                   <td className="whitespace-nowrap">
                     <span className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
                       <span className="status-dot" style={{ backgroundColor: lead.stage.color }} />
@@ -414,19 +376,7 @@ export default function LeadsListPage() {
                     </span>
                   </td>
                   <td>
-                    <button
-                      onClick={() => openLeadAfterClick(lead.id)}
-                      onDoubleClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        if (leadClickTimerRef.current) {
-                          window.clearTimeout(leadClickTimerRef.current);
-                          leadClickTimerRef.current = null;
-                        }
-                        void markAsMandatory(lead);
-                      }}
-                      className="text-left"
-                    >
+                    <button onClick={() => openLead(lead.id)} className="text-left">
                       <p className="font-semibold text-slate-800 hover:text-brand-purple">
                         {lead.name}
                       </p>

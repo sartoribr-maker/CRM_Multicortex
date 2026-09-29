@@ -1,3 +1,4 @@
+import { MonitoringSettingsPanel } from './MonitoringSettingsPanel';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { CurrencyInput } from '../../components/MaskedInputs';
 import { formatCurrency } from '../../lib/formatters';
@@ -26,6 +27,7 @@ export type SettingsSection =
   | 'projectTypes'
   | 'services'
   | 'customFields'
+  | 'monitoring'
   | 'email'
   | 'whatsapp';
 
@@ -61,6 +63,11 @@ const SECTIONS: Record<SettingsSection, { title: string; description: string }> 
   customFields: {
     title: 'Campos Personalizados',
     description: 'Configure informações adicionais para o cadastro de leads.',
+  },
+  monitoring: {
+    title: 'Monitoramento Tarefas/Leads',
+    description:
+      'Agende relatórios de tarefas atrasadas e oportunidades para acompanhamento por e-mail.',
   },
   email: {
     title: 'Configuração de E-mail',
@@ -196,6 +203,7 @@ export default function SettingsPage({ section }: { section: SettingsSection }) 
           {section === 'services' && <ServicesPanel />}
 
           {section === 'customFields' && <CustomFieldsPanel />}
+          {section === 'monitoring' && <MonitoringSettingsPanel />}
           {section === 'email' && <EmailSettingsPanel />}
           {section === 'whatsapp' && <WhatsAppSettingsPanel />}
         </div>

@@ -415,7 +415,7 @@ function UserForm({
   const isNew = user === 'new';
   const [form, setForm] = useState<UserPayload>(
     isNew
-      ? { name: '', email: '', password: '', roleId: '', mustChangePassword: false }
+      ? { name: '', email: '', password: '', roleId: '', mustChangePassword: false, isCollector: false }
       : {
           name: user.name,
           email: user.email,
@@ -423,6 +423,7 @@ function UserForm({
           position: user.position ?? undefined,
           phone: user.phone ?? undefined,
           mustChangePassword: user.mustChangePassword,
+          isCollector: user.isCollector ?? false,
         },
   );
   const [error, setError] = useState<string | null>(null);
@@ -563,6 +564,17 @@ function UserForm({
             value={form.phone ?? ''}
             onValueChange={(value) => setForm((f) => ({ ...f, phone: value || undefined }))}
           />
+        </div>
+        <div className="flex items-end pb-1">
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 w-full">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-brand-purple"
+              checked={form.isCollector ?? false}
+              onChange={(e) => setForm((f) => ({ ...f, isCollector: e.target.checked }))}
+            />
+            <span className="text-sm font-medium text-slate-700">Cobrador</span>
+          </label>
         </div>
         <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-4 md:col-span-2">
           <input

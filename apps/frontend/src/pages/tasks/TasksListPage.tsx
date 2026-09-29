@@ -33,6 +33,7 @@ export default function TasksListPage() {
     page: 1,
     pageSize: 20,
     mine: true,
+    status: 'IN_PROGRESS',
     overdue: searchParams.get('overdue') === 'true' || undefined,
   });
   const [sort, setSort] = useState<{ key: Sort; dir: 'asc' | 'desc' }>({

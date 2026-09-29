@@ -42,7 +42,6 @@ export default function LeadsKanbanPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const kanbanScrollRef = useRef<HTMLDivElement>(null);
-  const cardClickTimerRef = useRef<number | null>(null);
   const user = useAuthStore((state) => state.user);
   const canViewAll = user?.permissions.includes('leads.view.all') ?? false;
   const canCreate = user?.permissions.includes('leads.create') ?? false;
@@ -147,36 +146,10 @@ export default function LeadsKanbanPage() {
     setFilters((current) => ({ ...current, [key]: value || undefined }));
   }
 
-  function openLeadAfterClick(leadId: string) {
-    if (cardClickTimerRef.current) window.clearTimeout(cardClickTimerRef.current);
-    cardClickTimerRef.current = window.setTimeout(
-      () =>
-        navigate(`/leads/${leadId}`, {
-          state: { returnTo: `${location.pathname}${location.search}` },
-        }),
-      250,
-    );
-  }
-
-  async function markAsMandatory(lead: LeadListItem) {
-    if (!canEdit || isMandatoryPriority(lead)) return;
-    const mandatoryPriority = priorities.find(
-      (priority) =>
-        priority.name
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLowerCase() === 'mandatoria',
-    );
-    if (!mandatoryPriority) {
-      setError('A prioridade Mandatória não foi encontrada nas configurações.');
-      return;
-    }
-    try {
-      const updated = await leadsApi.update(lead.id, { priorityId: mandatoryPriority.id });
-      setLeads((items) => items.map((item) => (item.id === lead.id ? updated : item)));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível alterar a prioridade.');
-    }
+  function openLead(leadId: string) {
+    navigate(`/leads/${leadId}`, {
+      state: { returnTo: `${location.pathname}${location.search}` },
+    });
   }
 
   function requestMove(leadId: string, stage: Stage) {
@@ -471,21 +444,7 @@ export default function LeadsKanbanPage() {
                           setDraggedId(null);
                           setDragOverStageId(null);
                         }}
-                        onClick={() => openLeadAfterClick(lead.id)}
-                        onDoubleClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          if (cardClickTimerRef.current) {
-                            window.clearTimeout(cardClickTimerRef.current);
-                            cardClickTimerRef.current = null;
-                          }
-                          void markAsMandatory(lead);
-                        }}
-                        title={
-                          canEdit && !isMandatoryPriority(lead)
-                            ? 'Duplo clique para marcar como prioridade Mandatória'
-                            : undefined
-                        }
+                        onClick={() => openLead(lead.id)}
                         className={`group cursor-pointer rounded-xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
                           isMandatoryPriority(lead)
                             ? 'border-rose-200 bg-rose-50 shadow-rose-200/30 hover:border-rose-300 hover:bg-rose-100/70'

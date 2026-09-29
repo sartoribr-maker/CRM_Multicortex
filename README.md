@@ -45,7 +45,7 @@ CRM/
    - Documentação Swagger: http://localhost:3333/api/docs
    - Health check: http://localhost:3333/api/v1/health
    - Adminer (cliente Postgres): http://localhost:8080 — sistema `PostgreSQL`, servidor `postgres`, usuário/senha/base conforme `.env`
-   - Postgres exposto ao host em `localhost:5433` (porta interna do container continua `5432`; `5433` foi escolhida porque `5432` já estava em uso por um Postgres local do sistema)
+   - Postgres exposto ao host em `localhost:5435` (porta interna do container continua `5432`). A porta é configurável por `POSTGRES_HOST_PORT` no `.env` — `5432` e `5433` já estavam em uso por outros Postgres da máquina.
 
 ### Acesso por celular ou tablet
 

@@ -111,6 +111,7 @@ model User {
   email              String     @unique
   passwordHash       String
   mustChangePassword Boolean    @default(false)
+  isCollector        Boolean    @default(false)
   avatarUrl          String?
   position           String?
   phone              String?
@@ -692,4 +693,19 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@map("audit_logs")
+}
+
+model MonitoringSettings {
+  id String @id @default("default")
+  enabled Boolean @default(false)
+  startTime String @default("08:00")
+  intervalDays Int @default(1)
+  monitorUserId String?
+  nextRunAt DateTime?
+  lastRunAt DateTime?
+  lastError String?
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@map("monitoring_settings")
 }

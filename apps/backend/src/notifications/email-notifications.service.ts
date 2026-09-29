@@ -71,6 +71,26 @@ export class EmailNotificationsService {
     this.frontendUrl = config.get<string>('FRONTEND_URL', 'http://localhost:5173').split(',')[0];
   }
 
+  async monitoringReport(
+    recipient: Recipient,
+    title: string,
+    items: Array<{ id: string; title: string; detail: string }>,
+    kind: 'tasks' | 'leads',
+  ) {
+    const rows = items
+      .map(
+        (item) =>
+          `<li><a href="${escapeHtml(`${this.frontendUrl}/${kind}/${encodeURIComponent(item.id)}`)}">${escapeHtml(item.title)}</a><p>${escapeHtml(item.detail)}</p></li>`,
+      )
+      .join('');
+    await this.sendToEach(
+      [recipient],
+      `${title} (${items.length}) — Multicortex CRM`,
+      `<!doctype html><html><body><h1>${escapeHtml(title)}</h1><p>Olá ${escapeHtml(recipient.name)}, existem ${items.length} itens para acompanhamento.</p><ul>${rows}</ul></body></html>`,
+      true,
+    );
+  }
+
   async sendTest(email: string, name: string): Promise<void> {
     await this.sendToEach(
       [{ email, name }],

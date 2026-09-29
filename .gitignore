@@ -50,3 +50,6 @@ build/
 
 # Storage local
 storage/
+
+# Saída isolada do backend em desenvolvimento
+apps/backend/dist-dev/

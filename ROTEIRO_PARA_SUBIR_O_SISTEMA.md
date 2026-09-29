@@ -193,3 +193,13 @@ e executa simplesmente:
 deploy-crm "Minha alteração"
 
 docker compose --env-file .env -f infra/docker-compose.yml up -d
+
+## Subir ambiente de teste local
+cd ~/Multicortex/Projetos/CRM
+docker compose --env-file .env -f infra/docker-compose.yml up -d
+
+CRM: http://localhost:5173
+
+docker compose --env-file .env -f infra/docker-compose.yml exec -w /app/apps/backend backend npx prisma migrate deploy
+docker compose --env-file .env -f infra/docker-compose.yml exec -w /app/apps/backend backend npx prisma generate
+docker compose --env-file .env -f infra/docker-compose.yml restart backend

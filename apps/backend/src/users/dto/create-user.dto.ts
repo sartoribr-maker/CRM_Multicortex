@@ -34,4 +34,9 @@ export class CreateUserDto {
   @IsOptional()
   @IsBoolean()
   mustChangePassword?: boolean;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  isCollector?: boolean;
 }

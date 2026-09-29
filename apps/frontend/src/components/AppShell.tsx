@@ -27,6 +27,7 @@ const settingsItems = [
   { to: '/settings/project-types', label: 'Tipos de Produto', permission: 'settings.manage' },
   { to: '/settings/services', label: 'Serviços', permission: 'settings.manage' },
   { to: '/settings/custom-fields', label: 'Campos Personalizados', permission: 'settings.manage' },
+  { to: '/settings/monitoring', label: 'Monitoramento Tarefas/Leads', permission: 'settings.manage' },
   { to: '/settings/email', label: 'Configuração de E-mail', permission: 'settings.manage' },
   { to: '/settings/whatsapp', label: 'Configuração do WhatsApp', permission: 'settings.manage' },
   { to: '/settings/access', label: 'Usuários e Acessos', permission: 'users.view' },

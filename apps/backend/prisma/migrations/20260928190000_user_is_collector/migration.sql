@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "isCollector" BOOLEAN NOT NULL DEFAULT false;

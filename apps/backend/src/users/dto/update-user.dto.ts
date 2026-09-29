@@ -32,4 +32,9 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   mustChangePassword?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isCollector?: boolean;
 }

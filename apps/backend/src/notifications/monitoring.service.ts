@@ -113,7 +113,12 @@ export class MonitoringService implements OnApplicationBootstrap, OnModuleDestro
       });
       if (!claim.count) return;
       try {
-        await this.sendReports(settings.monitorUserId, now);
+        const results = await Promise.allSettled([
+          this.sendReports(settings.monitorUserId, now),
+          this.sendPendingTaskReports(),
+        ]);
+        const failure = results.find((result) => result.status === 'rejected');
+        if (failure?.status === 'rejected') throw failure.reason;
       } catch (error) {
         await this.prisma.monitoringSettings.update({
           where: { id: settings.id },
@@ -129,6 +134,44 @@ export class MonitoringService implements OnApplicationBootstrap, OnModuleDestro
     } finally {
       this.running = false;
     }
+  }
+
+  async sendPendingTaskReports() {
+    const tasks = await this.prisma.task.findMany({
+      where: { deletedAt: null, status: { in: ['TODO', 'IN_PROGRESS'] } },
+      include: { assignee: true, assignees: { include: { user: true } }, lead: true },
+      orderBy: [{ dueDate: 'asc' }, { id: 'asc' }],
+    });
+    const recipients = new Map<
+      string,
+      { user: (typeof tasks)[number]['assignee']; tasks: typeof tasks }
+    >();
+    for (const task of tasks) {
+      const owners = task.assignees.length
+        ? task.assignees.map((item) => item.user)
+        : [task.assignee];
+      for (const user of new Map(owners.map((owner) => [owner.id, owner])).values()) {
+        if (user.status !== 'ACTIVE' || user.deletedAt) continue;
+        if (!recipients.has(user.id)) recipients.set(user.id, { user, tasks: [] });
+        recipients.get(user.id)!.tasks.push(task);
+      }
+    }
+    const results = await Promise.allSettled(
+      [...recipients.values()].map(({ user, tasks: items }) =>
+        this.email.monitoringReport(
+          user,
+          'Tarefas a fazer e em andamento',
+          items.map((task) => ({
+            id: task.id,
+            title: task.title,
+            detail: `Status: ${task.status === 'TODO' ? 'A Fazer' : 'Em andamento'} | Prazo: ${task.dueDate.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}${task.lead ? ` | Oportunidade: ${task.lead.name}` : ''}`,
+          })),
+          'tasks',
+        ),
+      ),
+    );
+    const failure = results.find((result) => result.status === 'rejected');
+    if (failure?.status === 'rejected') throw failure.reason;
   }
 
   async sendReports(monitorUserId: string | null, now: Date) {

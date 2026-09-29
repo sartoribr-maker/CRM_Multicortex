@@ -77,10 +77,18 @@ export class DashboardService {
     ]);
     const value = (items: typeof leads) =>
       items.reduce((sum, item) => sum + Number(item.estimatedValue ?? 0), 0);
+    const normalize = (text: string) =>
+      text
+        .trim()
+        .toLocaleLowerCase('pt-BR')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
     const isExcludedStage = (lead: (typeof leads)[number]) =>
-      ['ganho (projeto ativo)', 'perdido'].includes(
-        lead.stage.name.trim().toLocaleLowerCase('pt-BR'),
-      );
+      ['ganho (projeto ativo)', 'perdido'].includes(normalize(lead.stage.name));
+    const isPausedStage = (lead: (typeof leads)[number]) => {
+      const name = normalize(lead.stage.name);
+      return name.includes('espera') && name.includes('pausad');
+    };
     const open = leads.filter((item) => item.status === 'OPEN');
     const won = leads.filter((item) => item.status === 'WON');
     const lost = leads.filter((item) => item.status === 'LOST');
@@ -128,10 +136,8 @@ export class DashboardService {
     const mandatoryLeads = leads.filter(
       (lead) =>
         !isExcludedStage(lead) &&
-        lead.priority?.name
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLowerCase() === 'mandatoria',
+        !isPausedStage(lead) &&
+        lead.priority?.name && normalize(lead.priority.name) === 'mandatoria',
     );
     return {
       metrics: {

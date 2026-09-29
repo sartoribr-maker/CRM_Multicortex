@@ -212,7 +212,8 @@ export default function HomePage() {
           <div className="border-b border-slate-100 p-5">
             <h2 className="font-heading font-bold text-slate-800">Atenção imediata</h2>
             <p className="mt-1 text-xs text-slate-400">
-              Oportunidades mandatórias fora das etapas Ganho (Projeto ativo) e Perdido.
+              Oportunidades mandatórias fora das etapas Ganho (Projeto ativo), Perdido e
+              Em espera/Pausado.
             </p>
           </div>
           {data.mandatoryLeads.length ? (

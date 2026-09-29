@@ -61,9 +61,12 @@ test('agendamento persistido: recuperação após parada e exclusão concorrente
   } };
   const first = new MonitoringService(prisma, {}, {});
   const second = new MonitoringService(prisma, {}, {});
+  let pendingCalls = 0;
+  first.sendPendingTaskReports = second.sendPendingTaskReports = async () => { pendingCalls++; };
   first.sendReports = second.sendReports = async () => { calls++; };
   await Promise.all([first.tick(new Date('2026-09-28T12:00:00Z')), second.tick(new Date('2026-09-28T12:00:00Z'))]);
   assert.equal(calls, 1);
+  assert.equal(pendingCalls, 1);
 });
 
 test('SMTP indisponível e monitor inativo impedem ativação', async () => {
@@ -83,6 +86,49 @@ test('falha de envio fica registrada sem repetição imediata', async () => {
   } }, {}, {});
   service.logger.error = () => {};
   service.sendReports = async () => { throw new Error('SMTP falhou'); };
+  service.sendPendingTaskReports = async () => {};
   await service.tick(new Date('2026-09-28T12:00:00Z'));
   assert.match(error, /Falha no envio/);
+});
+
+
+test('tarefas abertas: filtro exato, ordem de prazo e envio exclusivo aos responsáveis ativos', async () => {
+  const sent = [];
+  const legacy = { ...task('futura', [other]), assignees: [], status: 'IN_PROGRESS', dueDate: new Date('2026-10-20T12:00:00Z') };
+  const service = new MonitoringService({ task: { findMany: async ({ where, orderBy }) => {
+    assert.deepEqual(where, { deletedAt: null, status: { in: ['TODO', 'IN_PROGRESS'] } });
+    assert.deepEqual(orderBy, [{ dueDate: 'asc' }, { id: 'asc' }]);
+    return [
+      { ...task('atrasada', [owner, other, owner]), status: 'TODO' },
+      { ...task('do-monitor', [monitor]), status: 'TODO' },
+      task('inativa', [user('inactive', { status: 'INACTIVE' })]),
+      task('excluida', [user('deleted', { deletedAt: new Date() })]),
+      legacy,
+    ];
+  } } }, { monitoringReport: async (recipient, title, items, kind) => sent.push({ id: recipient.id, title, items, kind }) }, {});
+  await service.sendPendingTaskReports();
+  assert.deepEqual(sent.map(({ id, items }) => ({ id, tasks: items.map(item => item.id) })), [
+    { id: 'owner', tasks: ['atrasada'] },
+    { id: 'other', tasks: ['atrasada', 'futura'] },
+    { id: 'monitor', tasks: ['do-monitor'] },
+  ]);
+  assert.match(sent[0].items[0].detail, /Status: A Fazer/);
+  assert.match(sent[1].items[1].detail, /Status: Em andamento/);
+  assert.match(sent[1].items[1].detail, /20\/10\/2026, 09:00:00/);
+});
+
+test('tarefas abertas: não envia relatório vazio e tenta os demais destinatários após falha', async () => {
+  const sent = [];
+  let tasks = [];
+  const service = new MonitoringService({ task: { findMany: async () => tasks } }, {
+    monitoringReport: async (recipient) => {
+      sent.push(recipient.id);
+      if (recipient.id === owner.id) throw new Error('SMTP falhou');
+    },
+  }, {});
+  await service.sendPendingTaskReports();
+  assert.deepEqual(sent, []);
+  tasks = [task('a', [owner]), task('b', [other])];
+  await assert.rejects(service.sendPendingTaskReports(), /SMTP falhou/);
+  assert.deepEqual(sent, ['owner', 'other']);
 });

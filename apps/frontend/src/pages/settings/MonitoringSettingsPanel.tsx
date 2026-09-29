@@ -145,6 +145,11 @@ export function MonitoringSettingsPanel() {
           </fieldset>
           <div className="space-y-2 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
             <p>
+              Tarefas “A Fazer” e “Em andamento”: cada responsável recebe um relatório separado
+              apenas com suas tarefas, incluindo atrasadas e futuras, em ordem crescente de prazo.
+              Os disparos seguem o horário de Brasília e a periodicidade informados acima.
+            </p>
+            <p>
               Tarefas atrasadas, exceto concluídas e canceladas: cada responsável recebe suas
               tarefas. O usuário de monitoramento e os usuários com “Cobrar” marcado recebem todas
               as tarefas atrasadas.

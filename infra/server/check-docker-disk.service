@@ -1,0 +1,7 @@
+[Unit]
+Description=Verifica uso do disco do Docker e faz limpeza segura
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/check-docker-disk

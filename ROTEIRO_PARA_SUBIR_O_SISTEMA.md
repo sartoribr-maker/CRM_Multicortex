@@ -186,7 +186,7 @@ GitHub
 
 Depois entra na VM:
 
-ssh ec2-user@13.220.245.81
+ssh ec2-user@52.207.145.100
 
 e executa simplesmente:
 
@@ -203,3 +203,17 @@ CRM: http://localhost:5173
 docker compose --env-file .env -f infra/docker-compose.yml exec -w /app/apps/backend backend npx prisma migrate deploy
 docker compose --env-file .env -f infra/docker-compose.yml exec -w /app/apps/backend backend npx prisma generate
 docker compose --env-file .env -f infra/docker-compose.yml restart backend
+## Disco do Docker no servidor de produção
+
+Na VM, o Docker guarda imagens, cache e volumes na partição `/docker`, e não em `/`. Se ela encher, o Postgres para de aceitar conexões e o login mostra "Internal server error" (incidente de 14/10/2026).
+
+- Verificar: `df -h /docker` e `docker system df`
+- Limpeza segura: `docker builder prune -f` e `docker image prune -a -f`
+- **Nunca** usar `docker volume prune` ou `docker system prune --volumes`: apagam os bancos.
+
+O `deploy-crm` limpa imagens órfãs após cada deploy, e o timer `check-docker-disk` verifica o disco a cada 15 minutos (limpeza automática acima de 85%, alerta no login SSH, histórico em `journalctl -t docker-disk`). Os arquivos ficam em `infra/server/`; para reinstalar:
+
+```bash
+scp -r infra/server ec2-user@52.207.145.100:/tmp/crm-server
+ssh -t ec2-user@52.207.145.100 'sudo bash /tmp/crm-server/install.sh && rm -rf /tmp/crm-server'
+```

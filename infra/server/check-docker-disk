@@ -1,0 +1,29 @@
+#!/bin/bash
+# Monitora o uso do disco do Docker (/docker). Acima do limite, faz limpeza
+# segura (imagens órfãs e cache de build antigo) e registra alerta.
+# Nunca remove volumes nem imagens com tag.
+
+MOUNT="/docker"
+THRESHOLD=85
+STATE_FILE="/run/docker-disk-alert"
+
+usage() { df --output=pcent "$MOUNT" | tail -1 | tr -dc '0-9'; }
+
+USED=$(usage)
+if [ "$USED" -lt "$THRESHOLD" ]; then
+    rm -f "$STATE_FILE"
+    exit 0
+fi
+
+logger -t docker-disk -p daemon.warning "$MOUNT em ${USED}% (limite ${THRESHOLD}%). Iniciando limpeza segura."
+docker image prune -f > /dev/null
+docker builder prune -f --filter until=24h > /dev/null
+
+AFTER=$(usage)
+if [ "$AFTER" -ge "$THRESHOLD" ]; then
+    logger -t docker-disk -p daemon.err "$MOUNT continua em ${AFTER}% após limpeza. Intervenção manual necessária."
+    echo "$(date '+%Y-%m-%d %H:%M') - $MOUNT em ${AFTER}% mesmo após limpeza automática" > "$STATE_FILE"
+else
+    logger -t docker-disk -p daemon.notice "$MOUNT reduzido de ${USED}% para ${AFTER}%."
+    rm -f "$STATE_FILE"
+fi

@@ -65,6 +65,7 @@ A migration `20261020120100_sdr_portal_data` cria a configuração inicial, reso
 - tempo médio por etapa;
 - evolução diária (semanal acima de 62 dias);
 - leads que precisam de atenção, tarefas atrasadas e dos próximos 7 dias, e as últimas atividades.
+- cards clicáveis: cada card abre logo abaixo o grid dos leads que o compõem (`GET /portal/sdr/summary/leads?metric=created|qualified|disqualified|active&leadType=`), com as mesmas regras do indicador;
 - quadro **Inbound × Outbound** com criados, qualificados, taxa de qualificação, desqualificados, em prospecção e parados por tipo de lead, e a mesma divisão nos cards do topo.
 
 ## Implantação

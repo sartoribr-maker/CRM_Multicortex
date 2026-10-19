@@ -92,3 +92,26 @@ export interface SdrSummary {
     lead: { id: string; name: string; businessCode: string | null };
   }>;
 }
+
+export type SdrSummaryMetric = 'created' | 'qualified' | 'disqualified' | 'active';
+
+/** Lead que compõe um card do dashboard (sem valores financeiros). */
+export interface SdrSummaryLead {
+  id: string;
+  businessCode: string | null;
+  name: string;
+  companyName: string | null;
+  contactName: string | null;
+  leadType: LeadType | null;
+  status: 'OPEN' | 'WON' | 'LOST';
+  lossReason: string | null;
+  createdAt: string;
+  stageEnteredAt: string;
+  stage: { id: string; name: string; color: string };
+  priority: { id: string; name: string; color: string } | null;
+  responsibles: string[];
+  eventAt: string | null;
+  eventReason: string | null;
+  daysInStage: number;
+  openInPortal: boolean;
+}

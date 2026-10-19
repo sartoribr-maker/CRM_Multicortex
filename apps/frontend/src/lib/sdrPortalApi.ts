@@ -5,6 +5,8 @@ import type {
   SdrPortalSettings,
   SdrPortalSettingsPayload,
   SdrSummary,
+  SdrSummaryLead,
+  SdrSummaryMetric,
 } from '../types/sdrPortal';
 
 export const sdrPortalApi = {
@@ -17,6 +19,23 @@ export const sdrPortalApi = {
       params.set('to', to);
     }
     return apiJson<SdrSummary>(`/portal/sdr/summary?${params}`);
+  },
+  summaryLeads: (params: {
+    metric: SdrSummaryMetric;
+    leadType?: 'INBOUND' | 'OUTBOUND';
+    period: SdrPeriod;
+    from?: string;
+    to?: string;
+    ownerId?: string;
+  }) => {
+    const query = new URLSearchParams({ metric: params.metric, period: params.period });
+    if (params.leadType) query.set('leadType', params.leadType);
+    if (params.ownerId) query.set('ownerId', params.ownerId);
+    if (params.period === 'custom' && params.from && params.to) {
+      query.set('from', params.from);
+      query.set('to', params.to);
+    }
+    return apiJson<SdrSummaryLead[]>(`/portal/sdr/summary/leads?${query}`);
   },
   getSettings: () => apiJson<SdrPortalSettings>('/sdr-portal-settings'),
   updateSettings: (payload: SdrPortalSettingsPayload) =>

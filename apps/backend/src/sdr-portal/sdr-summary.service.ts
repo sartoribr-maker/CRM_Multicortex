@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PERMISSIONS } from '../auth/constants/permissions';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
 import { PrismaService } from '../prisma/prisma.service';
-import { SdrSummaryQueryDto } from './dto/sdr-summary.query.dto';
+import { SdrSummaryLeadsQueryDto, SdrSummaryQueryDto } from './dto/sdr-summary.query.dto';
 import { SdrPortalSettingsService } from './sdr-portal-settings.service';
 import { computeSdrSummary, resolvePeriod } from './sdr-summary';
 
@@ -28,7 +28,8 @@ export class SdrSummaryService {
    * opcionalmente filtrados por responsável. As tarefas são sempre do
    * usuário logado.
    */
-  async summary(query: SdrSummaryQueryDto, user: JwtPayload, now = new Date()) {
+  /** Período, configuração e escopo de leads comuns aos indicadores e às listas. */
+  private async context(query: SdrSummaryQueryDto, now: Date) {
     const range = resolvePeriod(query.period, now, query.from, query.to);
     const settings = await this.settingsService.get();
     const sdrLeads: Prisma.LeadWhereInput = settings.sdrPartnerId
@@ -40,7 +41,11 @@ export class SdrSummaryService {
           OR: [{ ownerId: query.ownerId }, { assignees: { some: { userId: query.ownerId } } }],
         }
       : sdrLeads;
-    const inRange = { gte: range.start, lt: range.end };
+    return { range, settings, sdrLeads, scope, inRange: { gte: range.start, lt: range.end } };
+  }
+
+  async summary(query: SdrSummaryQueryDto, user: JwtPayload, now = new Date()) {
+    const { range, settings, sdrLeads, scope, inRange } = await this.context(query, now);
     const canViewTasks = user.permissions.includes(PERMISSIONS.TASKS_VIEW);
     const openTask: Prisma.TaskWhereInput = {
       deletedAt: null,
@@ -168,4 +173,88 @@ export class SdrSummaryService {
       recentActivities,
     };
   }
+
+  /**
+   * Leads que compõem um card do dashboard, com as mesmas regras do indicador.
+   * Nenhum valor financeiro é selecionado.
+   */
+  async leads(query: SdrSummaryLeadsQueryDto, now = new Date()) {
+    const { settings, scope, inRange } = await this.context(query, now);
+    const typeFilter: Prisma.LeadWhereInput =
+      query.leadType === undefined
+        ? {}
+        : { leadType: query.leadType === 'NONE' ? null : query.leadType };
+    const where: Prisma.LeadWhereInput = { AND: [scope, typeFilter] };
+
+    // Data e motivo do evento que coloca o lead no card (qualificação/perda).
+    const events = new Map<string, { at: Date; reason: string | null }>();
+    let leadWhere: Prisma.LeadWhereInput;
+    if (query.metric === 'created') {
+      leadWhere = { ...where, createdAt: inRange };
+    } else if (query.metric === 'active') {
+      leadWhere = { ...where, status: 'OPEN', stageId: { in: settings.visibleStageIds } };
+    } else {
+      const history =
+        query.metric === 'qualified' && !settings.qualifiedStageId
+          ? []
+          : await this.prisma.stageHistoryEntry.findMany({
+              where: {
+                createdAt: inRange,
+                lead: where,
+                ...(query.metric === 'qualified'
+                  ? { toStageId: settings.qualifiedStageId! }
+                  : { toStage: { isLostStage: true } }),
+              },
+              select: { leadId: true, createdAt: true, reason: true },
+              orderBy: { createdAt: 'asc' },
+            });
+      for (const entry of history) {
+        if (!events.has(entry.leadId)) {
+          events.set(entry.leadId, { at: entry.createdAt, reason: entry.reason });
+        }
+      }
+      leadWhere = { id: { in: [...events.keys()] } };
+    }
+
+    const rows = await this.prisma.lead.findMany({
+      where: leadWhere,
+      select: {
+        id: true,
+        businessCode: true,
+        name: true,
+        companyName: true,
+        contactName: true,
+        leadType: true,
+        status: true,
+        lossReason: true,
+        createdAt: true,
+        stageEnteredAt: true,
+        stage: { select: { id: true, name: true, color: true } },
+        priority: { select: { id: true, name: true, color: true } },
+        assignees: { select: { user: { select: { id: true, name: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    });
+
+    return rows
+      .map(({ assignees, ...lead }) => {
+        const event = events.get(lead.id);
+        return {
+          ...lead,
+          responsibles: assignees.map(({ user }) => user.name),
+          eventAt: event?.at ?? (query.metric === 'created' ? lead.createdAt : null),
+          eventReason: event?.reason ?? null,
+          daysInStage: Math.floor((now.getTime() - lead.stageEnteredAt.getTime()) / 86_400_000),
+          // Só leads em etapas do portal podem ser abertos no Kanban SDR.
+          openInPortal: settings.visibleStageIds.includes(lead.stage.id),
+        };
+      })
+      .sort((a, b) =>
+        query.metric === 'active'
+          ? b.daysInStage - a.daysInStage
+          : (b.eventAt?.getTime() ?? 0) - (a.eventAt?.getTime() ?? 0),
+      );
+  }
+
 }

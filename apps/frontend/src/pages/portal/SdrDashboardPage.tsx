@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/AppShell';
 import { Icon, type IconName } from '../../components/Icon';
 import { DateInput } from '../../components/MaskedInputs';
@@ -7,7 +7,14 @@ import { TaskDeadline } from '../../components/TaskDeadline';
 import { formatDate } from '../../lib/formatters';
 import { sdrPortalApi } from '../../lib/sdrPortalApi';
 import { LEAD_ACTIVITY_LABELS, LEAD_TYPE_LABELS } from '../../types/leads';
-import type { SdrAttentionLead, SdrPeriod, SdrSummary, SdrTask } from '../../types/sdrPortal';
+import type {
+  SdrAttentionLead,
+  SdrPeriod,
+  SdrSummary,
+  SdrSummaryLead,
+  SdrSummaryMetric,
+  SdrTask,
+} from '../../types/sdrPortal';
 import { ThirdPartyShell } from './ThirdPartyShell';
 
 const PERIODS: Array<[SdrPeriod, string]> = [
@@ -128,15 +135,27 @@ function Metric({
   caption,
   icon,
   color,
+  active = false,
+  onClick,
 }: {
   label: string;
   value: string;
   caption: string;
   icon: IconName;
   color: string;
+  active?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <div className="card h-full p-4">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      title="Ver os leads deste indicador"
+      className={`card h-full w-full p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-purple ${
+        active ? 'ring-2 ring-brand-purple' : ''
+      }`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs font-semibold leading-4 text-slate-400">{label}</p>
@@ -147,7 +166,169 @@ function Metric({
           <Icon name={icon} className="h-4 w-4" />
         </div>
       </div>
-    </div>
+    </button>
+  );
+}
+
+interface CardSelection {
+  key: string;
+  title: string;
+  metric: SdrSummaryMetric;
+  leadType?: 'INBOUND' | 'OUTBOUND';
+}
+
+const EVENT_COLUMN: Record<SdrSummaryMetric, string> = {
+  created: 'Criado em',
+  qualified: 'Qualificado em',
+  disqualified: 'Desqualificado em',
+  active: 'Dias na etapa',
+};
+
+/** Grid com os leads que compõem o card selecionado. */
+function SummaryLeadsGrid({
+  selection,
+  period,
+  from,
+  to,
+  ownerId,
+  onClose,
+}: {
+  selection: CardSelection;
+  period: SdrPeriod;
+  from: string;
+  to: string;
+  ownerId: string;
+  onClose: () => void;
+}) {
+  const navigate = useNavigate();
+  const [rows, setRows] = useState<SdrSummaryLead[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (period === 'custom' && (!from || !to)) return;
+    let current = true;
+    setRows(null);
+    setError(null);
+    sdrPortalApi
+      .summaryLeads({
+        metric: selection.metric,
+        leadType: selection.leadType,
+        period,
+        from,
+        to,
+        ownerId: ownerId || undefined,
+      })
+      .then((items) => current && setRows(items))
+      .catch(
+        (err) =>
+          current && setError(err instanceof Error ? err.message : 'Erro ao carregar os leads.'),
+      );
+    return () => {
+      current = false;
+    };
+  }, [selection.metric, selection.leadType, period, from, to, ownerId]);
+
+  return (
+    <section className="card mt-4 overflow-hidden" aria-live="polite">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4">
+        <div>
+          <h2 className="font-heading font-bold text-slate-800">{selection.title}</h2>
+          <p className="mt-0.5 text-xs text-slate-400">
+            {rows ? `${rows.length} lead(s)` : 'Carregando…'} · período e responsável selecionados
+          </p>
+        </div>
+        <button type="button" className="icon-button" onClick={onClose} aria-label="Fechar lista">
+          <Icon name="x" className="h-5 w-5" />
+        </button>
+      </div>
+      {error && <p className="p-4 text-sm text-red-600">{error}</p>}
+      {rows && rows.length === 0 && <Empty>Nenhum lead neste indicador.</Empty>}
+      {rows && rows.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="data-table min-w-[960px]">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Oportunidade</th>
+                <th>Contato</th>
+                <th>Tipo</th>
+                <th>Etapa</th>
+                <th>Responsáveis</th>
+                <th>Prioridade</th>
+                <th>{EVENT_COLUMN[selection.metric]}</th>
+                {selection.metric === 'disqualified' && <th>Motivo</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((lead) => (
+                <tr
+                  key={lead.id}
+                  onClick={
+                    lead.openInPortal
+                      ? () => navigate(`/terceiro/kanban?lead=${lead.id}`)
+                      : undefined
+                  }
+                  className={lead.openInPortal ? 'cursor-pointer hover:bg-purple-50/60' : ''}
+                  title={
+                    lead.openInPortal
+                      ? 'Abrir no Kanban'
+                      : 'Fora das etapas do portal (não abre no Kanban)'
+                  }
+                >
+                  <td className="whitespace-nowrap font-semibold text-slate-700">
+                    {lead.businessCode ?? '—'}
+                  </td>
+                  <td>
+                    <span className="block font-semibold text-slate-700">{lead.name}</span>
+                    <span className="block text-xs text-slate-400">{lead.companyName ?? '—'}</span>
+                  </td>
+                  <td>{lead.contactName ?? '—'}</td>
+                  <td>
+                    {lead.leadType ? (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${LEAD_TYPE_STYLES[lead.leadType].badge}`}
+                      >
+                        {LEAD_TYPE_LABELS[lead.leadType]}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap">
+                    <span className="flex items-center gap-1.5">
+                      <span className="status-dot" style={{ backgroundColor: lead.stage.color }} />
+                      {lead.stage.name}
+                    </span>
+                  </td>
+                  <td>{lead.responsibles.join(', ') || '—'}</td>
+                  <td className="whitespace-nowrap">
+                    {lead.priority ? (
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="status-dot"
+                          style={{ backgroundColor: lead.priority.color }}
+                        />
+                        {lead.priority.name}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap">
+                    {selection.metric === 'active'
+                      ? `${lead.daysInStage} dia(s)`
+                      : formatDate(lead.eventAt)}
+                  </td>
+                  {selection.metric === 'disqualified' && (
+                    <td>{lead.lossReason ?? lead.eventReason ?? '—'}</td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -331,6 +512,9 @@ export default function SdrDashboardPage() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [ownerId, setOwnerId] = useState('');
+  const [selectedCard, setSelectedCard] = useState<CardSelection | null>(null);
+  const toggleCard = (selection: CardSelection) =>
+    setSelectedCard((current) => (current?.key === selection.key ? null : selection));
   const [data, setData] = useState<SdrSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -443,6 +627,10 @@ export default function SdrDashboardPage() {
             <Metric
               label="Leads criados"
               value={String(data.metrics.created)}
+              active={selectedCard?.key === 'created'}
+              onClick={() =>
+                toggleCard({ key: 'created', metric: 'created', title: 'Leads criados no período' })
+              }
               caption={`no período · ${typeSplit(data.byLeadType, 'created')}`}
               icon="plus"
               color="bg-purple-50 text-brand-purple"
@@ -450,6 +638,14 @@ export default function SdrDashboardPage() {
             <Metric
               label="Qualificados / reuniões"
               value={String(data.metrics.qualified)}
+              active={selectedCard?.key === 'qualified'}
+              onClick={() =>
+                toggleCard({
+                  key: 'qualified',
+                  metric: 'qualified',
+                  title: 'Leads qualificados / reuniões no período',
+                })
+              }
               caption={`${
                 data.metrics.qualificationRate === null
                   ? 'Taxa: —'
@@ -461,6 +657,14 @@ export default function SdrDashboardPage() {
             <Metric
               label="Desqualificados"
               value={String(data.metrics.disqualified)}
+              active={selectedCard?.key === 'disqualified'}
+              onClick={() =>
+                toggleCard({
+                  key: 'disqualified',
+                  metric: 'disqualified',
+                  title: 'Leads desqualificados no período',
+                })
+              }
               caption={typeSplit(data.byLeadType, 'disqualified')}
               icon="x"
               color="bg-red-50 text-red-600"
@@ -468,6 +672,10 @@ export default function SdrDashboardPage() {
             <Metric
               label="Leads em prospecção"
               value={String(data.metrics.activePortfolio)}
+              active={selectedCard?.key === 'active'}
+              onClick={() =>
+                toggleCard({ key: 'active', metric: 'active', title: 'Leads em prospecção' })
+              }
               caption={`${typeSplit(data.byLeadType, 'active')} · ${data.metrics.stale} parada(s) há +${data.metrics.staleDays} dias`}
               icon="leads"
               color="bg-amber-50 text-amber-600"
@@ -479,6 +687,15 @@ export default function SdrDashboardPage() {
                   key={leadType}
                   label={`${LEAD_TYPE_LABELS[leadType]} em prospecção`}
                   value={String(row?.active ?? 0)}
+                  active={selectedCard?.key === `active-${leadType}`}
+                  onClick={() =>
+                    toggleCard({
+                      key: `active-${leadType}`,
+                      metric: 'active',
+                      leadType,
+                      title: `Leads ${LEAD_TYPE_LABELS[leadType]} em prospecção`,
+                    })
+                  }
                   caption={`${row?.created ?? 0} criados · ${row?.qualified ?? 0} qualificados · taxa ${
                     row?.qualificationRate == null ? '—' : `${row.qualificationRate.toFixed(1)}%`
                   } no período`}
@@ -492,6 +709,17 @@ export default function SdrDashboardPage() {
               );
             })}
           </div>
+
+          {selectedCard && (
+            <SummaryLeadsGrid
+              selection={selectedCard}
+              period={period}
+              from={from}
+              to={to}
+              ownerId={ownerId}
+              onClose={() => setSelectedCard(null)}
+            />
+          )}
 
           <div className="mt-5">
             <Section

@@ -73,6 +73,7 @@ test('rotas liberadas passam para o THIRD_PARTY', async () => {
     [AuthController, 'me'],
     [SdrPortalController, 'summary'],
     [SdrPortalController, 'config'],
+    [SdrPortalController, 'summaryLeads'],
     [LeadMeetingsController, 'create'],
     [LeadMeetingsController, 'config'],
     [LeadMeetingsController, 'attendeeSuggestions'],

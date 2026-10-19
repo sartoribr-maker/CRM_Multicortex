@@ -124,6 +124,7 @@ export function SdrLeadFields({
                 ...form,
                 companyName: option.companyName ?? '',
                 companyDocument: option.companyDocument ?? form.companyDocument,
+                companySegment: option.companySegment ?? form.companySegment,
               })
             }
           />
@@ -182,6 +183,14 @@ export function SdrLeadFields({
                 contactName: option.contactName ?? '',
                 contactEmail: option.contactEmail ?? form.contactEmail,
                 contactPhone: option.contactPhone ?? form.contactPhone,
+                // Preenche a empresa do contato apenas se ainda não houver uma.
+                ...(!form.companyName && option.companyName
+                  ? {
+                      companyName: option.companyName,
+                      companyDocument: option.companyDocument ?? form.companyDocument,
+                      companySegment: option.companySegment ?? form.companySegment,
+                    }
+                  : {}),
               })
             }
           />

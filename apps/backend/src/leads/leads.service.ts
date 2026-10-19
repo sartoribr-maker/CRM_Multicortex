@@ -13,6 +13,7 @@ import { EmailNotificationsService } from '../notifications/email-notifications.
 import { AuditService } from '../audit/audit.service';
 import { STORAGE_PROVIDER, type StorageProvider } from '../storage/storage-provider.interface';
 import { SdrPortalSettingsService } from '../sdr-portal/sdr-portal-settings.service';
+import { CompanyContactService } from '../companies/company-contact.service';
 import {
   assertThirdPartyLeadPayload,
   assertThirdPartyStageMove,
@@ -43,6 +44,16 @@ const LEAD_DETAIL_INCLUDE = {
 
 type LeadEmailPayload = Parameters<EmailNotificationsService['leadCreated']>[0];
 
+/** Campos do lead que alimentam o cadastro de empresas e contatos. */
+const PARTY_FIELDS = [
+  'companyName',
+  'companyDocument',
+  'companySegment',
+  'contactName',
+  'contactEmail',
+  'contactPhone',
+] as const;
+
 const LEAD_LINE_PREFIX: Record<LeadLine, string> = {
   ENTERPRISE: 'ENT',
   PRIVACY: 'PRI',
@@ -58,6 +69,7 @@ export class LeadsService {
     private readonly audit: AuditService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
     private readonly sdrPortalSettings: SdrPortalSettingsService,
+    private readonly companyContacts: CompanyContactService,
   ) {}
 
   private calculateEstimatedValue(
@@ -156,38 +168,9 @@ export class LeadsService {
     };
   }
 
-  async autocomplete(query: AutocompleteLeadsQueryDto, currentUser: JwtPayload) {
-    const isCompany = query.type === 'company';
-    const search = query.search.trim();
-    const rows = await this.prisma.lead.findMany({
-      where: {
-        deletedAt: null,
-        ...(await this.visibilityFilter(currentUser)),
-        ...(isCompany
-          ? { companyName: { contains: search, mode: 'insensitive' } }
-          : { contactName: { contains: search, mode: 'insensitive' } }),
-      },
-      select: {
-        companyName: true,
-        companyDocument: true,
-        contactName: true,
-        contactEmail: true,
-        contactPhone: true,
-      },
-      orderBy: { updatedAt: 'desc' },
-      take: 30,
-    });
-
-    const seen = new Set<string>();
-    return rows
-      .filter((row) => {
-        const value = isCompany ? row.companyName : row.contactName;
-        const key = value?.trim().toLocaleLowerCase('pt-BR');
-        if (!key || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .slice(0, 8);
+  /** Sugestões de empresa/contato a partir do cadastro de empresas e contatos. */
+  autocomplete(query: AutocompleteLeadsQueryDto) {
+    return this.companyContacts.autocomplete(query.type, query.search);
   }
 
   async findOne(id: string, currentUser: JwtPayload) {
@@ -431,9 +414,12 @@ export class LeadsService {
         throw new BadRequestException('A sequência de IDs de oportunidades atingiu o limite.');
       }
       const businessCode = `${LEAD_LINE_PREFIX[dto.line]}${String(sequence.value).padStart(5, '0')}`;
+      const party = await this.companyContacts.syncForLead(tx, dto, currentUser.sub);
       const created = await tx.lead.create({
         data: {
           businessCode,
+          companyId: party.companyId,
+          contactId: party.contactId,
           siteSubmissionId: dto.siteSubmissionId,
           line: dto.line,
           name: dto.name,
@@ -651,6 +637,18 @@ export class LeadsService {
         data.status = newStage.isWonStage ? 'WON' : newStage.isLostStage ? 'LOST' : 'OPEN';
 
         stageChangeMessage = `Etapa alterada para "${newStage.name}". Ação: ${dto.actionDescription.trim()}`;
+      }
+
+      if (PARTY_FIELDS.some((field) => dto[field] !== undefined)) {
+        const party = await this.companyContacts.syncForLead(
+          tx,
+          Object.fromEntries(
+            PARTY_FIELDS.map((field) => [field, dto[field] !== undefined ? dto[field] : existing[field]]),
+          ),
+          currentUser.sub,
+        );
+        data.company = party.companyId ? { connect: { id: party.companyId } } : { disconnect: true };
+        data.contact = party.contactId ? { connect: { id: party.contactId } } : { disconnect: true };
       }
 
       if (dto.ownerIds?.length) {

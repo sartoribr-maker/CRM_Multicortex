@@ -92,8 +92,9 @@ export function LeadAutocompleteInput({ type, value, onChange, onSelect }: Props
             const details =
               type === 'company'
                 ? option.companyDocument || 'Documento não informado'
-                : [option.contactEmail, option.contactPhone].filter(Boolean).join(' · ') ||
-                  'Contato sem e-mail ou telefone';
+                : [option.companyName, option.contactEmail, option.contactPhone]
+                    .filter(Boolean)
+                    .join(' · ') || 'Contato sem empresa, e-mail ou telefone';
             return (
               <li
                 id={`${listboxId}-${index}`}

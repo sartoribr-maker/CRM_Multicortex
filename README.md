@@ -180,6 +180,15 @@ A central `/access` permite administrar usuários e criar perfis personalizados 
 - Headers defensivos, limite de upload, suporte correto a proxy e CORS configurável.
 - Procedimento completo em [`docs/DEPLOY.md`](docs/DEPLOY.md) e variáveis em `.env.production.example`.
 
+## Cadastro de Empresas e Contatos
+
+Empresas (`companies`) e contatos (`contacts`) formam uma base própria, alimentada automaticamente: ao criar ou editar um lead (CRM interno, Portal SDR ou integração do site), a empresa e o contato informados são gravados se ainda não existirem e vinculados ao lead (`companyId`/`contactId`). Registros existentes só têm dados ausentes completados; nada é sobrescrito.
+
+- Empresa é identificada pelo nome, sem diferenciar maiúsculas e espaços extras.
+- Contato é identificado pelo e-mail + nome; sem e-mail, pelo nome dentro da mesma empresa.
+- O autocomplete de empresa e contato nos formulários de lead consulta toda essa base (inclusive no Portal SDR) e completa CNPJ, segmento, e-mail e telefone.
+- A migration `20261021120000_companies_contacts` importa as empresas e os contatos dos leads existentes.
+
 ## Portal de Terceiros — SDR (Fase 11)
 
 Usuários com perfil de portal `THIRD_PARTY` (perfil de sistema **SDR**) entram sempre em `/terceiro` e não acessam nenhuma outra área do CRM. O bloqueio vale no frontend e no backend: um guard global responde 403 e audita qualquer rota não liberada ao portal.

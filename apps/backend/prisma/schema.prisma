@@ -429,10 +429,15 @@ model Lead {
   companyName     String?
   companyDocument String?
   companySegment  String?
+  // Vínculos com o cadastro de empresas e contatos, mantidos ao salvar o lead.
+  companyId       String?
+  company         Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
   contactName  String?
   contactEmail String?
   contactPhone String?
+  contactId    String?
+  contact      Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
   projectTypeId String?
   projectType   ProjectType?      @relation("LeadPrimaryProjectType", fields: [projectTypeId], references: [id])
@@ -488,6 +493,8 @@ model Lead {
 
   @@index([technicalPartnerId])
   @@index([line])
+  @@index([companyId])
+  @@index([contactId])
   @@map("leads")
 }
 
@@ -731,4 +738,47 @@ model SdrPortalSettings {
   updatedBy             String?
 
   @@map("sdr_portal_settings")
+}
+
+// Cadastro de empresas e contatos, alimentado automaticamente ao salvar leads.
+model Company {
+  id             String  @id @default(uuid())
+  name           String
+  /// Nome em minúsculas e com espaços normalizados, usado para evitar duplicidade.
+  normalizedName String  @unique
+  document       String?
+  segment        String?
+
+  contacts Contact[]
+  leads    Lead[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@map("companies")
+}
+
+model Contact {
+  id              String  @id @default(uuid())
+  name            String
+  normalizedName  String
+  email           String?
+  /// E-mail em minúsculas, chave preferencial para evitar duplicidade.
+  normalizedEmail String?
+  phone           String?
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  leads     Lead[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@index([normalizedEmail])
+  @@index([normalizedName, companyId])
+  @@map("contacts")
 }

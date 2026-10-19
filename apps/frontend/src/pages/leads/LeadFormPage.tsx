@@ -316,7 +316,8 @@ export default function LeadFormPage() {
                     setForm((current) => ({
                       ...current,
                       companyName: option.companyName ?? undefined,
-                      companyDocument: option.companyDocument ?? undefined,
+                      companyDocument: option.companyDocument ?? current.companyDocument,
+                      companySegment: option.companySegment ?? current.companySegment,
                     }))
                   }
                 />
@@ -379,6 +380,14 @@ export default function LeadFormPage() {
                       contactName: option.contactName ?? undefined,
                       contactEmail: option.contactEmail ?? undefined,
                       contactPhone: option.contactPhone ?? undefined,
+                      // Preenche a empresa do contato apenas se ainda não houver uma.
+                      ...(!current.companyName && option.companyName
+                        ? {
+                            companyName: option.companyName,
+                            companyDocument: option.companyDocument ?? current.companyDocument,
+                            companySegment: option.companySegment ?? current.companySegment,
+                          }
+                        : {}),
                     }))
                   }
                 />

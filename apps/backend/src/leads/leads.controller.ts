@@ -37,8 +37,8 @@ export class LeadsController {
   @Get('autocomplete')
   @AllowThirdPartyPortal()
   @RequirePermissions(PERMISSIONS.LEADS_VIEW)
-  autocomplete(@Query() query: AutocompleteLeadsQueryDto, @CurrentUser() currentUser: JwtPayload) {
-    return this.leadsService.autocomplete(query, currentUser);
+  autocomplete(@Query() query: AutocompleteLeadsQueryDto) {
+    return this.leadsService.autocomplete(query);
   }
 
   @Get(':id')

@@ -47,9 +47,11 @@ export interface LeadFormPayload {
   customFieldValues?: CustomFieldValueInput[];
 }
 
+/** Sugestão do cadastro de empresas e contatos. */
 export interface LeadAutocompleteOption {
   companyName: string | null;
   companyDocument: string | null;
+  companySegment: string | null;
   contactName: string | null;
   contactEmail: string | null;
   contactPhone: string | null;

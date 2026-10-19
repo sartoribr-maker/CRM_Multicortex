@@ -22,6 +22,7 @@ import { AttachmentsModule } from './leads/attachments/attachments.module';
 import { PartnersModule } from './partners/partners.module';
 import { TasksModule } from './tasks/tasks.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { SdrPortalModule } from './sdr-portal/sdr-portal.module';
 import { EmailNotificationsModule } from './notifications/email-notifications.module';
 import { WhatsAppSettingsModule } from './notifications/whatsapp-settings.module';
 
@@ -53,6 +54,7 @@ import { WhatsAppSettingsModule } from './notifications/whatsapp-settings.module
     PartnersModule,
     TasksModule,
     DashboardModule,
+    SdrPortalModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

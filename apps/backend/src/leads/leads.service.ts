@@ -12,6 +12,13 @@ import type { CustomFieldValueInputDto } from './dto/custom-field-value-input.dt
 import { EmailNotificationsService } from '../notifications/email-notifications.service';
 import { AuditService } from '../audit/audit.service';
 import { STORAGE_PROVIDER, type StorageProvider } from '../storage/storage-provider.interface';
+import { SdrPortalSettingsService } from '../sdr-portal/sdr-portal-settings.service';
+import {
+  assertThirdPartyLeadPayload,
+  assertThirdPartyStageMove,
+  isThirdParty,
+  sanitizeLeadForThirdParty,
+} from '../sdr-portal/third-party-lead.policy';
 
 const LEAD_LIST_INCLUDE = {
   stage: true,
@@ -34,6 +41,8 @@ const LEAD_DETAIL_INCLUDE = {
   customFieldValues: { include: { customField: true } },
 } satisfies Prisma.LeadInclude;
 
+type LeadEmailPayload = Parameters<EmailNotificationsService['leadCreated']>[0];
+
 const LEAD_LINE_PREFIX: Record<LeadLine, string> = {
   ENTERPRISE: 'ENT',
   PRIVACY: 'PRI',
@@ -48,6 +57,7 @@ export class LeadsService {
     private readonly emailNotifications: EmailNotificationsService,
     private readonly audit: AuditService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
+    private readonly sdrPortalSettings: SdrPortalSettingsService,
   ) {}
 
   private calculateEstimatedValue(
@@ -70,11 +80,23 @@ export class LeadsService {
         };
   }
 
+  /** Usuários THIRD_PARTY veem apenas leads em etapas visíveis do Portal SDR. */
+  private async visibilityFilter(currentUser: JwtPayload): Promise<Prisma.LeadWhereInput> {
+    if (!isThirdParty(currentUser)) return this.ownershipFilter(currentUser);
+    const { visibleStageIds } = await this.sdrPortalSettings.get();
+    return { AND: [this.ownershipFilter(currentUser), { stageId: { in: visibleStageIds } }] };
+  }
+
+  private async presentForUser<T extends object>(lead: T, currentUser: JwtPayload): Promise<T> {
+    if (!isThirdParty(currentUser)) return lead;
+    return sanitizeLeadForThirdParty(lead, await this.sdrPortalSettings.get());
+  }
+
   async findAll(query: ListLeadsQueryDto, currentUser: JwtPayload) {
     const where: Prisma.LeadWhereInput = {
       deletedAt: null,
       AND: [
-        this.ownershipFilter(currentUser),
+        await this.visibilityFilter(currentUser),
         query.ownerId
           ? { OR: [{ ownerId: query.ownerId }, { assignees: { some: { userId: query.ownerId } } }] }
           : {},
@@ -121,8 +143,9 @@ export class LeadsService {
       this.prisma.lead.count({ where }),
     ]);
 
+    const settings = isThirdParty(currentUser) ? await this.sdrPortalSettings.get() : null;
     return {
-      items,
+      items: settings ? items.map((item) => sanitizeLeadForThirdParty(item, settings)) : items,
       total,
       page: query.page,
       pageSize: query.pageSize,
@@ -136,7 +159,7 @@ export class LeadsService {
     const rows = await this.prisma.lead.findMany({
       where: {
         deletedAt: null,
-        ...this.ownershipFilter(currentUser),
+        ...(await this.visibilityFilter(currentUser)),
         ...(isCompany
           ? { companyName: { contains: search, mode: 'insensitive' } }
           : { contactName: { contains: search, mode: 'insensitive' } }),
@@ -165,8 +188,23 @@ export class LeadsService {
   }
 
   async findOne(id: string, currentUser: JwtPayload) {
+    return this.presentForUser(await this.loadDetail(id, currentUser), currentUser);
+  }
+
+  /**
+   * Detalhe sem sanitização, para uso interno. `ignorePortalStages` permite
+   * devolver um lead que o SDR acabou de mover para fora das etapas visíveis.
+   */
+  private async loadDetail(
+    id: string,
+    currentUser: JwtPayload,
+    { ignorePortalStages = false } = {},
+  ) {
+    const visibility = ignorePortalStages
+      ? this.ownershipFilter(currentUser)
+      : await this.visibilityFilter(currentUser);
     const lead = await this.prisma.lead.findFirst({
-      where: { id, deletedAt: null, ...this.ownershipFilter(currentUser) },
+      where: { id, deletedAt: null, ...visibility },
       include: LEAD_DETAIL_INCLUDE,
     });
     if (!lead) {
@@ -177,7 +215,7 @@ export class LeadsService {
 
   async ensureVisible(id: string, currentUser: JwtPayload) {
     const lead = await this.prisma.lead.findFirst({
-      where: { id, deletedAt: null, ...this.ownershipFilter(currentUser) },
+      where: { id, deletedAt: null, ...(await this.visibilityFilter(currentUser)) },
     });
     if (!lead) {
       throw new NotFoundException('Lead não encontrado.');
@@ -282,7 +320,40 @@ export class LeadsService {
     return { id: existing.id };
   }
 
+  /** Na criação pelo SDR, responsável, origem e etapa inicial são definidos pelo backend. */
+  private async applyThirdPartyCreateRules(
+    dto: CreateLeadDto,
+    currentUser: JwtPayload,
+  ): Promise<CreateLeadDto> {
+    const settings = await this.sdrPortalSettings.get();
+    assertThirdPartyLeadPayload(dto, 'create', settings);
+    if (!settings.defaultSourceId) {
+      throw new BadRequestException(
+        'Origem padrão do Portal SDR não configurada. Contate o administrador.',
+      );
+    }
+    const firstStage = await this.prisma.stage.findFirst({
+      where: { id: { in: settings.visibleStageIds }, deletedAt: null },
+      orderBy: { order: 'asc' },
+    });
+    if (!firstStage) {
+      throw new BadRequestException(
+        'Portal SDR sem etapas configuradas. Contate o administrador.',
+      );
+    }
+    return {
+      ...dto,
+      ownerIds: [currentUser.sub],
+      sourceId: settings.defaultSourceId,
+      stageId: firstStage.id,
+    };
+  }
+
   async create(dto: CreateLeadDto, currentUser: JwtPayload) {
+    if (isThirdParty(currentUser)) {
+      dto = await this.applyThirdPartyCreateRules(dto, currentUser);
+    }
+
     if (dto.siteSubmissionId !== undefined) {
       const siteSourceId =
         process.env.CRM_SITE_SOURCE_ID ??
@@ -452,33 +523,21 @@ export class LeadsService {
       actorUserId: currentUser.sub,
     });
 
-    const result = await this.findOne(lead.id, currentUser);
-    await this.emailNotifications.leadCreated({
-      id: result.id,
-      name: result.name,
-      stageName: result.stage.name,
-      recipients: result.assignees.map(({ user }) => ({ name: user.name, email: user.email })),
-      companyName: result.companyName,
-      contactName: result.contactName,
-      contactEmail: result.contactEmail,
-      contactPhone: result.contactPhone,
-      priorityName: result.priority?.name,
-      dealSizeName: result.dealSize?.name,
-      sourceName: result.source?.name,
-      partnerName: result.partner?.name,
-      projectTypeName: result.projectTypes.map(({ projectType }) => projectType.name).join(', '),
-      successProbability: result.successProbability,
-      estimatedValue: result.estimatedValue?.toString() ?? null,
-      expectedCloseDate: result.expectedCloseDate,
-      status: result.status,
-      description: result.description,
-      responsibleNames: result.assignees.map(({ user }) => user.name),
-    });
-    return result;
+    const result = await this.loadDetail(lead.id, currentUser, { ignorePortalStages: true });
+    await this.sendLeadEmail(result, (data) => this.emailNotifications.leadCreated(data));
+    return this.presentForUser(result, currentUser);
   }
 
   async update(id: string, dto: UpdateLeadDto, currentUser: JwtPayload) {
     const existing = await this.ensureVisible(id, currentUser);
+    const thirdParty = isThirdParty(currentUser);
+    if (thirdParty) {
+      const settings = await this.sdrPortalSettings.get();
+      assertThirdPartyLeadPayload(dto, 'update', settings);
+      if (dto.stageId && dto.stageId !== existing.stageId) {
+        assertThirdPartyStageMove(dto.stageId, settings);
+      }
+    }
     await this.validateCustomFieldValues(dto.customFieldValues, { enforceRequired: false });
 
     let stageChangeMessage: string | null = null;
@@ -607,7 +666,10 @@ export class LeadsService {
       await tx.lead.update({ where: { id }, data });
 
       if (stageChangeMessage && dto.createTask && dto.taskDueDate && dto.taskPriority) {
-        const taskOwnerIds = [...new Set(dto.ownerIds?.length ? dto.ownerIds : [existing.ownerId])];
+        // O SDR não escolhe responsáveis: a tarefa da movimentação é dele.
+        const taskOwnerIds = thirdParty
+          ? [currentUser.sub]
+          : [...new Set(dto.ownerIds?.length ? dto.ownerIds : [existing.ownerId])];
         for (const assigneeId of taskOwnerIds) {
           const task = await tx.task.create({
             data: {
@@ -674,31 +736,15 @@ export class LeadsService {
       });
     }
 
-    const result = await this.findOne(id, currentUser);
+    const result = await this.loadDetail(id, currentUser, { ignorePortalStages: true });
     if (stageChangeMessage) {
       const previousStage = await this.prisma.stage.findUnique({ where: { id: existing.stageId } });
-      await this.emailNotifications.leadStageChanged({
-        id: result.id,
-        name: result.name,
-        previousStageName: previousStage?.name ?? 'Etapa anterior',
-        stageName: result.stage.name,
-        recipients: result.assignees.map(({ user }) => ({ name: user.name, email: user.email })),
-        companyName: result.companyName,
-        contactName: result.contactName,
-        contactEmail: result.contactEmail,
-        contactPhone: result.contactPhone,
-        priorityName: result.priority?.name,
-        dealSizeName: result.dealSize?.name,
-        sourceName: result.source?.name,
-        partnerName: result.partner?.name,
-        projectTypeName: result.projectTypes.map(({ projectType }) => projectType.name).join(', '),
-        successProbability: result.successProbability,
-        estimatedValue: result.estimatedValue?.toString() ?? null,
-        expectedCloseDate: result.expectedCloseDate,
-        status: result.status,
-        description: result.description,
-        responsibleNames: result.assignees.map(({ user }) => user.name),
-      });
+      await this.sendLeadEmail(result, (data) =>
+        this.emailNotifications.leadStageChanged({
+          ...data,
+          previousStageName: previousStage?.name ?? 'Etapa anterior',
+        }),
+      );
     }
     if (movementTaskIds.length) {
       const tasks = await this.prisma.task.findMany({
@@ -728,7 +774,62 @@ export class LeadsService {
         ),
       );
     }
-    return result;
+    return this.presentForUser(result, currentUser);
+  }
+
+  private leadEmailPayload(
+    lead: Awaited<ReturnType<LeadsService['loadDetail']>>,
+  ): Omit<LeadEmailPayload, 'recipients'> {
+    return {
+      id: lead.id,
+      name: lead.name,
+      stageName: lead.stage.name,
+      companyName: lead.companyName,
+      contactName: lead.contactName,
+      contactEmail: lead.contactEmail,
+      contactPhone: lead.contactPhone,
+      priorityName: lead.priority?.name,
+      dealSizeName: lead.dealSize?.name,
+      sourceName: lead.source?.name,
+      partnerName: lead.partner?.name,
+      projectTypeName: lead.projectTypes.map(({ projectType }) => projectType.name).join(', '),
+      successProbability: lead.successProbability,
+      estimatedValue: lead.estimatedValue?.toString() ?? null,
+      expectedCloseDate: lead.expectedCloseDate,
+      status: lead.status,
+      description: lead.description,
+      responsibleNames: lead.assignees.map(({ user }) => user.name),
+    };
+  }
+
+  /**
+   * Envia o e-mail aos responsáveis. Responsáveis de perfis THIRD_PARTY
+   * recebem uma versão sem valores quando o Portal SDR os oculta.
+   */
+  private async sendLeadEmail(
+    lead: Awaited<ReturnType<LeadsService['loadDetail']>>,
+    send: (data: LeadEmailPayload) => Promise<void>,
+  ) {
+    const data = this.leadEmailPayload(lead);
+    const recipients = lead.assignees.map(({ user }) => user);
+    const thirdPartyUsers = await this.prisma.user.findMany({
+      where: { id: { in: recipients.map((user) => user.id) }, role: { portal: 'THIRD_PARTY' } },
+      select: { id: true },
+    });
+    const thirdPartyIds = new Set(thirdPartyUsers.map((user) => user.id));
+    const toRecipient = ({ name, email }: { name: string; email: string }) => ({ name, email });
+    if (!thirdPartyIds.size || !(await this.sdrPortalSettings.get()).hideFinancialValues) {
+      await send({ ...data, recipients: recipients.map(toRecipient) });
+      return;
+    }
+    const internal = recipients.filter((user) => !thirdPartyIds.has(user.id));
+    if (internal.length) await send({ ...data, recipients: internal.map(toRecipient) });
+    await send({
+      ...data,
+      estimatedValue: null,
+      successProbability: null,
+      recipients: recipients.filter((user) => thirdPartyIds.has(user.id)).map(toRecipient),
+    });
   }
 
   async archive(id: string, currentUser: JwtPayload) {

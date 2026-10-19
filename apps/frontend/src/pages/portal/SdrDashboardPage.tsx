@@ -439,7 +439,7 @@ export default function SdrDashboardPage() {
         )
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <Metric
               label="Leads criados"
               value={String(data.metrics.created)}
@@ -472,6 +472,25 @@ export default function SdrDashboardPage() {
               icon="leads"
               color="bg-amber-50 text-amber-600"
             />
+            {(['INBOUND', 'OUTBOUND'] as const).map((leadType) => {
+              const row = data.byLeadType.find((item) => item.leadType === leadType);
+              return (
+                <Metric
+                  key={leadType}
+                  label={`${LEAD_TYPE_LABELS[leadType]} em prospecção`}
+                  value={String(row?.active ?? 0)}
+                  caption={`${row?.created ?? 0} criados · ${row?.qualified ?? 0} qualificados · taxa ${
+                    row?.qualificationRate == null ? '—' : `${row.qualificationRate.toFixed(1)}%`
+                  } no período`}
+                  icon={leadType === 'INBOUND' ? 'mail' : 'external'}
+                  color={
+                    leadType === 'INBOUND'
+                      ? 'bg-emerald-50 text-emerald-600'
+                      : 'bg-violet-50 text-violet-600'
+                  }
+                />
+              );
+            })}
           </div>
 
           <div className="mt-5">

@@ -1,11 +1,11 @@
-import { type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
-import { FixedHorizontalScrollbar } from '../../components/FixedHorizontalScrollbar';
 import { Icon } from '../../components/Icon';
-import { DateInput } from '../../components/MaskedInputs';
+import { KanbanBoard } from '../../components/leads/kanban/KanbanBoard';
+import { money } from '../../components/leads/kanban/LeadKanbanCard';
+import { MoveLeadModal, type MoveLeadPayload } from '../../components/leads/kanban/MoveLeadModal';
 import { leadsApi, type LeadListFilters } from '../../lib/leadsApi';
-import { formatCurrency, formatDate } from '../../lib/formatters';
 import { partnersApi } from '../../lib/partnersApi';
 import {
   dealSizesApi,
@@ -14,7 +14,7 @@ import {
   sourcesApi,
   stagesApi,
 } from '../../lib/settingsApi';
-import { avatarUrl, usersApi, type UserOption } from '../../lib/usersApi';
+import { usersApi, type UserOption } from '../../lib/usersApi';
 import { useAuthStore } from '../../store/useAuthStore';
 import { LEAD_LINE_LABELS, type LeadListItem } from '../../types/leads';
 import type { Partner } from '../../types/partners';
@@ -25,23 +25,9 @@ interface PendingMove {
   stage: Stage;
 }
 
-function money(value: string | number | null) {
-  return value === null ? 'Valor não informado' : formatCurrency(value);
-}
-
-function isMandatoryPriority(lead: LeadListItem) {
-  return (
-    lead.priority?.name
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase() === 'mandatoria'
-  );
-}
-
 export default function LeadsKanbanPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const kanbanScrollRef = useRef<HTMLDivElement>(null);
   const user = useAuthStore((state) => state.user);
   const canViewAll = user?.permissions.includes('leads.view.all') ?? false;
   const canCreate = user?.permissions.includes('leads.create') ?? false;
@@ -57,15 +43,7 @@ export default function LeadsKanbanPage() {
   const [filters, setFilters] = useState<LeadListFilters>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
-  const [lossReason, setLossReason] = useState('');
-  const [actionDescription, setActionDescription] = useState('');
-  const [moveOwnerIds, setMoveOwnerIds] = useState<string[]>([]);
-  const [createTask, setCreateTask] = useState(false);
-  const [taskDueDate, setTaskDueDate] = useState('');
-  const [taskPriority, setTaskPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
   const [isMoving, setIsMoving] = useState(false);
 
   useEffect(() => {
@@ -156,15 +134,9 @@ export default function LeadsKanbanPage() {
     const lead = leads.find((item) => item.id === leadId);
     if (!lead || lead.stage.id === stage.id || !canEdit) return;
     setPendingMove({ lead, stage });
-    setLossReason('');
-    setActionDescription('');
-    setMoveOwnerIds(lead.assignees.map((assignment) => assignment.user.id));
-    setCreateTask(false);
-    setTaskDueDate('');
-    setTaskPriority('MEDIUM');
   }
 
-  async function persistMove(lead: LeadListItem, stage: Stage) {
+  async function persistMove(lead: LeadListItem, stage: Stage, payload: MoveLeadPayload) {
     const previous = leads;
     setIsMoving(true);
     setError(null);
@@ -181,38 +153,18 @@ export default function LeadsKanbanPage() {
       ),
     );
     try {
-      const updatedLead = await leadsApi.update(lead.id, {
-        stageId: stage.id,
-        lossReason: stage.isLostStage ? lossReason.trim() : undefined,
-        actionDescription: actionDescription.trim(),
-        ownerIds: moveOwnerIds,
-        createTask,
-        taskDueDate: createTask ? new Date(`${taskDueDate}T12:00:00`).toISOString() : undefined,
-        taskPriority: createTask ? taskPriority : undefined,
-      });
+      const updatedLead = await leadsApi.update(lead.id, payload);
       setLeads((items) => items.map((item) => (item.id === lead.id ? updatedLead : item)));
       setPendingMove(null);
-      setLossReason('');
     } catch (err) {
       setLeads(previous);
       setError(err instanceof Error ? err.message : 'Não foi possível mover o lead.');
     } finally {
       setIsMoving(false);
-      setDraggedId(null);
-      setDragOverStageId(null);
     }
   }
 
-  function onDrop(event: DragEvent, stage: Stage) {
-    event.preventDefault();
-    const leadId = event.dataTransfer.getData('text/lead-id') || draggedId;
-    setDragOverStageId(null);
-    if (leadId) requestMove(leadId, stage);
-  }
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
-  const moveUserOptions = users.length
-    ? users
-    : (pendingMove?.lead.assignees.map((assignment) => assignment.user) ?? []);
 
   return (
     <AppShell>
@@ -381,292 +333,25 @@ export default function LeadsKanbanPage() {
           </button>
         </div>
       ) : (
-        <div ref={kanbanScrollRef} className="-mx-4 overflow-x-auto px-4 pb-5 md:-mx-8 md:px-8">
-          <div className="flex min-w-max items-start gap-4">
-            {visibleStages.map((stage) => {
-              const columnLeads = grouped.get(stage.id) ?? [];
-              const columnValue = columnLeads.reduce(
-                (sum, lead) => sum + Number(lead.estimatedValue ?? 0),
-                0,
-              );
-              return (
-                <section
-                  key={stage.id}
-                  className={`w-[calc(100vw-3rem)] rounded-2xl border bg-slate-100/70 p-3 transition sm:w-[310px] ${dragOverStageId === stage.id ? 'border-brand-purple bg-purple-50 ring-4 ring-purple-100' : 'border-slate-200/80'}`}
-                  onDragOver={(event) => {
-                    if (canEdit) {
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = 'move';
-                      setDragOverStageId(stage.id);
-                    }
-                  }}
-                  onDragLeave={(event) => {
-                    if (!event.currentTarget.contains(event.relatedTarget as Node))
-                      setDragOverStageId(null);
-                  }}
-                  onDrop={(event) => onDrop(event, stage)}
-                >
-                  <header className="mb-3 px-1 pb-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="h-3 w-3 rounded-full shadow-sm"
-                          style={{ backgroundColor: stage.color }}
-                        />
-                        <h2 className="text-sm font-bold text-slate-800">{stage.name}</h2>
-                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500 shadow-sm">
-                          {columnLeads.length}
-                        </span>
-                      </div>
-                      <button
-                        className="icon-button !h-7 !w-7"
-                        onClick={() => navigate('/leads/novo')}
-                        title="Adicionar"
-                      >
-                        <Icon name="plus" className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <p className="mt-2 text-xs font-semibold text-slate-400">
-                      {money(columnValue)}
-                    </p>
-                  </header>
-                  <div className="flex min-h-[120px] flex-col gap-3">
-                    {columnLeads.map((lead) => (
-                      <article
-                        key={lead.id}
-                        draggable={canEdit && !isMoving}
-                        onDragStart={(event) => {
-                          setDraggedId(lead.id);
-                          event.dataTransfer.setData('text/lead-id', lead.id);
-                          event.dataTransfer.effectAllowed = 'move';
-                        }}
-                        onDragEnd={() => {
-                          setDraggedId(null);
-                          setDragOverStageId(null);
-                        }}
-                        onClick={() => openLead(lead.id)}
-                        className={`group cursor-pointer rounded-xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
-                          isMandatoryPriority(lead)
-                            ? 'border-rose-200 bg-rose-50 shadow-rose-200/30 hover:border-rose-300 hover:bg-rose-100/70'
-                            : 'border-amber-200/80 bg-amber-50 shadow-amber-200/30 hover:border-amber-300 hover:bg-amber-100/70'
-                        } ${draggedId === lead.id ? 'opacity-40' : ''}`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h3 className="line-clamp-2 text-sm font-bold leading-5 text-slate-800 group-hover:text-brand-purple">
-                              {lead.name}
-                            </h3>
-                            <p className="mt-1 line-clamp-1 text-xs text-slate-400">
-                              {[lead.businessCode, lead.companyName || 'Empresa não informada']
-                                .filter(Boolean)
-                                .join(' · ')}
-                            </p>
-                          </div>
-                          {lead.priority && (
-                            <span
-                              className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-                              style={{ backgroundColor: lead.priority.color }}
-                              title={lead.priority.name}
-                            />
-                          )}
-                        </div>
-                        <div
-                          className={`my-3 h-px ${isMandatoryPriority(lead) ? 'bg-rose-200/70' : 'bg-amber-200/60'}`}
-                        />
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <span className="text-xs font-semibold text-slate-700">
-                              {formatDate(lead.stageEnteredAt || lead.createdAt)}
-                            </span>
-                            {lead.estimatedValue !== null && (
-                              <p className="mt-0.5 text-[10px] text-slate-400">
-                                {money(lead.estimatedValue)}
-                              </p>
-                            )}
-                          </div>
-                          <span className="text-[10px] font-semibold text-slate-400">
-                            {lead.projectTypes.length
-                              ? lead.projectTypes
-                                  .map(({ projectType }) => projectType.name)
-                                  .join(', ')
-                              : 'Sem categoria'}
-                          </span>
-                        </div>
-                        <div className="mt-3 flex items-end justify-between gap-3">
-                          <div className="flex min-w-0 items-center gap-0">
-                            {lead.assignees.slice(0, 4).map(({ user: responsible }, index) =>
-                              responsible.avatarUrl ? (
-                                <img
-                                  key={responsible.id}
-                                  src={avatarUrl(responsible.id, responsible.avatarUrl)}
-                                  alt={responsible.name}
-                                  title={responsible.name}
-                                  className={`h-7 w-7 rounded-full border-2 border-white object-cover ${index ? '-ml-1.5' : ''}`}
-                                />
-                              ) : (
-                                <span
-                                  key={responsible.id}
-                                  title={responsible.name}
-                                  className={`flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-brand-blue/10 text-[9px] font-bold text-brand-blue ${index ? '-ml-1.5' : ''}`}
-                                >
-                                  {responsible.name
-                                    .split(' ')
-                                    .slice(0, 2)
-                                    .map((part) => part[0])
-                                    .join('')
-                                    .toUpperCase()}
-                                </span>
-                              ),
-                            )}
-                            <span className="ml-1.5 max-w-[105px] truncate text-[11px] font-medium text-slate-500">
-                              {lead.assignees.map((assignment) => assignment.user.name).join(', ')}
-                            </span>
-                          </div>
-                          <p className="max-w-[115px] text-right text-[10px] leading-4 text-slate-400">
-                            <span className="block text-[9px] font-bold uppercase tracking-wide text-slate-300">
-                              Origem
-                            </span>
-                            {lead.source?.name ?? 'Não informada'}
-                            {lead.partner ? ` · Comercial: ${lead.partner.name}` : ''}
-                          </p>
-                        </div>
-                      </article>
-                    ))}
-                    {columnLeads.length === 0 && (
-                      <div className="flex min-h-[110px] items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white/50 px-5 text-center text-xs leading-5 text-slate-400">
-                        Arraste uma oportunidade para esta etapa
-                      </div>
-                    )}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
-        </div>
+        <KanbanBoard
+          stages={visibleStages}
+          leadsByStage={grouped}
+          canDrag={canEdit}
+          isMoving={isMoving}
+          onMove={requestMove}
+          onOpen={openLead}
+          onAdd={() => navigate('/leads/novo')}
+        />
       )}
-      <FixedHorizontalScrollbar targetRef={kanbanScrollRef} />
       {pendingMove && (
-        <div className="mobile-modal-overlay fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (
-                actionDescription.trim() &&
-                (!pendingMove.stage.isLostStage || lossReason.trim())
-              ) {
-                void persistMove(pendingMove.lead, pendingMove.stage);
-              }
-            }}
-            className="mobile-modal-panel max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
-          >
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-brand-purple">
-              <Icon name="edit" className="h-5 w-5" />
-            </div>
-            <h2 className="mt-4 font-heading text-xl font-bold text-slate-900">
-              Registrar movimentação
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Registre a ação para mover{' '}
-              <strong className="text-slate-700">{pendingMove.lead.name}</strong> para{' '}
-              {pendingMove.stage.name}.
-            </p>
-            <label className="form-label mt-5">Ação realizada *</label>
-            <textarea
-              autoFocus
-              required
-              className="form-control"
-              rows={3}
-              value={actionDescription}
-              onChange={(event) => setActionDescription(event.target.value)}
-              placeholder="Ex.: reunião realizada, proposta apresentada..."
-            />
-            {pendingMove.stage.isLostStage && (
-              <>
-                <label className="form-label mt-4">Motivo da perda *</label>
-                <textarea
-                  required
-                  className="form-control"
-                  rows={2}
-                  value={lossReason}
-                  onChange={(event) => setLossReason(event.target.value)}
-                />
-              </>
-            )}
-            <label className="form-label mt-4">Responsáveis</label>
-            <div className="grid max-h-36 gap-1 overflow-y-auto rounded-xl border border-slate-200 p-2 sm:grid-cols-2">
-              {moveUserOptions.map((responsible) => (
-                <label
-                  key={responsible.id}
-                  className="flex items-center gap-2 rounded-lg p-2 text-sm hover:bg-purple-50"
-                >
-                  <input
-                    type="checkbox"
-                    checked={moveOwnerIds.includes(responsible.id)}
-                    onChange={(event) =>
-                      setMoveOwnerIds((ids) =>
-                        event.target.checked
-                          ? [...ids, responsible.id]
-                          : ids.filter((id) => id !== responsible.id),
-                      )
-                    }
-                  />
-                  {responsible.name}
-                </label>
-              ))}
-            </div>
-            <label className="mt-4 flex items-center gap-2 text-sm font-semibold">
-              <input
-                type="checkbox"
-                checked={createTask}
-                onChange={(event) => setCreateTask(event.target.checked)}
-              />
-              Cadastrar tarefa para esta ação
-            </label>
-            {createTask && (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="form-label">Prazo *</label>
-                  <DateInput
-                    required
-                    className="form-control"
-                    value={taskDueDate}
-                    onValueChange={(value) => setTaskDueDate(value ?? '')}
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Prioridade *</label>
-                  <select
-                    className="form-control"
-                    value={taskPriority}
-                    onChange={(event) => setTaskPriority(event.target.value as typeof taskPriority)}
-                  >
-                    <option value="LOW">Baixa</option>
-                    <option value="MEDIUM">Média</option>
-                    <option value="HIGH">Alta</option>
-                    <option value="URGENT">Urgente</option>
-                  </select>
-                </div>
-              </div>
-            )}
-            <div className="mt-5 flex justify-end gap-2">
-              <button type="button" className="btn-secondary" onClick={() => setPendingMove(null)}>
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={
-                  isMoving ||
-                  !actionDescription.trim() ||
-                  moveOwnerIds.length === 0 ||
-                  (pendingMove.stage.isLostStage && !lossReason.trim())
-                }
-                className="btn-primary"
-              >
-                Confirmar movimentação
-              </button>
-            </div>
-          </form>
-        </div>
+        <MoveLeadModal
+          lead={pendingMove.lead}
+          stage={pendingMove.stage}
+          isSubmitting={isMoving}
+          userOptions={users}
+          onCancel={() => setPendingMove(null)}
+          onConfirm={(payload) => void persistMove(pendingMove.lead, pendingMove.stage, payload)}
+        />
       )}
     </AppShell>
   );

@@ -1,7 +1,9 @@
-import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
+import { LeadAttachments } from '../../components/leads/LeadAttachments';
+import { LeadTimeline } from '../../components/leads/LeadTimeline';
 import { TaskDeadline } from '../../components/TaskDeadline';
 import { leadsApi } from '../../lib/leadsApi';
 import { tasksApi } from '../../lib/tasksApi';
@@ -9,12 +11,9 @@ import { formatCurrency, formatDate, formatPhone } from '../../lib/formatters';
 import { avatarUrl } from '../../lib/usersApi';
 import { useAuthStore } from '../../store/useAuthStore';
 import {
-  LEAD_ACTIVITY_LABELS,
   LEAD_LINE_LABELS,
   LEAD_PERIODICITY_LABELS,
   LEAD_STATUS_LABELS,
-  type LeadActivity,
-  type LeadAttachment,
   type LeadDetail,
 } from '../../types/leads';
 import {
@@ -25,12 +24,6 @@ import {
 } from '../../types/tasks';
 
 type Tab = 'overview' | 'tasks' | 'timeline' | 'attachments';
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -222,9 +215,14 @@ export default function LeadDetailPage() {
           {tab === 'tasks' && (
             <TasksTab leadId={lead.id} canView={canViewTasks} canCreate={canCreateTask} />
           )}
-          {tab === 'timeline' && <TimelineTab leadId={lead.id} canComment={canEdit} />}
+          {tab === 'timeline' && <LeadTimeline leadId={lead.id} canComment={canEdit} />}
           {tab === 'attachments' && (
-            <AttachmentsTab leadId={lead.id} canEdit={canEdit} onUploaded={loadLead} />
+            <LeadAttachments
+              leadId={lead.id}
+              canUpload={canEdit}
+              canRemove={canEdit}
+              onUploaded={loadLead}
+            />
           )}
         </div>
       </div>
@@ -658,176 +656,6 @@ function OverviewTab({ lead }: { lead: LeadDetail }) {
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-function TimelineTab({ leadId, canComment }: { leadId: string; canComment: boolean }) {
-  const [activities, setActivities] = useState<LeadActivity[]>([]);
-  const [comment, setComment] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  function refresh() {
-    leadsApi.listActivities(leadId).then(setActivities);
-  }
-
-  useEffect(refresh, [leadId]);
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (!comment.trim()) return;
-    setIsSubmitting(true);
-    try {
-      await leadsApi.addComment(leadId, comment.trim());
-      setComment('');
-      refresh();
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  return (
-    <div>
-      {canComment && (
-        <form onSubmit={handleSubmit} className="mb-6 flex gap-2">
-          <input
-            className="flex-1 rounded-card border border-surface-muted bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple"
-            placeholder="Adicionar um comentário…"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="rounded-card bg-brand-purple px-4 py-2 text-sm font-semibold text-white hover:bg-brand-purple-dark disabled:opacity-60"
-          >
-            Comentar
-          </button>
-        </form>
-      )}
-
-      <ul className="flex flex-col gap-3">
-        {activities.map((activity) => (
-          <li key={activity.id} className="rounded-card border border-surface-muted p-3 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-brand-purple-dark">
-                {LEAD_ACTIVITY_LABELS[activity.type]}
-              </span>
-              <span className="text-xs text-ink/50">{formatDate(activity.createdAt)}</span>
-            </div>
-            <p className="mt-1 text-ink/80">{activity.message}</p>
-            {activity.actorUser && (
-              <p className="mt-1 text-xs text-ink/50">por {activity.actorUser.name}</p>
-            )}
-          </li>
-        ))}
-        {activities.length === 0 && <p className="text-sm text-ink/50">Nenhuma atividade ainda.</p>}
-      </ul>
-    </div>
-  );
-}
-
-function AttachmentsTab({
-  leadId,
-  canEdit,
-  onUploaded,
-}: {
-  leadId: string;
-  canEdit: boolean;
-  onUploaded: () => void;
-}) {
-  const [attachments, setAttachments] = useState<LeadAttachment[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-
-  function refresh() {
-    leadsApi.listAttachments(leadId).then(setAttachments);
-  }
-
-  useEffect(refresh, [leadId]);
-
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setError(null);
-    setIsUploading(true);
-    try {
-      await leadsApi.uploadAttachment(leadId, file);
-      refresh();
-      onUploaded();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao enviar arquivo.');
-    } finally {
-      setIsUploading(false);
-      event.target.value = '';
-    }
-  }
-
-  async function handleRemove(attachmentId: string) {
-    if (!window.confirm('Remover este anexo?')) return;
-    await leadsApi.removeAttachment(leadId, attachmentId);
-    refresh();
-  }
-
-  async function handleDownload(attachment: LeadAttachment) {
-    await leadsApi.downloadAttachment(leadId, attachment.id, attachment.fileName);
-  }
-
-  return (
-    <div>
-      {canEdit && (
-        <div className="mb-4">
-          <label className="inline-block cursor-pointer rounded-card bg-brand-purple px-4 py-2 text-sm font-semibold text-white hover:bg-brand-purple-dark">
-            {isUploading ? 'Enviando…' : '+ Adicionar anexo'}
-            <input
-              type="file"
-              className="hidden"
-              onChange={handleFileChange}
-              disabled={isUploading}
-            />
-          </label>
-          <p className="mt-1 text-xs text-ink/50">
-            Máximo 15MB. Imagens, PDF, Office, texto ou zip.
-          </p>
-        </div>
-      )}
-
-      {error && (
-        <p className="mb-3 rounded-card bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>
-      )}
-
-      <ul className="flex flex-col gap-2">
-        {attachments.map((attachment) => (
-          <li
-            key={attachment.id}
-            className="flex items-center justify-between rounded-card border border-surface-muted p-3 text-sm"
-          >
-            <div>
-              <p className="font-medium text-ink">{attachment.fileName}</p>
-              <p className="text-xs text-ink/50">
-                {formatBytes(attachment.sizeBytes)} · {formatDate(attachment.createdAt)}
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleDownload(attachment)}
-                className="text-sm text-brand-blue hover:text-brand-blue-dark"
-              >
-                Baixar
-              </button>
-              {canEdit && (
-                <button
-                  onClick={() => handleRemove(attachment.id)}
-                  className="text-sm text-danger hover:text-danger/80"
-                >
-                  Remover
-                </button>
-              )}
-            </div>
-          </li>
-        ))}
-        {attachments.length === 0 && <p className="text-sm text-ink/50">Nenhum anexo ainda.</p>}
-      </ul>
     </div>
   );
 }

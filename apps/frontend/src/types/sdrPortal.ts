@@ -1,0 +1,80 @@
+import type { LeadActivityType } from './leads';
+import type { Stage } from './settings';
+import type { TaskPriority, TaskStatus } from './tasks';
+
+export type SdrPeriod = 'today' | 'week' | 'month' | 'custom';
+
+export interface SdrPortalConfig {
+  visibleStages: Stage[];
+  allowedTargetStages: Stage[];
+  qualifiedStageId: string | null;
+  defaultSourceId: string | null;
+  hideFinancialValues: boolean;
+  staleDays: number;
+}
+
+export interface SdrPortalSettings {
+  visibleStageIds: string[];
+  allowedTargetStageIds: string[];
+  qualifiedStageId: string | null;
+  defaultSourceId: string | null;
+  hideFinancialValues: boolean;
+  staleDays: number;
+  updatedAt: string;
+}
+
+export type SdrPortalSettingsPayload = Omit<SdrPortalSettings, 'updatedAt'>;
+
+interface SummaryStage {
+  id: string;
+  name: string;
+  color: string;
+  order: number;
+}
+
+export interface SdrAttentionLead {
+  id: string;
+  name: string;
+  businessCode: string | null;
+  companyName: string | null;
+  stageId: string;
+  stageEnteredAt: string;
+  daysInStage: number;
+  priority: { id: string; name: string; color: string; order: number } | null;
+}
+
+export interface SdrTask {
+  id: string;
+  title: string;
+  dueDate: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  lead: { id: string; name: string } | null;
+}
+
+export interface SdrSummary {
+  period: { start: string; end: string; granularity: 'day' | 'week' };
+  metrics: {
+    created: number;
+    qualified: number;
+    qualificationRate: number | null;
+    disqualified: number;
+    activePortfolio: number;
+    stale: number;
+    staleDays: number;
+  };
+  lossReasons: Array<{ reason: string; count: number }>;
+  funnel: Array<SummaryStage & { count: number }>;
+  averageDaysPerStage: Array<SummaryStage & { averageDays: number | null; samples: number }>;
+  timeline: Array<{ start: string; label: string; created: number; qualified: number }>;
+  attention: { stale: SdrAttentionLead[]; highPriority: SdrAttentionLead[] };
+  tasks: { enabled: boolean; overdue: SdrTask[]; upcoming: SdrTask[] };
+  recentActivities: Array<{
+    id: string;
+    type: LeadActivityType;
+    message: string;
+    createdAt: string;
+    actorUser: { id: string; name: string } | null;
+    lead: { id: string; name: string; businessCode: string | null };
+  }>;
+}

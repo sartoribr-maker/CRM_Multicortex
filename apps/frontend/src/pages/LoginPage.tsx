@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../components/AuthLayout';
 import { apiJson } from '../lib/api';
 import { APP_VERSION } from '../lib/version';
+import { isThirdPartyUser, portalPathFor } from '../routes/ProtectedRoute';
 import { useAuthStore } from '../store/useAuthStore';
 import type { AuthUser } from '../types/auth';
 
@@ -25,7 +26,8 @@ export default function LoginPage() {
   const setSession = useAuthStore((s) => s.setSession);
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/';
+  const fromLocation = (location.state as { from?: { pathname: string; search?: string } })?.from;
+  const from = fromLocation?.pathname ?? '/';
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -46,7 +48,12 @@ export default function LoginPage() {
         return;
       }
       setSession(data.accessToken, data.user);
-      navigate(from, { replace: true });
+      navigate(
+        isThirdPartyUser(data.user)
+          ? portalPathFor(`${from}${fromLocation?.search ?? ''}`)
+          : from,
+        { replace: true },
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível entrar.');
     } finally {

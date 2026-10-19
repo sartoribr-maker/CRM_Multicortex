@@ -10,6 +10,7 @@ const STAGE_SELECT = {
   order: true,
   isWonStage: true,
   isLostStage: true,
+  deletedAt: true,
 } as const;
 
 @Injectable()

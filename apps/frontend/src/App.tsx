@@ -18,8 +18,11 @@ import TaskFormPage from './pages/tasks/TaskFormPage';
 import TaskDetailPage from './pages/tasks/TaskDetailPage';
 import AccessManagementPage from './pages/access/AccessManagementPage';
 import PipelineReportPage from './pages/reports/PipelineReportPage';
+import SdrDashboardPage from './pages/portal/SdrDashboardPage';
+import SdrKanbanPage from './pages/portal/SdrKanbanPage';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { RequirePermission } from './routes/RequirePermission';
+import { ThirdPartyPortalRoute } from './routes/ThirdPartyPortalRoute';
 import { attemptSilentRefresh } from './lib/api';
 import logo from './assets/logo.png';
 
@@ -227,6 +230,22 @@ function App() {
               <LeadFormPage />
             </RequirePermission>
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/terceiro"
+        element={
+          <ThirdPartyPortalRoute>
+            <SdrDashboardPage />
+          </ThirdPartyPortalRoute>
+        }
+      />
+      <Route
+        path="/terceiro/kanban"
+        element={
+          <ThirdPartyPortalRoute>
+            <SdrKanbanPage />
+          </ThirdPartyPortalRoute>
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />

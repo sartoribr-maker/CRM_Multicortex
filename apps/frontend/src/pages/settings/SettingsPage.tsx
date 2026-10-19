@@ -1,5 +1,6 @@
 import { MonitoringSettingsPanel } from './MonitoringSettingsPanel';
 import { SdrPortalSettingsPanel } from './SdrPortalSettingsPanel';
+import { GoogleCalendarSettingsPanel } from './GoogleCalendarSettingsPanel';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { CurrencyInput } from '../../components/MaskedInputs';
 import { formatCurrency } from '../../lib/formatters';
@@ -30,6 +31,7 @@ export type SettingsSection =
   | 'customFields'
   | 'monitoring'
   | 'sdrPortal'
+  | 'googleCalendar'
   | 'email'
   | 'whatsapp';
 
@@ -75,6 +77,11 @@ const SECTIONS: Record<SettingsSection, { title: string; description: string }> 
     title: 'Portal SDR',
     description:
       'Defina as etapas, a origem e as regras do Portal de Terceiros usado pela equipe de SDR.',
+  },
+  googleCalendar: {
+    title: 'Google Agenda',
+    description:
+      'Integre o agendamento de reuniões com Google Meet ao mover oportunidades no funil.',
   },
   email: {
     title: 'Configuração de E-mail',
@@ -212,6 +219,7 @@ export default function SettingsPage({ section }: { section: SettingsSection }) 
           {section === 'customFields' && <CustomFieldsPanel />}
           {section === 'monitoring' && <MonitoringSettingsPanel />}
           {section === 'sdrPortal' && <SdrPortalSettingsPanel />}
+          {section === 'googleCalendar' && <GoogleCalendarSettingsPanel />}
           {section === 'email' && <EmailSettingsPanel />}
           {section === 'whatsapp' && <WhatsAppSettingsPanel />}
         </div>

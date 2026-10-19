@@ -42,6 +42,7 @@ export interface LeadListItem {
   name: string;
   companyName: string | null;
   contactName: string | null;
+  contactEmail?: string | null;
   contactPhone: string | null;
   successProbability: number | null;
   capexValue: string | number | null;
@@ -64,6 +65,17 @@ export interface LeadListItem {
   stageEnteredAt: string;
   createdAt: string;
   updatedAt: string;
+  /** Próxima reunião agendada ainda não encerrada (no máximo uma). */
+  meetings?: LeadMeetingSummary[];
+}
+
+export interface LeadMeetingSummary {
+  id: string;
+  title: string;
+  startAt: string;
+  endAt: string;
+  meetLink: string | null;
+  htmlLink: string | null;
 }
 
 export interface CustomFieldValueEntry {
@@ -94,7 +106,12 @@ export interface LeadDetail extends LeadListItem {
 }
 
 export type LeadActivityType =
-  'CREATED' | 'FIELD_UPDATED' | 'STAGE_CHANGED' | 'COMMENT' | 'ATTACHMENT_ADDED';
+  | 'CREATED'
+  | 'FIELD_UPDATED'
+  | 'STAGE_CHANGED'
+  | 'COMMENT'
+  | 'ATTACHMENT_ADDED'
+  | 'MEETING_SCHEDULED';
 
 export const LEAD_ACTIVITY_LABELS: Record<LeadActivityType, string> = {
   CREATED: 'Criação',
@@ -102,6 +119,7 @@ export const LEAD_ACTIVITY_LABELS: Record<LeadActivityType, string> = {
   STAGE_CHANGED: 'Mudança de etapa',
   COMMENT: 'Comentário',
   ATTACHMENT_ADDED: 'Anexo',
+  MEETING_SCHEDULED: 'Reunião agendada',
 };
 
 export interface LeadActivity {

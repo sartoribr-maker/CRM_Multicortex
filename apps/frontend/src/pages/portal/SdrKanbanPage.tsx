@@ -5,6 +5,7 @@ import { Icon } from '../../components/Icon';
 import { KanbanBoard } from '../../components/leads/kanban/KanbanBoard';
 import { daysInStage } from '../../components/leads/kanban/LeadKanbanCard';
 import { MoveLeadModal, type MoveLeadPayload } from '../../components/leads/kanban/MoveLeadModal';
+import { useMeetingScheduling } from '../../components/leads/meetings/useMeetingScheduling';
 import { leadsApi, type LeadListFilters } from '../../lib/leadsApi';
 import { prioritiesApi, projectTypesApi, segmentsApi } from '../../lib/settingsApi';
 import { sdrPortalApi } from '../../lib/sdrPortalApi';
@@ -19,6 +20,7 @@ import { ThirdPartyShell } from './ThirdPartyShell';
 interface PendingMove {
   lead: LeadListItem;
   stage: Stage;
+  actionDescription?: string;
 }
 
 export default function SdrKanbanPage() {
@@ -135,6 +137,16 @@ export default function SdrKanbanPage() {
     );
   }
 
+  const meetingScheduling = useMeetingScheduling({
+    onProceed: (lead, stage, actionDescription) => setPendingMove({ lead, stage, actionDescription }),
+    onMeetingScheduled: (leadId, meeting) => {
+      setLeads((items) =>
+        items.map((item) => (item.id === leadId ? { ...item, meetings: [meeting] } : item)),
+      );
+      setDrawerReloadKey((key) => key + 1);
+    },
+  });
+
   function requestMove(lead: LeadListItem, stage: Stage) {
     if (lead.stage.id === stage.id || !canEdit) return;
     if (!allowedTargetIds.has(stage.id)) {
@@ -142,7 +154,7 @@ export default function SdrKanbanPage() {
       return;
     }
     setNotice(null);
-    setPendingMove({ lead, stage });
+    meetingScheduling.startMove(lead, stage);
   }
 
   async function persistMove({ lead, stage }: PendingMove, payload: MoveLeadPayload) {
@@ -311,10 +323,12 @@ export default function SdrKanbanPage() {
           stage={pendingMove.stage}
           isSubmitting={isMoving}
           showOwnerSelector={false}
+          initialActionDescription={pendingMove.actionDescription}
           onCancel={() => setPendingMove(null)}
           onConfirm={(payload) => void persistMove(pendingMove, payload)}
         />
       )}
+      {meetingScheduling.modals}
       {isCreating && (
         <SdrLeadFormModal
           priorities={priorities}

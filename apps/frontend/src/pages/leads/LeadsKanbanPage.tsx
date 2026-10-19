@@ -5,6 +5,7 @@ import { Icon } from '../../components/Icon';
 import { KanbanBoard } from '../../components/leads/kanban/KanbanBoard';
 import { money } from '../../components/leads/kanban/LeadKanbanCard';
 import { MoveLeadModal, type MoveLeadPayload } from '../../components/leads/kanban/MoveLeadModal';
+import { useMeetingScheduling } from '../../components/leads/meetings/useMeetingScheduling';
 import { leadsApi, type LeadListFilters } from '../../lib/leadsApi';
 import { partnersApi } from '../../lib/partnersApi';
 import {
@@ -23,6 +24,7 @@ import type { DealSize, Priority, ProjectType, Source, Stage } from '../../types
 interface PendingMove {
   lead: LeadListItem;
   stage: Stage;
+  actionDescription?: string;
 }
 
 export default function LeadsKanbanPage() {
@@ -130,10 +132,18 @@ export default function LeadsKanbanPage() {
     });
   }
 
+  const meetingScheduling = useMeetingScheduling({
+    onProceed: (lead, stage, actionDescription) => setPendingMove({ lead, stage, actionDescription }),
+    onMeetingScheduled: (leadId, meeting) =>
+      setLeads((items) =>
+        items.map((item) => (item.id === leadId ? { ...item, meetings: [meeting] } : item)),
+      ),
+  });
+
   function requestMove(leadId: string, stage: Stage) {
     const lead = leads.find((item) => item.id === leadId);
     if (!lead || lead.stage.id === stage.id || !canEdit) return;
-    setPendingMove({ lead, stage });
+    meetingScheduling.startMove(lead, stage);
   }
 
   async function persistMove(lead: LeadListItem, stage: Stage, payload: MoveLeadPayload) {
@@ -349,10 +359,12 @@ export default function LeadsKanbanPage() {
           stage={pendingMove.stage}
           isSubmitting={isMoving}
           userOptions={users}
+          initialActionDescription={pendingMove.actionDescription}
           onCancel={() => setPendingMove(null)}
           onConfirm={(payload) => void persistMove(pendingMove.lead, pendingMove.stage, payload)}
         />
       )}
+      {meetingScheduling.modals}
     </AppShell>
   );
 }

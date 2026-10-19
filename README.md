@@ -189,6 +189,10 @@ Empresas (`companies`) e contatos (`contacts`) formam uma base própria, aliment
 - O autocomplete de empresa e contato nos formulários de lead consulta toda essa base (inclusive no Portal SDR) e completa CNPJ, segmento, e-mail e telefone.
 - A migration `20261021120000_companies_contacts` importa as empresas e os contatos dos leads existentes.
 
+## Reuniões no Google Agenda
+
+Ao mover uma oportunidade para a etapa de reunião (padrão: Diagnóstico/Reunião), o CRM oferece agendar uma reunião no Google Agenda com Google Meet. O contato do lead vem como convidado e os usuários do CRM aparecem como sugestão. Ao confirmar, a mudança de etapa segue com a ação já descrita, e o card ganha um ícone de reunião agendada. A integração usa uma conta de serviço do Google Workspace e é configurada em **Configurações → Google Agenda**; o passo a passo está em [`docs/GOOGLE_AGENDA.md`](docs/GOOGLE_AGENDA.md).
+
 ## Portal de Terceiros — SDR (Fase 11)
 
 Usuários com perfil de portal `THIRD_PARTY` (perfil de sistema **SDR**) entram sempre em `/terceiro` e não acessam nenhuma outra área do CRM. O bloqueio vale no frontend e no backend: um guard global responde 403 e audita qualquer rota não liberada ao portal.

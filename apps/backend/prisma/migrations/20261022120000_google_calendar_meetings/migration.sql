@@ -51,7 +51,6 @@ ALTER TABLE "lead_meetings" ADD CONSTRAINT "lead_meetings_leadId_fkey" FOREIGN K
 -- AddForeignKey
 ALTER TABLE "lead_meetings" ADD CONSTRAINT "lead_meetings_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
-ALTER TABLE "lead_meetings" ADD CONSTRAINT "lead_meetings_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- Configuração inicial (desativada até a chave da conta de serviço ser informada).
 -- A etapa de reunião é resolvida por nome somente aqui; depois é configurada por ID.

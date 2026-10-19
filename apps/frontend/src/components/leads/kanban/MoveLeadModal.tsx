@@ -23,6 +23,8 @@ interface MoveLeadModalProps {
   /** Quando falso (Portal SDR), os responsáveis não são alterados. */
   showOwnerSelector?: boolean;
   userOptions?: Array<{ id: string; name: string }>;
+  /** Texto inicial da ação (ex.: reunião recém-agendada). */
+  initialActionDescription?: string;
   onCancel: () => void;
   onConfirm: (payload: MoveLeadPayload) => void;
 }
@@ -33,10 +35,11 @@ export function MoveLeadModal({
   isSubmitting,
   showOwnerSelector = true,
   userOptions = [],
+  initialActionDescription = '',
   onCancel,
   onConfirm,
 }: MoveLeadModalProps) {
-  const [actionDescription, setActionDescription] = useState('');
+  const [actionDescription, setActionDescription] = useState(initialActionDescription);
   const [lossReason, setLossReason] = useState('');
   const [ownerIds, setOwnerIds] = useState(() =>
     lead.assignees.map((assignment) => assignment.user.id),

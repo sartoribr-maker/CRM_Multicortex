@@ -1,5 +1,6 @@
 import type { DragEvent } from 'react';
 import { formatCurrency, formatDate } from '../../../lib/formatters';
+import { Icon } from '../../Icon';
 import { avatarUrl } from '../../../lib/usersApi';
 import type { LeadListItem } from '../../../types/leads';
 
@@ -48,6 +49,7 @@ export function LeadKanbanCard({
   const mandatory = isMandatoryPriority(lead);
   const idleDays = daysInStage(lead);
   const isStale = staleDays !== undefined && idleDays > staleDays;
+  const meeting = lead.meetings?.[0];
 
   return (
     <article
@@ -72,13 +74,29 @@ export function LeadKanbanCard({
               .join(' · ')}
           </p>
         </div>
-        {lead.priority && (
-          <span
-            className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-            style={{ backgroundColor: lead.priority.color }}
-            title={lead.priority.name}
-          />
-        )}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {meeting && (
+            <span
+              className="flex items-center gap-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-blue"
+              title={`Reunião agendada: ${meeting.title} — ${formatDate(meeting.startAt)} ${new Date(meeting.startAt).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })}`}
+              aria-label="Reunião agendada"
+            >
+              <Icon name="calendar" className="h-3.5 w-3.5" />
+              {new Date(meeting.startAt).toLocaleDateString('pt-BR', {
+                timeZone: 'America/Sao_Paulo',
+                day: '2-digit',
+                month: '2-digit',
+              })}
+            </span>
+          )}
+          {lead.priority && (
+            <span
+              className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: lead.priority.color }}
+              title={lead.priority.name}
+            />
+          )}
+        </div>
       </div>
       <div className={`my-3 h-px ${mandatory ? 'bg-rose-200/70' : 'bg-amber-200/60'}`} />
       <div className="flex items-start justify-between gap-2">

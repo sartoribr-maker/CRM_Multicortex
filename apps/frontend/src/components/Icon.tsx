@@ -4,6 +4,8 @@ export type IconName =
   | 'archive'
   | 'arrow-left'
   | 'bell'
+  | 'calendar'
+  | 'video'
   | 'chevron-down'
   | 'chevron-left'
   | 'chevron-right'
@@ -42,6 +44,18 @@ const paths: Record<IconName, JSX.Element> = {
     <>
       <path d="m15 18-6-6 6-6" />
       <path d="M9 12h11" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M16 3v4M8 3v4M3 10h18" />
+    </>
+  ),
+  video: (
+    <>
+      <rect x="2" y="6" width="14" height="12" rx="2" />
+      <path d="m16 10 6-3v10l-6-3" />
     </>
   ),
   bell: (

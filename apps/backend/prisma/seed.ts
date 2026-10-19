@@ -300,7 +300,13 @@ async function main() {
   const sdrVisibleStageIds = sdrStages
     .filter((stage) => SDR_VISIBLE_STAGE_NAMES.includes(stage.name))
     .map((stage) => stage.id);
+  const sdrPartner =
+    (await prisma.partner.findFirst({ where: { name: 'SDR', deletedAt: null } })) ??
+    (await prisma.partner.create({
+      data: { name: 'SDR', type: 'CHANNEL', notes: 'Equipe de SDR (Portal de Terceiros)' },
+    }));
   const sdrSettings = {
+    sdrPartnerId: sdrPartner.id,
     visibleStageIds: sdrVisibleStageIds,
     allowedTargetStageIds: sdrStages.map((stage) => stage.id),
     qualifiedStageId: sdrStages.find((stage) => stage.name === SDR_QUALIFIED_STAGE_NAME)?.id ?? null,

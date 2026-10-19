@@ -9,8 +9,9 @@ import type {
 
 export const sdrPortalApi = {
   config: () => apiJson<SdrPortalConfig>('/portal/sdr/config'),
-  summary: (period: SdrPeriod, from?: string, to?: string) => {
+  summary: (period: SdrPeriod, from?: string, to?: string, ownerId?: string) => {
     const params = new URLSearchParams({ period });
+    if (ownerId) params.set('ownerId', ownerId);
     if (period === 'custom' && from && to) {
       params.set('from', from);
       params.set('to', to);

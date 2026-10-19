@@ -205,7 +205,9 @@ export function SdrLeadDrawer({
                   </fieldset>
                   {canEdit && (
                     <div className="mt-6 flex items-center justify-end gap-3">
-                      {saved && <span className="text-xs font-semibold text-emerald-600">Salvo.</span>}
+                      {saved && (
+                        <span className="text-xs font-semibold text-emerald-600">Salvo.</span>
+                      )}
                       <button type="submit" className="btn-primary" disabled={isSaving}>
                         {isSaving ? 'Salvando…' : 'Salvar alterações'}
                       </button>
@@ -330,7 +332,11 @@ function LeadTasks({ leadId }: { leadId: string }) {
                     onChange={(event) => setReason(event.target.value)}
                   />
                   <div className="flex justify-end gap-2">
-                    <button type="button" className="btn-secondary" onClick={() => setCompleting(null)}>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setCompleting(null)}
+                    >
                       Cancelar
                     </button>
                     <button type="submit" className="btn-primary" disabled={!reason.trim()}>

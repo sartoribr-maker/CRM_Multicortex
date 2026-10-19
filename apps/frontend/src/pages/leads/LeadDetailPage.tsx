@@ -13,6 +13,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import {
   LEAD_LINE_LABELS,
   LEAD_PERIODICITY_LABELS,
+  LEAD_TYPE_LABELS,
   LEAD_STATUS_LABELS,
   type LeadDetail,
 } from '../../types/leads';
@@ -557,6 +558,10 @@ function OverviewTab({ lead }: { lead: LeadDetail }) {
           <dl className="grid gap-x-6 gap-y-5 p-5 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="ID da oportunidade" value={lead.businessCode} accent />
             <Field label="Linha" value={lead.line ? LEAD_LINE_LABELS[lead.line] : null} />
+            <Field
+              label="Tipo de lead"
+              value={lead.leadType ? LEAD_TYPE_LABELS[lead.leadType] : null}
+            />
             <Field label="Empresa" value={lead.companyName} accent />
             <Field label="Documento" value={lead.companyDocument} />
             <Field label="Segmento" value={lead.companySegment} />

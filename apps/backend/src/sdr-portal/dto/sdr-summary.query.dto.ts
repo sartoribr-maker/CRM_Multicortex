@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, Matches } from 'class-validator';
+import { IsIn, IsOptional, IsUUID, Matches } from 'class-validator';
 import type { SdrPeriod } from '../sdr-summary';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -19,4 +19,9 @@ export class SdrSummaryQueryDto {
   @IsOptional()
   @Matches(DATE_PATTERN, { message: 'to deve estar no formato AAAA-MM-DD.' })
   to?: string;
+
+  @ApiPropertyOptional({ description: 'Filtra pelos leads em que o usuário é responsável' })
+  @IsOptional()
+  @IsUUID()
+  ownerId?: string;
 }

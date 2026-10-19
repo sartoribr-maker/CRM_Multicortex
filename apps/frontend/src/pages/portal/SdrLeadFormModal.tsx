@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { Icon } from '../../components/Icon';
-import { leadsApi } from '../../lib/leadsApi';
+import { leadsApi, type LeadFormPayload } from '../../lib/leadsApi';
 import type { LeadDetail } from '../../types/leads';
 import type { Priority, ProjectType, Segment } from '../../types/settings';
 import {
@@ -14,6 +14,8 @@ interface SdrLeadFormModalProps {
   priorities: Priority[];
   projectTypes: ProjectType[];
   segments: Segment[];
+  /** Campos adicionais enviados na criação (ex.: tipo e parceiro para usuários internos). */
+  extraPayload?: Partial<LeadFormPayload>;
   onClose: () => void;
   onCreated: (lead: LeadDetail) => void;
 }
@@ -23,6 +25,7 @@ export function SdrLeadFormModal({
   priorities,
   projectTypes,
   segments,
+  extraPayload,
   onClose,
   onCreated,
 }: SdrLeadFormModalProps) {
@@ -37,7 +40,12 @@ export function SdrLeadFormModal({
     setError(null);
     try {
       const payload = sdrPayloadFromForm(form, 'create');
-      const lead = await leadsApi.create({ ...payload, name: form.name.trim(), line: form.line });
+      const lead = await leadsApi.create({
+        ...payload,
+        ...extraPayload,
+        name: form.name.trim(),
+        line: form.line,
+      });
       onCreated(lead);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível criar a oportunidade.');
@@ -56,7 +64,8 @@ export function SdrLeadFormModal({
           <div>
             <h2 className="font-heading text-xl font-bold text-slate-900">Nova oportunidade</h2>
             <p className="mt-1 text-sm text-slate-500">
-              A oportunidade entra na primeira etapa do funil, sob sua responsabilidade.
+              Cadastrada como Outbound do parceiro SDR, na primeira etapa do funil, sob sua
+              responsabilidade.
             </p>
           </div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Fechar">

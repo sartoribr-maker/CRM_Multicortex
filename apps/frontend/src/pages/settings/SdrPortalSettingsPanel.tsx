@@ -1,7 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { partnersApi } from '../../lib/partnersApi';
 import { sdrPortalApi } from '../../lib/sdrPortalApi';
 import { sourcesApi, stagesApi } from '../../lib/settingsApi';
 import type { SdrPortalSettingsPayload } from '../../types/sdrPortal';
+import type { Partner } from '../../types/partners';
 import type { Source, Stage } from '../../types/settings';
 
 function StageChecklist({
@@ -44,13 +46,19 @@ export function SdrPortalSettingsPanel() {
   const [settings, setSettings] = useState<SdrPortalSettingsPayload | null>(null);
   const [stages, setStages] = useState<Stage[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
+  const [partners, setPartners] = useState<Partner[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    Promise.all([sdrPortalApi.getSettings(), stagesApi.list(), sourcesApi.list()])
-      .then(([data, stageData, sourceData]) => {
+    Promise.all([
+      sdrPortalApi.getSettings(),
+      stagesApi.list(),
+      sourcesApi.list(),
+      partnersApi.options(),
+    ])
+      .then(([data, stageData, sourceData, partnerData]) => {
         const activeStageIds = new Set(stageData.map((stage) => stage.id));
         // Etapas arquivadas depois da configuração deixam de ser exibidas e salvas.
         setSettings({
@@ -61,11 +69,13 @@ export function SdrPortalSettingsPanel() {
               ? data.qualifiedStageId
               : null,
           defaultSourceId: data.defaultSourceId,
+          sdrPartnerId: data.sdrPartnerId,
           hideFinancialValues: data.hideFinancialValues,
           staleDays: data.staleDays,
         });
         setStages([...stageData].sort((a, b) => a.order - b.order));
         setSources(sourceData);
+        setPartners(partnerData);
       })
       .catch((err) =>
         setError(err instanceof Error ? err.message : 'Erro ao carregar configuração.'),
@@ -93,6 +103,7 @@ export function SdrPortalSettingsPanel() {
         allowedTargetStageIds: saved.allowedTargetStageIds,
         qualifiedStageId: saved.qualifiedStageId,
         defaultSourceId: saved.defaultSourceId,
+        sdrPartnerId: saved.sdrPartnerId,
         hideFinancialValues: saved.hideFinancialValues,
         staleDays: saved.staleDays,
       });
@@ -115,7 +126,8 @@ export function SdrPortalSettingsPanel() {
       <div>
         <h3 className="font-heading font-bold text-slate-800">Colunas do Kanban do SDR</h3>
         <p className="mb-3 mt-1 text-xs text-slate-400">
-          O SDR vê e trata todas as oportunidades do CRM que estiverem nestas etapas, de qualquer responsável.
+          O SDR vê e trata as oportunidades do parceiro SDR que estiverem nestas etapas, de qualquer
+          responsável.
         </p>
         <StageChecklist
           stages={stages}
@@ -176,6 +188,25 @@ export function SdrPortalSettingsPanel() {
             ))}
           </select>
           <p className="mt-1 text-xs text-slate-400">Sem origem, o SDR não consegue criar leads.</p>
+        </div>
+        <div>
+          <label className="form-label">Parceiro comercial dos leads do portal</label>
+          <select
+            className="form-control"
+            value={settings.sdrPartnerId ?? ''}
+            onChange={(event) => update('sdrPartnerId', event.target.value || null)}
+          >
+            <option value="">Não definido</option>
+            {partners.map((partner) => (
+              <option key={partner.id} value={partner.id}>
+                {partner.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-slate-400">
+            O portal lista só os leads deste parceiro. Leads do site entram como Inbound e os
+            cadastrados no portal como Outbound, ambos com este parceiro.
+          </p>
         </div>
         <div>
           <label className="form-label">Dias sem movimentação para lead parado</label>

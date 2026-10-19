@@ -30,8 +30,9 @@ Para liberar uma nova rota ao portal, adicione `@AllowThirdPartyPortal()` ao han
 
 ## Regras para leads do SDR
 
-- **Visibilidade:** o SDR vê e trata **todos** os leads do CRM que estão nas etapas visíveis do portal (por padrão, de Backlog até Diagnóstico/Reunião), de qualquer responsável. Ao mover um lead para uma etapa fora do portal, ele sai da visão do SDR.
-- **Criação:** o backend força responsável = o próprio SDR, origem = origem padrão do portal e etapa = primeira etapa visível.
+- **Visibilidade:** o portal lista apenas os leads do **parceiro comercial SDR** (configurável) que estão nas etapas visíveis do portal (por padrão, de Backlog até Diagnóstico/Reunião), de qualquer responsável. Ao mover um lead para uma etapa fora do portal, ele sai da visão do SDR.
+- **Tipo de lead:** leads recebidos do site (formulário, WhatsApp ou IA, via integração do site) são gravados como **Inbound** com o parceiro SDR; os cadastrados no `/terceiro` são **Outbound** com o parceiro SDR. O SDR não escolhe tipo nem parceiro.
+- **Criação:** o backend força responsável = o próprio SDR, origem = origem padrão do portal, etapa = primeira etapa visível, tipo = Outbound e parceiro = SDR.
 - **Campos aceitos:** `line`, `name`, `companyName`, `companyDocument`, `companySegment`, `contactName`, `contactEmail`, `contactPhone`, `projectTypeIds`, `priorityId`, `description` e `customFieldValues`.
   - Na edição, também os campos de movimentação: `stageId`, `actionDescription`, `lossReason`, `createTask`, `taskDueDate` e `taskPriority`.
   - Com os valores visíveis, também `capexValue`, `opexValue` e `successProbability`.
@@ -49,12 +50,13 @@ Para liberar uma nova rota ao portal, adicione `@AllowThirdPartyPortal()` ao han
 | Origem padrão | Aplicada aos leads criados pelo SDR; sem ela a criação é recusada |
 | Ocultar valores | Liga ou desliga a remoção dos valores financeiros |
 | Dias para lead parado | Destaque no Kanban e indicador do dashboard |
+| Parceiro comercial | Parceiro que identifica os leads do portal (padrão: "SDR"); sem ele o portal fica vazio |
 
 A migration `20261020120100_sdr_portal_data` cria a configuração inicial, resolvendo **uma única vez** as etapas por nome (Backlog, Leads, Contato/Qualificação, Diagnóstico/Reunião; mais Perdido como destino) e a origem `SDR – Prospecção ativa`. Etapas com outros nomes ficam fora: confira a tela após o deploy.
 
 ## Dashboard SDR
 
-`GET /portal/sdr/summary?period=today|week|month|custom&from=AAAA-MM-DD&to=AAAA-MM-DD`. Períodos em Brasília, com a semana começando na segunda. Criados, qualificados, desqualificados, tarefas e últimas ações são do usuário logado; funil, leads parados e tempo por etapa cobrem todos os leads das etapas do portal. Calcula:
+`GET /portal/sdr/summary?period=today|week|month|custom&from=AAAA-MM-DD&to=AAAA-MM-DD&ownerId=`. Períodos em Brasília, com a semana começando na segunda. Os indicadores cobrem os leads do parceiro SDR, opcionalmente filtrados por responsável (`ownerId`); só as tarefas são do usuário logado. A resposta traz a lista de responsáveis para o filtro. O Kanban do portal também tem o filtro de responsável. Calcula:
 
 - leads criados pelo SDR;
 - qualificados (entradas na etapa qualificada feitas pelo SDR, uma por lead) e taxa de qualificação;

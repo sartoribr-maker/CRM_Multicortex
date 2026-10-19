@@ -109,7 +109,12 @@ function EvolutionChart({ timeline }: { timeline: SdrSummary['timeline'] }) {
                 className="stroke-slate-200"
                 strokeDasharray={ratio ? '3 3' : undefined}
               />
-              <text x={padding.left - 6} y={y(value) + 3} textAnchor="end" className="fill-slate-400 text-[10px]">
+              <text
+                x={padding.left - 6}
+                y={y(value) + 3}
+                textAnchor="end"
+                className="fill-slate-400 text-[10px]"
+              >
                 {value}
               </text>
             </g>
@@ -140,7 +145,12 @@ function EvolutionChart({ timeline }: { timeline: SdrSummary['timeline'] }) {
                 <title>{`${bucket.label}: ${bucket.qualified} qualificado(s)`}</title>
               </rect>
               {index % labelEvery === 0 && (
-                <text x={center} y={height - 8} textAnchor="middle" className="fill-slate-400 text-[10px]">
+                <text
+                  x={center}
+                  y={height - 8}
+                  textAnchor="middle"
+                  className="fill-slate-400 text-[10px]"
+                >
                   {bucket.label}
                 </text>
               )}
@@ -203,7 +213,10 @@ function TaskList({ tasks, empty }: { tasks: SdrTask[]; empty: string }) {
           <span className="min-w-0">
             <span className="block truncate font-semibold text-slate-700">{task.title}</span>
             {task.lead && (
-              <Link to={leadLink(task.lead.id)} className="block truncate text-xs text-brand-purple">
+              <Link
+                to={leadLink(task.lead.id)}
+                className="block truncate text-xs text-brand-purple"
+              >
                 {task.lead.name}
               </Link>
             )}
@@ -219,6 +232,7 @@ export default function SdrDashboardPage() {
   const [period, setPeriod] = useState<SdrPeriod>('month');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [ownerId, setOwnerId] = useState('');
   const [data, setData] = useState<SdrSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -227,7 +241,7 @@ export default function SdrDashboardPage() {
     let cancelled = false;
     setError(null);
     sdrPortalApi
-      .summary(period, from, to)
+      .summary(period, from, to, ownerId || undefined)
       .then((summary) => !cancelled && setData(summary))
       .catch(
         (err) =>
@@ -237,7 +251,7 @@ export default function SdrDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [period, from, to]);
+  }, [period, from, to, ownerId]);
 
   const maxFunnel = Math.max(1, ...(data?.funnel.map((stage) => stage.count) ?? [0]));
 
@@ -245,7 +259,7 @@ export default function SdrDashboardPage() {
     <ThirdPartyShell>
       <PageHeader
         eyebrow="Portal SDR"
-        title="Seu desempenho em prospecção"
+        title="Desempenho da prospecção"
         description={
           data
             ? `Período de ${formatDate(data.period.start)} a ${formatDate(new Date(new Date(data.period.end).getTime() - 1))}.`
@@ -267,22 +281,47 @@ export default function SdrDashboardPage() {
               type="button"
               onClick={() => setPeriod(value)}
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                period === value ? 'bg-brand-purple text-white' : 'text-slate-500 hover:text-slate-800'
+                period === value
+                  ? 'bg-brand-purple text-white'
+                  : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               {label}
             </button>
           ))}
         </div>
+        <label className="text-xs font-semibold text-slate-500">
+          Responsável
+          <select
+            className="form-control mt-1 !w-56"
+            value={ownerId}
+            onChange={(event) => setOwnerId(event.target.value)}
+          >
+            <option value="">Todos os responsáveis</option>
+            {data?.owners.map((owner) => (
+              <option key={owner.id} value={owner.id}>
+                {owner.name}
+              </option>
+            ))}
+          </select>
+        </label>
         {period === 'custom' && (
           <>
             <label className="text-xs font-semibold text-slate-500">
               De
-              <DateInput className="form-control mt-1 !w-40" value={from} onValueChange={(value) => setFrom(value ?? '')} />
+              <DateInput
+                className="form-control mt-1 !w-40"
+                value={from}
+                onValueChange={(value) => setFrom(value ?? '')}
+              />
             </label>
             <label className="text-xs font-semibold text-slate-500">
               Até
-              <DateInput className="form-control mt-1 !w-40" value={to} onValueChange={(value) => setTo(value ?? '')} />
+              <DateInput
+                className="form-control mt-1 !w-40"
+                value={to}
+                onValueChange={(value) => setTo(value ?? '')}
+              />
             </label>
           </>
         )}
@@ -306,7 +345,7 @@ export default function SdrDashboardPage() {
             <Metric
               label="Leads criados"
               value={String(data.metrics.created)}
-              caption="por você no período"
+              caption="no período"
               icon="plus"
               color="bg-purple-50 text-brand-purple"
             />
@@ -344,7 +383,10 @@ export default function SdrDashboardPage() {
             >
               <EvolutionChart timeline={data.timeline} />
             </Section>
-            <Section title="Funil de prospecção" description="Oportunidades abertas do CRM por etapa do portal.">
+            <Section
+              title="Funil de prospecção"
+              description="Oportunidades abertas do parceiro SDR por etapa."
+            >
               <div className="space-y-4">
                 {data.funnel.map((stage) => (
                   <div key={stage.id}>
@@ -376,12 +418,21 @@ export default function SdrDashboardPage() {
               title="Precisam de atenção"
               description={`Sem movimentação há mais de ${data.metrics.staleDays} dias.`}
             >
-              <AttentionList leads={data.attention.stale} empty="Nenhum lead parado. Ótimo trabalho!" />
+              <AttentionList
+                leads={data.attention.stale}
+                empty="Nenhum lead parado. Ótimo trabalho!"
+              />
             </Section>
             <Section title="Prioridade mais alta" description="Leads abertos por prioridade.">
-              <AttentionList leads={data.attention.highPriority} empty="Nenhum lead com prioridade definida." />
+              <AttentionList
+                leads={data.attention.highPriority}
+                empty="Nenhum lead com prioridade definida."
+              />
             </Section>
-            <Section title="Tempo médio por etapa" description="Dias até sair da etapa, no período.">
+            <Section
+              title="Tempo médio por etapa"
+              description="Dias até sair da etapa, no período."
+            >
               <ul className="space-y-2 text-sm">
                 {data.averageDaysPerStage.map((stage) => (
                   <li key={stage.id} className="flex items-center justify-between gap-3">
@@ -415,8 +466,13 @@ export default function SdrDashboardPage() {
 
           <div className="mt-5 grid gap-5 lg:grid-cols-2">
             {data.tasks.enabled && (
-              <Section title="Suas tarefas" description="Atrasadas e com vencimento nos próximos 7 dias.">
-                <h3 className="text-xs font-bold uppercase tracking-wide text-red-500">Atrasadas</h3>
+              <Section
+                title="Suas tarefas"
+                description="Atrasadas e com vencimento nos próximos 7 dias."
+              >
+                <h3 className="text-xs font-bold uppercase tracking-wide text-red-500">
+                  Atrasadas
+                </h3>
                 <TaskList tasks={data.tasks.overdue} empty="Nenhuma tarefa atrasada." />
                 <h3 className="mt-4 text-xs font-bold uppercase tracking-wide text-slate-400">
                   Próximos 7 dias
@@ -424,16 +480,24 @@ export default function SdrDashboardPage() {
                 <TaskList tasks={data.tasks.upcoming} empty="Nenhuma tarefa na semana." />
               </Section>
             )}
-            <Section title="Suas últimas ações" description="Movimentações e comentários que você registrou.">
+            <Section
+              title="Últimas atividades"
+              description="Movimentações recentes nos leads do parceiro SDR."
+            >
               {data.recentActivities.length ? (
                 <ul className="divide-y divide-slate-100">
                   {data.recentActivities.map((activity) => (
                     <li key={activity.id} className="py-2.5 text-sm">
                       <div className="flex items-center justify-between gap-3">
-                        <Link to={leadLink(activity.lead.id)} className="truncate font-semibold text-slate-700 hover:text-brand-purple">
+                        <Link
+                          to={leadLink(activity.lead.id)}
+                          className="truncate font-semibold text-slate-700 hover:text-brand-purple"
+                        >
                           {activity.lead.name}
                         </Link>
-                        <span className="shrink-0 text-xs text-slate-400">{formatDate(activity.createdAt)}</span>
+                        <span className="shrink-0 text-xs text-slate-400">
+                          {formatDate(activity.createdAt)}
+                        </span>
                       </div>
                       <p className="mt-0.5 line-clamp-2 text-slate-500">
                         <span className="font-semibold text-brand-purple">

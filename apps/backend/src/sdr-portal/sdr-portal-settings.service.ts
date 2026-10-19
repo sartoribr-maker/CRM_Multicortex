@@ -44,6 +44,7 @@ export class SdrPortalSettingsService {
       ),
       qualifiedStageId: settings.qualifiedStageId,
       defaultSourceId: settings.defaultSourceId,
+      sdrPartnerId: settings.sdrPartnerId,
       hideFinancialValues: settings.hideFinancialValues,
       staleDays: settings.staleDays,
     };
@@ -72,12 +73,19 @@ export class SdrPortalSettingsService {
     ) {
       throw new BadRequestException('Origem padrão não encontrada ou arquivada.');
     }
+    if (
+      dto.sdrPartnerId &&
+      !(await this.prisma.partner.findFirst({ where: { id: dto.sdrPartnerId, deletedAt: null } }))
+    ) {
+      throw new BadRequestException('Parceiro comercial SDR não encontrado ou excluído.');
+    }
 
     const data = {
       visibleStageIds,
       allowedTargetStageIds,
       qualifiedStageId: dto.qualifiedStageId ?? null,
       defaultSourceId: dto.defaultSourceId ?? null,
+      sdrPartnerId: dto.sdrPartnerId ?? null,
       hideFinancialValues: dto.hideFinancialValues,
       staleDays: dto.staleDays,
       updatedBy: actorUserId,

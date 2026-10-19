@@ -25,6 +25,7 @@ interface PendingMove {
 
 export default function SdrKanbanPage() {
   const permissions = useAuthStore((s) => s.user?.permissions ?? []);
+  const isThirdParty = useAuthStore((s) => s.user?.portal === 'THIRD_PARTY');
   const canCreate = permissions.includes('leads.create');
   const canEdit = permissions.includes('leads.edit');
   const [searchParams, setSearchParams] = useSearchParams();
@@ -36,6 +37,7 @@ export default function SdrKanbanPage() {
   const [leads, setLeads] = useState<LeadListItem[]>([]);
   const [filters, setFilters] = useState<LeadListFilters>({});
   const [staleOnly, setStaleOnly] = useState(false);
+  const [ownerFilter, setOwnerFilter] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -60,17 +62,26 @@ export default function SdrKanbanPage() {
       .catch(() => setError('Não foi possível carregar a configuração do portal.'));
   }, []);
 
+  const sdrPartnerId = config?.sdrPartnerId;
   const loadLeads = useCallback(() => {
+    // Só leads do parceiro comercial SDR (o backend também restringe para o SDR).
+    if (config === null) return;
+    if (!sdrPartnerId) {
+      setLeads([]);
+      setIsLoading(false);
+      return;
+    }
     let cancelled = false;
     setIsLoading(true);
+    const query = { ...filters, partnerId: sdrPartnerId };
     leadsApi
-      .list({ ...filters, page: 1, pageSize: 100 })
+      .list({ ...query, page: 1, pageSize: 100 })
       .then(async (first) => {
         const rest =
           first.totalPages > 1
             ? await Promise.all(
                 Array.from({ length: first.totalPages - 1 }, (_, index) =>
-                  leadsApi.list({ ...filters, page: index + 2, pageSize: 100 }),
+                  leadsApi.list({ ...query, page: index + 2, pageSize: 100 }),
                 ),
               )
             : [];
@@ -85,7 +96,7 @@ export default function SdrKanbanPage() {
     return () => {
       cancelled = true;
     };
-  }, [filters]);
+  }, [filters, config, sdrPartnerId]);
 
   useEffect(loadLeads, [loadLeads]);
 
@@ -97,14 +108,28 @@ export default function SdrKanbanPage() {
     () => new Set(config?.allowedTargetStages.map((stage) => stage.id)),
     [config],
   );
+  /** Responsáveis presentes nos leads do portal (opções do filtro). */
+  const ownerOptions = useMemo(() => {
+    const users = new Map<string, string>();
+    for (const lead of leads) {
+      users.set(lead.owner.id, lead.owner.name);
+      for (const { user } of lead.assignees) users.set(user.id, user.name);
+    }
+    return [...users.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  }, [leads]);
   const boardLeads = useMemo(
     () =>
       leads.filter(
         (lead) =>
           visibleStageIds.has(lead.stage.id) &&
-          (!staleOnly || !config || daysInStage(lead) > config.staleDays),
+          (!staleOnly || !config || daysInStage(lead) > config.staleDays) &&
+          (!ownerFilter ||
+            lead.owner.id === ownerFilter ||
+            lead.assignees.some(({ user }) => user.id === ownerFilter)),
       ),
-    [leads, visibleStageIds, staleOnly, config],
+    [leads, visibleStageIds, staleOnly, config, ownerFilter],
   );
   const grouped = useMemo(
     () =>
@@ -138,7 +163,8 @@ export default function SdrKanbanPage() {
   }
 
   const meetingScheduling = useMeetingScheduling({
-    onProceed: (lead, stage, actionDescription) => setPendingMove({ lead, stage, actionDescription }),
+    onProceed: (lead, stage, actionDescription) =>
+      setPendingMove({ lead, stage, actionDescription }),
     onMeetingScheduled: (leadId, meeting) => {
       setLeads((items) =>
         items.map((item) => (item.id === leadId ? { ...item, meetings: [meeting] } : item)),
@@ -163,9 +189,7 @@ export default function SdrKanbanPage() {
     setError(null);
     setLeads((items) =>
       items.map((item) =>
-        item.id === lead.id
-          ? { ...item, stage, stageEnteredAt: new Date().toISOString() }
-          : item,
+        item.id === lead.id ? { ...item, stage, stageEnteredAt: new Date().toISOString() } : item,
       ),
     );
     try {
@@ -181,15 +205,17 @@ export default function SdrKanbanPage() {
     }
   }
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length + (staleOnly ? 1 : 0);
-  const notConfigured = config !== null && config.visibleStages.length === 0;
+  const activeFilterCount =
+    Object.values(filters).filter(Boolean).length + (staleOnly ? 1 : 0) + (ownerFilter ? 1 : 0);
+  const notConfigured =
+    config !== null && (config.visibleStages.length === 0 || !config.sdrPartnerId);
 
   return (
     <ThirdPartyShell>
       <PageHeader
         eyebrow="Portal SDR"
         title="Kanban comercial"
-        description={`${boardLeads.length} oportunidades em prospecção no CRM`}
+        description={`${boardLeads.length} oportunidades do parceiro SDR`}
         actions={
           canCreate &&
           !notConfigured && (
@@ -235,6 +261,19 @@ export default function SdrKanbanPage() {
               </option>
             ))}
           </select>
+          <select
+            className="form-control"
+            value={ownerFilter}
+            onChange={(event) => setOwnerFilter(event.target.value)}
+            aria-label="Responsável"
+          >
+            <option value="">Todos os responsáveis</option>
+            {ownerOptions.map((owner) => (
+              <option key={owner.id} value={owner.id}>
+                {owner.name}
+              </option>
+            ))}
+          </select>
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
             <input
               type="checkbox"
@@ -249,6 +288,7 @@ export default function SdrKanbanPage() {
               onClick={() => {
                 setFilters({});
                 setStaleOnly(false);
+                setOwnerFilter('');
               }}
             >
               Limpar filtros
@@ -278,7 +318,7 @@ export default function SdrKanbanPage() {
           <Icon name="settings" className="mx-auto h-9 w-9 text-slate-300" />
           <p className="mt-3 font-semibold text-slate-700">Portal SDR ainda não configurado</p>
           <p className="mt-1 text-sm text-slate-500">
-            Solicite ao administrador que defina as etapas do portal.
+            Solicite ao administrador que defina as etapas e o parceiro SDR do portal.
           </p>
         </div>
       ) : isLoading || !config ? (
@@ -331,6 +371,12 @@ export default function SdrKanbanPage() {
       {meetingScheduling.modals}
       {isCreating && (
         <SdrLeadFormModal
+          // Para o SDR o backend define tipo e parceiro; usuários internos os enviam.
+          extraPayload={
+            isThirdParty || !sdrPartnerId
+              ? undefined
+              : { leadType: 'OUTBOUND', partnerId: sdrPartnerId }
+          }
           priorities={priorities}
           projectTypes={projectTypes}
           segments={segments}

@@ -24,17 +24,22 @@ export class SdrSummaryService {
   ) {}
 
   /**
-   * Indicadores do Dashboard SDR. Criados, qualificados, desqualificados,
-   * tarefas e atividades são do usuário logado; carteira, funil, parados e
-   * tempo por etapa cobrem todos os leads nas etapas do portal (fila da equipe).
+   * Indicadores do Dashboard SDR sobre os leads do parceiro comercial SDR,
+   * opcionalmente filtrados por responsável. As tarefas são sempre do
+   * usuário logado.
    */
   async summary(query: SdrSummaryQueryDto, user: JwtPayload, now = new Date()) {
     const range = resolvePeriod(query.period, now, query.from, query.to);
     const settings = await this.settingsService.get();
-    const portalLeads: Prisma.LeadWhereInput = {
-      deletedAt: null,
-      stageId: { in: settings.visibleStageIds },
-    };
+    const sdrLeads: Prisma.LeadWhereInput = settings.sdrPartnerId
+      ? { deletedAt: null, partnerId: settings.sdrPartnerId }
+      : { id: { in: [] } };
+    const scope: Prisma.LeadWhereInput = query.ownerId
+      ? {
+          ...sdrLeads,
+          OR: [{ ownerId: query.ownerId }, { assignees: { some: { userId: query.ownerId } } }],
+        }
+      : sdrLeads;
     const inRange = { gte: range.start, lt: range.end };
     const canViewTasks = user.permissions.includes(PERMISSIONS.TASKS_VIEW);
     const openTask: Prisma.TaskWhereInput = {
@@ -53,6 +58,7 @@ export class SdrSummaryService {
       overdueTasks,
       upcomingTasks,
       recentActivities,
+      ownerRows,
     ] = await Promise.all([
       this.prisma.stage.findMany({
         where: { id: { in: settings.visibleStageIds }, deletedAt: null },
@@ -60,31 +66,21 @@ export class SdrSummaryService {
         orderBy: { order: 'asc' },
       }),
       this.prisma.lead.findMany({
-        where: { deletedAt: null, createdBy: user.sub, createdAt: inRange },
+        where: { ...scope, createdAt: inRange },
         select: { id: true, createdAt: true },
       }),
       settings.qualifiedStageId
         ? this.prisma.stageHistoryEntry.findMany({
-            where: {
-              toStageId: settings.qualifiedStageId,
-              changedByUserId: user.sub,
-              createdAt: inRange,
-              lead: { deletedAt: null },
-            },
+            where: { toStageId: settings.qualifiedStageId, createdAt: inRange, lead: scope },
             select: { leadId: true, createdAt: true },
           })
         : Promise.resolve([]),
       this.prisma.stageHistoryEntry.findMany({
-        where: {
-          changedByUserId: user.sub,
-          createdAt: inRange,
-          toStage: { isLostStage: true },
-          lead: { deletedAt: null },
-        },
+        where: { createdAt: inRange, toStage: { isLostStage: true }, lead: scope },
         select: { leadId: true, lead: { select: { lossReason: true } } },
       }),
       this.prisma.lead.findMany({
-        where: { ...portalLeads, status: 'OPEN' },
+        where: { ...scope, status: 'OPEN', stageId: { in: settings.visibleStageIds } },
         select: {
           id: true,
           name: true,
@@ -100,7 +96,7 @@ export class SdrSummaryService {
           createdAt: inRange,
           fromStageId: { in: settings.visibleStageIds },
           timeInPreviousStageSeconds: { not: null },
-          lead: { deletedAt: null },
+          lead: scope,
         },
         select: { fromStageId: true, timeInPreviousStageSeconds: true },
       }),
@@ -121,7 +117,7 @@ export class SdrSummaryService {
           })
         : Promise.resolve([]),
       this.prisma.leadActivity.findMany({
-        where: { actorUserId: user.sub, lead: { deletedAt: null } },
+        where: { lead: scope },
         select: {
           id: true,
           type: true,
@@ -132,6 +128,12 @@ export class SdrSummaryService {
         },
         orderBy: { createdAt: 'desc' },
         take: 8,
+      }),
+      // Responsáveis dos leads do parceiro SDR, para o filtro do dashboard.
+      this.prisma.leadAssignee.findMany({
+        where: { lead: sdrLeads },
+        distinct: ['userId'],
+        select: { user: { select: { id: true, name: true } } },
       }),
     ]);
 
@@ -153,6 +155,9 @@ export class SdrSummaryService {
           seconds: entry.timeInPreviousStageSeconds!,
         })),
       }),
+      owners: ownerRows
+        .map(({ user: owner }) => owner)
+        .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
       tasks: { enabled: canViewTasks, overdue: overdueTasks, upcoming: upcomingTasks },
       recentActivities,
     };

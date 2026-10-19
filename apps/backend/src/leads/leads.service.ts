@@ -108,8 +108,11 @@ export class LeadsService {
    */
   private async visibilityFilter(currentUser: JwtPayload): Promise<Prisma.LeadWhereInput> {
     if (!isThirdParty(currentUser)) return this.ownershipFilter(currentUser);
-    const { visibleStageIds } = await this.sdrPortalSettings.get();
-    return { stageId: { in: visibleStageIds } };
+    const { visibleStageIds, sdrPartnerId } = await this.sdrPortalSettings.get();
+    // Somente leads do parceiro comercial SDR; sem parceiro configurado, nenhum.
+    return sdrPartnerId
+      ? { stageId: { in: visibleStageIds }, partnerId: sdrPartnerId }
+      : { id: { in: [] } };
   }
 
   private async presentForUser<T extends object>(lead: T, currentUser: JwtPayload): Promise<T> {
@@ -128,6 +131,7 @@ export class LeadsService {
       ],
       ...(query.stageId ? { stageId: query.stageId } : {}),
       ...(query.line ? { line: query.line } : {}),
+      ...(query.leadType ? { leadType: query.leadType } : {}),
       ...(query.priorityId ? { priorityId: query.priorityId } : {}),
       ...(query.dealSizeId ? { dealSizeId: query.dealSizeId } : {}),
       ...(query.sourceId ? { sourceId: query.sourceId } : {}),
@@ -326,9 +330,9 @@ export class LeadsService {
   ): Promise<CreateLeadDto> {
     const settings = await this.sdrPortalSettings.get();
     assertThirdPartyLeadPayload(dto, 'create', settings);
-    if (!settings.defaultSourceId) {
+    if (!settings.defaultSourceId || !settings.sdrPartnerId) {
       throw new BadRequestException(
-        'Origem padrão do Portal SDR não configurada. Contate o administrador.',
+        'Origem padrão ou parceiro SDR do Portal SDR não configurados. Contate o administrador.',
       );
     }
     const firstStage = await this.prisma.stage.findFirst({
@@ -340,11 +344,14 @@ export class LeadsService {
         'Portal SDR sem etapas configuradas. Contate o administrador.',
       );
     }
+    // Cadastro feito no portal: prospecção ativa da equipe SDR.
     return {
       ...dto,
       ownerIds: [currentUser.sub],
       sourceId: settings.defaultSourceId,
       stageId: firstStage.id,
+      leadType: 'OUTBOUND',
+      partnerId: settings.sdrPartnerId,
     };
   }
 
@@ -381,6 +388,10 @@ export class LeadsService {
 
       const existing = await this.findExistingSiteLead(dto, currentUser);
       if (existing) return existing;
+
+      // Leads do site (formulário, WhatsApp ou IA): Inbound e parceiro SDR.
+      const { sdrPartnerId } = await this.sdrPortalSettings.get();
+      dto = { ...dto, leadType: 'INBOUND', partnerId: sdrPartnerId ?? dto.partnerId };
     }
 
     await this.validateCustomFieldValues(dto.customFieldValues, { enforceRequired: true });
@@ -432,6 +443,7 @@ export class LeadsService {
           contactId: party.contactId,
           siteSubmissionId: dto.siteSubmissionId,
           line: dto.line,
+          leadType: dto.leadType,
           name: dto.name,
           companyName: dto.companyName,
           companyDocument: dto.companyDocument,
@@ -549,6 +561,7 @@ export class LeadsService {
     const opexValue = dto.opexValue ?? Number(existing.opexValue ?? 0);
     const data: Prisma.LeadUpdateInput = {
       ...(dto.line ? { line: dto.line } : {}),
+      leadType: dto.leadType,
       name: dto.name,
       companyName: dto.companyName,
       companyDocument: dto.companyDocument,

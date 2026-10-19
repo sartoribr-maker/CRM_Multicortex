@@ -15,7 +15,13 @@ import {
 } from '../../lib/settingsApi';
 import { avatarUrl, usersApi, type UserOption } from '../../lib/usersApi';
 import { useAuthStore } from '../../store/useAuthStore';
-import { LEAD_LINE_LABELS, type LeadLine, type LeadListItem } from '../../types/leads';
+import {
+  LEAD_LINE_LABELS,
+  LEAD_TYPE_LABELS,
+  type LeadLine,
+  type LeadListItem,
+  type LeadType,
+} from '../../types/leads';
 import type { Partner } from '../../types/partners';
 import type { DealSize, Priority, ProjectType, Source, Stage } from '../../types/settings';
 
@@ -248,6 +254,20 @@ export default function LeadsListPage() {
             >
               <option value="">Todas as linhas</option>
               {Object.entries(LEAD_LINE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <select
+              className="form-control"
+              value={filters.leadType ?? ''}
+              onChange={(e) =>
+                updateFilter({ leadType: (e.target.value || undefined) as LeadType | undefined })
+              }
+            >
+              <option value="">Inbound e Outbound</option>
+              {Object.entries(LEAD_TYPE_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>

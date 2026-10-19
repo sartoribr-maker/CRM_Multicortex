@@ -9,6 +9,7 @@ export interface SdrPortalConfig {
   allowedTargetStages: Stage[];
   qualifiedStageId: string | null;
   defaultSourceId: string | null;
+  sdrPartnerId: string | null;
   hideFinancialValues: boolean;
   staleDays: number;
 }
@@ -18,6 +19,7 @@ export interface SdrPortalSettings {
   allowedTargetStageIds: string[];
   qualifiedStageId: string | null;
   defaultSourceId: string | null;
+  sdrPartnerId: string | null;
   hideFinancialValues: boolean;
   staleDays: number;
   updatedAt: string;
@@ -68,6 +70,8 @@ export interface SdrSummary {
   averageDaysPerStage: Array<SummaryStage & { averageDays: number | null; samples: number }>;
   timeline: Array<{ start: string; label: string; created: number; qualified: number }>;
   attention: { stale: SdrAttentionLead[]; highPriority: SdrAttentionLead[] };
+  /** Responsáveis dos leads do parceiro SDR (opções do filtro). */
+  owners: Array<{ id: string; name: string }>;
   tasks: { enabled: boolean; overdue: SdrTask[]; upcoming: SdrTask[] };
   recentActivities: Array<{
     id: string;

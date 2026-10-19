@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { LeadLine, LeadPeriodicity } from '@prisma/client';
+import { LeadLine, LeadPeriodicity, LeadType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -28,6 +28,11 @@ export class CreateLeadDto {
   @ApiProperty({ enum: LeadLine })
   @IsEnum(LeadLine)
   line!: LeadLine;
+
+  @ApiPropertyOptional({ enum: LeadType, description: 'Inbound ou Outbound' })
+  @IsOptional()
+  @IsEnum(LeadType)
+  leadType?: LeadType;
 
   @ApiProperty()
   @IsString()

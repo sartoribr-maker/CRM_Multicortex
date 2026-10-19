@@ -180,6 +180,10 @@ A central `/access` permite administrar usuários e criar perfis personalizados 
 - Headers defensivos, limite de upload, suporte correto a proxy e CORS configurável.
 - Procedimento completo em [`docs/DEPLOY.md`](docs/DEPLOY.md) e variáveis em `.env.production.example`.
 
+## Tipo de lead (Inbound/Outbound)
+
+O lead tem o campo **Tipo de lead** (Inbound ou Outbound), editável no cadastro interno e filtrável na lista e no Kanban. Leads recebidos pela integração do site são gravados como Inbound com o parceiro comercial SDR; os cadastrados no Portal SDR, como Outbound com o parceiro SDR.
+
 ## Cadastro de Empresas e Contatos
 
 Empresas (`companies`) e contatos (`contacts`) formam uma base própria, alimentada automaticamente: ao criar ou editar um lead (CRM interno, Portal SDR ou integração do site), a empresa e o contato informados são gravados se ainda não existirem e vinculados ao lead (`companyId`/`contactId`). Registros existentes só têm dados ausentes completados; nada é sobrescrito.
@@ -198,7 +202,7 @@ Ao mover uma oportunidade para a etapa de reunião (padrão: Diagnóstico/Reuni�
 Usuários com perfil de portal `THIRD_PARTY` (perfil de sistema **SDR**) entram sempre em `/terceiro` e não acessam nenhuma outra área do CRM. O bloqueio vale no frontend e no backend: um guard global responde 403 e audita qualquer rota não liberada ao portal.
 
 - Dashboard SDR (`/terceiro`) com criados, qualificados, taxa de qualificação, desqualificados, leads em prospecção, leads parados, tempo por etapa e evolução no período.
-- Kanban comercial (`/terceiro/kanban`) com todos os leads do CRM nas etapas do portal (por padrão, até Diagnóstico/Reunião), sobre as mesmas tabelas de leads, com as mesmas regras de movimentação, restrito às etapas e destinos configurados e sem valores financeiros.
+- Kanban comercial (`/terceiro/kanban`) com os leads do parceiro comercial SDR nas etapas do portal (por padrão, até Diagnóstico/Reunião), filtráveis por responsável, sobre as mesmas tabelas de leads, com as mesmas regras de movimentação, restrito às etapas e destinos configurados e sem valores financeiros.
 - Configuração em **Configurações → Portal SDR** (`/settings/sdr-portal`).
 - Usuário de demonstração do seed: `sdr@multicortex.com.br` / `Senha@123`.
 

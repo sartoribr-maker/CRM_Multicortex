@@ -2,7 +2,7 @@ import type { DragEvent } from 'react';
 import { formatCurrency, formatDate } from '../../../lib/formatters';
 import { Icon } from '../../Icon';
 import { avatarUrl } from '../../../lib/usersApi';
-import type { LeadListItem } from '../../../types/leads';
+import { LEAD_TYPE_LABELS, type LeadListItem } from '../../../types/leads';
 
 const DAY_MS = 86_400_000;
 
@@ -75,6 +75,18 @@ export function LeadKanbanCard({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
+          {lead.leadType && (
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase ${
+                lead.leadType === 'INBOUND'
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-violet-100 text-violet-700'
+              }`}
+              title="Tipo de lead"
+            >
+              {LEAD_TYPE_LABELS[lead.leadType]}
+            </span>
+          )}
           {meeting && (
             <span
               className="flex items-center gap-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-blue"

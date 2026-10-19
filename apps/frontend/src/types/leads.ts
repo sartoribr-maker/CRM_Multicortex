@@ -3,6 +3,12 @@ import type { CustomFieldType } from './settings';
 export type LeadStatus = 'OPEN' | 'WON' | 'LOST';
 export type LeadPeriodicity = 'PONTUAL' | 'MENSAL' | 'TRIMESTRAL' | 'ANUAL' | 'RECORRENTE';
 export type LeadLine = 'ENTERPRISE' | 'PRIVACY' | 'MIX';
+export type LeadType = 'INBOUND' | 'OUTBOUND';
+
+export const LEAD_TYPE_LABELS: Record<LeadType, string> = {
+  INBOUND: 'Inbound',
+  OUTBOUND: 'Outbound',
+};
 
 export const LEAD_LINE_LABELS: Record<LeadLine, string> = {
   ENTERPRISE: 'Enterprise',
@@ -39,6 +45,7 @@ export interface LeadListItem {
   id: string;
   businessCode: string | null;
   line: LeadLine | null;
+  leadType?: LeadType | null;
   name: string;
   companyName: string | null;
   contactName: string | null;

@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { LeadLine, LeadStatus } from '@prisma/client';
+import { LeadLine, LeadStatus, LeadType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsDateString,
@@ -37,6 +37,11 @@ export class ListLeadsQueryDto {
   @IsOptional()
   @IsEnum(LeadLine)
   line?: LeadLine;
+
+  @ApiPropertyOptional({ enum: LeadType })
+  @IsOptional()
+  @IsEnum(LeadType)
+  leadType?: LeadType;
 
   @ApiPropertyOptional()
   @IsOptional()

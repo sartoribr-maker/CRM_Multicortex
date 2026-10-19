@@ -20,8 +20,10 @@ import { LeadAutocompleteInput } from '../../components/LeadAutocompleteInput';
 import { CurrencyInput, DateInput, PhoneInput } from '../../components/MaskedInputs';
 import {
   LEAD_LINE_LABELS,
+  LEAD_TYPE_LABELS,
   LEAD_PERIODICITY_LABELS,
   type LeadLine,
+  type LeadType,
   type LeadPeriodicity,
 } from '../../types/leads';
 import type { DealSize, Priority, ProjectType, Segment, Source, Stage } from '../../types/settings';
@@ -110,6 +112,7 @@ export default function LeadFormPage() {
         setForm({
           name: lead.name,
           line: lead.line ?? undefined,
+          leadType: lead.leadType ?? undefined,
           companyName: lead.companyName ?? undefined,
           companyDocument: lead.companyDocument ?? undefined,
           companySegment: lead.companySegment ?? undefined,
@@ -291,6 +294,23 @@ export default function LeadFormPage() {
                 >
                   <option value="">Selecione…</option>
                   {Object.entries(LEAD_LINE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Tipo de lead</label>
+                <select
+                  className={inputClass}
+                  value={form.leadType ?? ''}
+                  onChange={(e) =>
+                    updateField('leadType', (e.target.value || undefined) as LeadType | undefined)
+                  }
+                >
+                  <option value="">Não informado</option>
+                  {Object.entries(LEAD_TYPE_LABELS).map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>

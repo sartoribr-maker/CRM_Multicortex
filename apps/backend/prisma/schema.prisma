@@ -420,11 +420,18 @@ enum LeadLine {
   MIX
 }
 
+/// Tipo do lead: veio até a empresa (Inbound) ou foi prospectado (Outbound).
+enum LeadType {
+  INBOUND
+  OUTBOUND
+}
+
 model Lead {
   id           String    @id @default(uuid())
   businessCode String?   @unique
   siteSubmissionId String? @unique
   line         LeadLine?
+  leadType     LeadType?
   name         String
 
   companyName     String?
@@ -495,6 +502,7 @@ model Lead {
 
   @@index([technicalPartnerId])
   @@index([line])
+  @@index([leadType])
   @@index([companyId])
   @@index([contactId])
   @@map("leads")
@@ -737,6 +745,8 @@ model SdrPortalSettings {
   defaultSourceId       String?
   hideFinancialValues   Boolean  @default(true)
   staleDays             Int      @default(7)
+  /// Parceiro comercial que identifica os leads do Portal SDR.
+  sdrPartnerId          String?
   updatedAt             DateTime @updatedAt
   updatedBy             String?
 

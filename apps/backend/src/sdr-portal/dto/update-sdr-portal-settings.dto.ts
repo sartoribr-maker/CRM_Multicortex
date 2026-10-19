@@ -36,6 +36,12 @@ export class UpdateSdrPortalSettingsDto {
   @IsUUID()
   defaultSourceId?: string | null;
 
+  @ApiPropertyOptional({ nullable: true, description: 'Parceiro comercial dos leads do Portal SDR' })
+  @IsOptional()
+  @ValidateIf((_dto, value) => value !== null)
+  @IsUUID()
+  sdrPartnerId?: string | null;
+
   @ApiProperty({ description: 'Ocultar CAPEX, OPEX, valor estimado e probabilidade no portal' })
   @IsBoolean()
   hideFinancialValues!: boolean;

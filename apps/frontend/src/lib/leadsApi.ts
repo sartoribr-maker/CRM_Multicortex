@@ -6,7 +6,7 @@ import type {
   LeadListResponse,
   StageHistoryEntry,
 } from '../types/leads';
-import type { LeadLine } from '../types/leads';
+import type { LeadLine, LeadType } from '../types/leads';
 
 export interface CustomFieldValueInput {
   customFieldId: string;
@@ -16,6 +16,7 @@ export interface CustomFieldValueInput {
 export interface LeadFormPayload {
   name: string;
   line?: LeadLine;
+  leadType?: LeadType;
   companyName?: string;
   companyDocument?: string;
   companySegment?: string;
@@ -62,6 +63,7 @@ export interface LeadListFilters {
   pageSize?: number;
   search?: string;
   line?: LeadLine;
+  leadType?: LeadType;
   ownerId?: string;
   stageId?: string;
   priorityId?: string;

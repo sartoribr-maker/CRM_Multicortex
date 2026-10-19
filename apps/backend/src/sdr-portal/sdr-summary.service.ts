@@ -67,17 +67,17 @@ export class SdrSummaryService {
       }),
       this.prisma.lead.findMany({
         where: { ...scope, createdAt: inRange },
-        select: { id: true, createdAt: true },
+        select: { id: true, createdAt: true, leadType: true },
       }),
       settings.qualifiedStageId
         ? this.prisma.stageHistoryEntry.findMany({
             where: { toStageId: settings.qualifiedStageId, createdAt: inRange, lead: scope },
-            select: { leadId: true, createdAt: true },
+            select: { leadId: true, createdAt: true, lead: { select: { leadType: true } } },
           })
         : Promise.resolve([]),
       this.prisma.stageHistoryEntry.findMany({
         where: { createdAt: inRange, toStage: { isLostStage: true }, lead: scope },
-        select: { leadId: true, lead: { select: { lossReason: true } } },
+        select: { leadId: true, lead: { select: { lossReason: true, leadType: true } } },
       }),
       this.prisma.lead.findMany({
         where: { ...scope, status: 'OPEN', stageId: { in: settings.visibleStageIds } },
@@ -86,6 +86,7 @@ export class SdrSummaryService {
           name: true,
           businessCode: true,
           companyName: true,
+          leadType: true,
           stageId: true,
           stageEnteredAt: true,
           priority: { select: { id: true, name: true, color: true, order: true } },
@@ -144,10 +145,15 @@ export class SdrSummaryService {
         staleDays: settings.staleDays,
         visibleStages,
         createdLeads,
-        qualifications,
+        qualifications: qualifications.map((entry) => ({
+          leadId: entry.leadId,
+          createdAt: entry.createdAt,
+          leadType: entry.lead.leadType,
+        })),
         disqualifications: disqualifications.map((entry) => ({
           leadId: entry.leadId,
           lossReason: entry.lead.lossReason,
+          leadType: entry.lead.leadType,
         })),
         activeLeads,
         stageDurations: stageDurations.map((entry) => ({

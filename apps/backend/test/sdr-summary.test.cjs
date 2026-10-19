@@ -112,3 +112,40 @@ test('taxa de qualificação sem leads criados', () => {
   });
   assert.equal(result.metrics.qualificationRate, null);
 });
+
+test('indicadores separados por Inbound e Outbound', () => {
+  const now = MONDAY_NIGHT;
+  const day = 86400000;
+  const lead = (id, leadType, daysAgo) => ({
+    id, name: id, businessCode: null, companyName: null, stageId: 's', leadType,
+    stageEnteredAt: new Date(now.getTime() - daysAgo * day), priority: null,
+  });
+  const at = new Date('2026-10-19T12:00:00Z');
+  const result = computeSdrSummary({
+    now,
+    range: resolvePeriod('week', now),
+    staleDays: 7,
+    visibleStages: [{ id: 's', name: 's', color: '#000', order: 1 }],
+    createdLeads: [
+      { id: 'a', createdAt: at, leadType: 'INBOUND' },
+      { id: 'b', createdAt: at, leadType: 'INBOUND' },
+      { id: 'c', createdAt: at, leadType: 'OUTBOUND' },
+      { id: 'd', createdAt: at, leadType: 'OUTBOUND' },
+      { id: 'e', createdAt: at, leadType: 'OUTBOUND' },
+      { id: 'f', createdAt: at, leadType: 'OUTBOUND' },
+    ],
+    qualifications: [
+      { leadId: 'a', createdAt: at, leadType: 'INBOUND' },
+      { leadId: 'c', createdAt: at, leadType: 'OUTBOUND' },
+      { leadId: 'c', createdAt: at, leadType: 'OUTBOUND' },
+    ],
+    disqualifications: [{ leadId: 'd', lossReason: 'x', leadType: 'OUTBOUND' }],
+    activeLeads: [lead('a', 'INBOUND', 1), lead('e', 'OUTBOUND', 10), lead('f', 'OUTBOUND', 2)],
+    stageDurations: [],
+  });
+  assert.deepEqual(result.byLeadType, [
+    { leadType: 'INBOUND', created: 2, qualified: 1, qualificationRate: 50, disqualified: 0, active: 1, stale: 0 },
+    { leadType: 'OUTBOUND', created: 4, qualified: 1, qualificationRate: 25, disqualified: 1, active: 2, stale: 1 },
+  ]);
+  assert.equal(result.byLeadType.some((row) => row.leadType === null), false, 'sem tipo omitido quando vazio');
+});

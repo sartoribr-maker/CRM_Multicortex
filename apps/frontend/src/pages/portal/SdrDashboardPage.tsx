@@ -6,7 +6,7 @@ import { DateInput } from '../../components/MaskedInputs';
 import { TaskDeadline } from '../../components/TaskDeadline';
 import { formatDate } from '../../lib/formatters';
 import { sdrPortalApi } from '../../lib/sdrPortalApi';
-import { LEAD_ACTIVITY_LABELS } from '../../types/leads';
+import { LEAD_ACTIVITY_LABELS, LEAD_TYPE_LABELS } from '../../types/leads';
 import type { SdrAttentionLead, SdrPeriod, SdrSummary, SdrTask } from '../../types/sdrPortal';
 import { ThirdPartyShell } from './ThirdPartyShell';
 
@@ -16,6 +16,104 @@ const PERIODS: Array<[SdrPeriod, string]> = [
   ['month', 'Mês'],
   ['custom', 'Personalizado'],
 ];
+
+const LEAD_TYPE_STYLES = {
+  INBOUND: { color: '#42AD83', badge: 'bg-emerald-100 text-emerald-700' },
+  OUTBOUND: { color: '#74529F', badge: 'bg-violet-100 text-violet-700' },
+  NONE: { color: '#94A3B8', badge: 'bg-slate-100 text-slate-600' },
+} as const;
+
+type LeadTypeRow = SdrSummary['byLeadType'][number];
+type LeadTypeCount = Exclude<keyof LeadTypeRow, 'leadType' | 'qualificationRate'>;
+
+/** Texto "x inbound · y outbound" para os cards do topo. */
+function typeSplit(rows: LeadTypeRow[], field: LeadTypeCount) {
+  return rows
+    .map(
+      (row) =>
+        `${row[field]} ${row.leadType ? LEAD_TYPE_LABELS[row.leadType].toLowerCase() : 'sem tipo'}`,
+    )
+    .join(' · ');
+}
+
+function LeadTypeBreakdown({ rows }: { rows: LeadTypeRow[] }) {
+  const totalCreated = rows.reduce((sum, row) => sum + row.created, 0);
+  const totalActive = rows.reduce((sum, row) => sum + row.active, 0);
+  const metrics: Array<[string, (row: LeadTypeRow) => string]> = [
+    ['Criados no período', (row) => String(row.created)],
+    ['Qualificados', (row) => String(row.qualified)],
+    [
+      'Taxa de qualificação',
+      (row) => (row.qualificationRate === null ? '—' : `${row.qualificationRate.toFixed(1)}%`),
+    ],
+    ['Desqualificados', (row) => String(row.disqualified)],
+    ['Em prospecção', (row) => String(row.active)],
+    ['Parados', (row) => String(row.stale)],
+  ];
+  const bar = (field: 'created' | 'active', total: number, label: string) => (
+    <div>
+      <div className="mb-1 flex justify-between text-[11px] font-semibold text-slate-500">
+        <span>{label}</span>
+        <span>{total}</span>
+      </div>
+      <div className="flex h-2.5 overflow-hidden rounded-full bg-slate-100">
+        {total > 0 &&
+          rows.map((row) => (
+            <div
+              key={row.leadType ?? 'none'}
+              style={{
+                width: `${(row[field] / total) * 100}%`,
+                backgroundColor: LEAD_TYPE_STYLES[row.leadType ?? 'NONE'].color,
+              }}
+              title={`${row.leadType ? LEAD_TYPE_LABELS[row.leadType] : 'Sem tipo'}: ${row[field]}`}
+            />
+          ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {bar('created', totalCreated, 'Criados no período')}
+        {bar('active', totalActive, 'Em prospecção agora')}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px] text-sm">
+          <thead>
+            <tr className="text-left text-[11px] font-bold uppercase tracking-wide text-slate-400">
+              <th className="py-2 pr-3">Indicador</th>
+              {rows.map((row) => (
+                <th key={row.leadType ?? 'none'} className="px-3 py-2 text-right">
+                  <span
+                    className={`rounded-full px-2 py-0.5 ${LEAD_TYPE_STYLES[row.leadType ?? 'NONE'].badge}`}
+                  >
+                    {row.leadType ? LEAD_TYPE_LABELS[row.leadType] : 'Sem tipo'}
+                  </span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {metrics.map(([label, value]) => (
+              <tr key={label}>
+                <td className="py-2 pr-3 text-slate-500">{label}</td>
+                {rows.map((row) => (
+                  <td
+                    key={row.leadType ?? 'none'}
+                    className="px-3 py-2 text-right font-semibold text-slate-800"
+                  >
+                    {value(row)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 const CREATED_COLOR = '#74529F';
 const QUALIFIED_COLOR = '#42AD83';
@@ -345,35 +443,44 @@ export default function SdrDashboardPage() {
             <Metric
               label="Leads criados"
               value={String(data.metrics.created)}
-              caption="no período"
+              caption={`no período · ${typeSplit(data.byLeadType, 'created')}`}
               icon="plus"
               color="bg-purple-50 text-brand-purple"
             />
             <Metric
               label="Qualificados / reuniões"
               value={String(data.metrics.qualified)}
-              caption={
+              caption={`${
                 data.metrics.qualificationRate === null
-                  ? 'Taxa de qualificação: —'
-                  : `Taxa de qualificação: ${data.metrics.qualificationRate.toFixed(1)}%`
-              }
+                  ? 'Taxa: —'
+                  : `Taxa: ${data.metrics.qualificationRate.toFixed(1)}%`
+              } · ${typeSplit(data.byLeadType, 'qualified')}`}
               icon="dashboard"
               color="bg-emerald-50 text-emerald-600"
             />
             <Metric
               label="Desqualificados"
               value={String(data.metrics.disqualified)}
-              caption="movidos para perda no período"
+              caption={typeSplit(data.byLeadType, 'disqualified')}
               icon="x"
               color="bg-red-50 text-red-600"
             />
             <Metric
               label="Leads em prospecção"
               value={String(data.metrics.activePortfolio)}
-              caption={`${data.metrics.stale} parada(s) há mais de ${data.metrics.staleDays} dias`}
+              caption={`${typeSplit(data.byLeadType, 'active')} · ${data.metrics.stale} parada(s) há +${data.metrics.staleDays} dias`}
               icon="leads"
               color="bg-amber-50 text-amber-600"
             />
+          </div>
+
+          <div className="mt-5">
+            <Section
+              title="Inbound × Outbound"
+              description="Leads que chegaram até a Multicortex (Inbound) e leads prospectados (Outbound), no período e filtro selecionados."
+            >
+              <LeadTypeBreakdown rows={data.byLeadType} />
+            </Section>
           </div>
 
           <div className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_.65fr]">

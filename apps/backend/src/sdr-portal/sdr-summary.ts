@@ -115,8 +115,11 @@ export interface SummaryStage {
   order: number;
 }
 
+export type SummaryLeadType = 'INBOUND' | 'OUTBOUND' | null;
+
 export interface SummaryLead {
   id: string;
+  leadType?: SummaryLeadType;
   name: string;
   businessCode: string | null;
   companyName: string | null;
@@ -130,12 +133,12 @@ export interface SdrSummaryInput {
   range: DateRange;
   staleDays: number;
   visibleStages: SummaryStage[];
-  /** Leads criados pelo SDR no período. */
-  createdLeads: Array<{ id: string; createdAt: Date }>;
-  /** Entradas na etapa qualificada feitas pelo SDR no período. */
-  qualifications: Array<{ leadId: string; createdAt: Date }>;
-  /** Movimentações do SDR para etapas de perda no período. */
-  disqualifications: Array<{ leadId: string; lossReason: string | null }>;
+  /** Leads criados no período. */
+  createdLeads: Array<{ id: string; createdAt: Date; leadType?: SummaryLeadType }>;
+  /** Entradas na etapa qualificada no período. */
+  qualifications: Array<{ leadId: string; createdAt: Date; leadType?: SummaryLeadType }>;
+  /** Movimentações para etapas de perda no período. */
+  disqualifications: Array<{ leadId: string; lossReason: string | null; leadType?: SummaryLeadType }>;
   /** Leads abertos do SDR em etapas visíveis. */
   activeLeads: SummaryLead[];
   /** Saídas de etapas visíveis no período, nos leads do SDR. */
@@ -195,6 +198,37 @@ export function computeSdrSummary(input: SdrSummaryInput) {
 
   const created = input.createdLeads.length;
   const qualified = firstQualification.size;
+
+  // Mesmos indicadores separados por tipo de lead (Inbound, Outbound e sem tipo).
+  const typeOf = new Map<string, SummaryLeadType>();
+  for (const entry of input.qualifications) typeOf.set(entry.leadId, entry.leadType ?? null);
+  const disqualifiedTypes = new Map<string, SummaryLeadType>();
+  for (const entry of input.disqualifications) {
+    disqualifiedTypes.set(entry.leadId, entry.leadType ?? null);
+  }
+  const byLeadType = (['INBOUND', 'OUTBOUND', null] as SummaryLeadType[])
+    .map((leadType) => {
+      const matches = (value?: SummaryLeadType) => (value ?? null) === leadType;
+      const typeCreated = input.createdLeads.filter((lead) => matches(lead.leadType)).length;
+      const typeQualified = [...firstQualification.keys()].filter((id) =>
+        matches(typeOf.get(id)),
+      ).length;
+      return {
+        leadType,
+        created: typeCreated,
+        qualified: typeQualified,
+        qualificationRate: typeCreated ? (typeQualified / typeCreated) * 100 : null,
+        disqualified: [...disqualifiedTypes.values()].filter(matches).length,
+        active: input.activeLeads.filter((lead) => matches(lead.leadType)).length,
+        stale: staleLeads.filter((lead) => matches(lead.leadType)).length,
+      };
+    })
+    // "Sem tipo" só aparece quando há algum lead nessa situação.
+    .filter(
+      (row) =>
+        row.leadType !== null ||
+        row.created + row.qualified + row.disqualified + row.active > 0,
+    );
   const toAttentionItem = (lead: SummaryLead) => ({
     ...lead,
     daysInStage: Math.floor((input.now.getTime() - lead.stageEnteredAt.getTime()) / DAY_MS),
@@ -211,6 +245,7 @@ export function computeSdrSummary(input: SdrSummaryInput) {
       stale: staleLeads.length,
       staleDays: input.staleDays,
     },
+    byLeadType,
     lossReasons: [...reasons.values()].sort((a, b) => b.count - a.count).slice(0, 5),
     funnel: input.visibleStages.map((stage) => ({
       ...stage,

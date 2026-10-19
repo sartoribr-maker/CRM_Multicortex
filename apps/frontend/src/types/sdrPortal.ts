@@ -1,4 +1,4 @@
-import type { LeadActivityType } from './leads';
+import type { LeadActivityType, LeadType } from './leads';
 import type { Stage } from './settings';
 import type { TaskPriority, TaskStatus } from './tasks';
 
@@ -65,6 +65,16 @@ export interface SdrSummary {
     stale: number;
     staleDays: number;
   };
+  /** Indicadores separados por tipo de lead (null = sem tipo). */
+  byLeadType: Array<{
+    leadType: LeadType | null;
+    created: number;
+    qualified: number;
+    qualificationRate: number | null;
+    disqualified: number;
+    active: number;
+    stale: number;
+  }>;
   lossReasons: Array<{ reason: string; count: number }>;
   funnel: Array<SummaryStage & { count: number }>;
   averageDaysPerStage: Array<SummaryStage & { averageDays: number | null; samples: number }>;

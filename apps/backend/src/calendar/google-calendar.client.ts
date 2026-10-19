@@ -2,6 +2,8 @@ import { createSign, randomUUID } from 'node:crypto';
 
 /** Escopo exigido na delegação em todo o domínio do Google Workspace. */
 export const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+/** Escopo somente leitura de livre/ocupado, usado na consulta de disponibilidade. */
+export const GOOGLE_FREEBUSY_SCOPE = 'https://www.googleapis.com/auth/calendar.freebusy';
 
 // URLs substituíveis apenas para testes automatizados.
 const TOKEN_URL = process.env.GOOGLE_OAUTH_TOKEN_URL ?? 'https://oauth2.googleapis.com/token';
@@ -64,6 +66,7 @@ export function createServiceAccountAssertion(
   key: ServiceAccountKey,
   subject: string,
   now = new Date(),
+  scope = GOOGLE_CALENDAR_SCOPE,
 ): string {
   const issuedAt = Math.floor(now.getTime() / 1000);
   const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
@@ -71,7 +74,7 @@ export function createServiceAccountAssertion(
     JSON.stringify({
       iss: key.client_email,
       sub: subject,
-      scope: GOOGLE_CALENDAR_SCOPE,
+      scope,
       aud: TOKEN_URL,
       iat: issuedAt,
       exp: issuedAt + 3600,
@@ -81,13 +84,17 @@ export function createServiceAccountAssertion(
   return `${header}.${claims}.${base64url(signature)}`;
 }
 
-export async function fetchAccessToken(key: ServiceAccountKey, subject: string): Promise<string> {
+export async function fetchAccessToken(
+  key: ServiceAccountKey,
+  subject: string,
+  scope = GOOGLE_CALENDAR_SCOPE,
+): Promise<string> {
   const response = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: createServiceAccountAssertion(key, subject),
+      assertion: createServiceAccountAssertion(key, subject, new Date(), scope),
     }),
   });
   const body = (await response.json().catch(() => ({}))) as {
@@ -100,7 +107,7 @@ export async function fetchAccessToken(key: ServiceAccountKey, subject: string):
     throw new GoogleCalendarError(
       body.error === 'unauthorized_client'
         ? `O Google não autorizou a conta de serviço a acessar a agenda de ${subject}. ` +
-            `Confira a delegação em todo o domínio e o escopo ${GOOGLE_CALENDAR_SCOPE}.`
+            `Confira a delegação em todo o domínio e o escopo ${scope}.`
         : body.error === 'invalid_grant'
           ? `O Google recusou o acesso à agenda de ${subject} (${reason}). ` +
             'Confira se o e-mail existe no Google Workspace.'
@@ -201,4 +208,56 @@ export async function checkCalendarAccess(accessToken: string): Promise<string> 
     );
   }
   return body.summary ?? 'agenda principal';
+}
+
+export interface BusyInterval {
+  start: string;
+  end: string;
+}
+
+export interface CalendarAvailability {
+  email: string;
+  busy: BusyInterval[];
+  /** Agenda não encontrada ou sem compartilhamento de livre/ocupado. */
+  unavailable: boolean;
+}
+
+/**
+ * Consulta livre/ocupado: o Google devolve apenas os intervalos ocupados,
+ * sem título, descrição ou participantes dos compromissos.
+ */
+export async function queryFreeBusy(
+  accessToken: string,
+  emails: string[],
+  timeMin: Date,
+  timeMax: Date,
+): Promise<CalendarAvailability[]> {
+  const response = await fetch(`${CALENDAR_API_URL}/freeBusy`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      timeMin: timeMin.toISOString(),
+      timeMax: timeMax.toISOString(),
+      timeZone: MEETING_TIME_ZONE,
+      items: emails.map((id) => ({ id })),
+    }),
+  });
+  const body = (await response.json().catch(() => ({}))) as {
+    calendars?: Record<string, { busy?: BusyInterval[]; errors?: unknown[] }>;
+    error?: { message?: string };
+  };
+  if (!response.ok) {
+    throw new GoogleCalendarError(
+      `O Google recusou a consulta de disponibilidade (${response.status}${body.error?.message ? `: ${body.error.message}` : ''}).`,
+      response.status,
+    );
+  }
+  return emails.map((email) => {
+    const calendar = body.calendars?.[email];
+    return {
+      email,
+      busy: (calendar?.busy ?? []).map(({ start, end }) => ({ start, end })),
+      unavailable: !calendar || Boolean(calendar.errors?.length),
+    };
+  });
 }

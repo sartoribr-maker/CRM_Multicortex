@@ -6,6 +6,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
 import { AttendeeSuggestionsQueryDto } from './dto/attendee-suggestions.query.dto';
+import { AvailabilityQueryDto } from './dto/availability.query.dto';
 import { CreateLeadMeetingDto } from './dto/create-lead-meeting.dto';
 import { LeadMeetingsService } from './lead-meetings.service';
 
@@ -25,6 +26,12 @@ export class LeadMeetingsController {
   @RequirePermissions(PERMISSIONS.LEADS_EDIT)
   attendeeSuggestions(@Query() query: AttendeeSuggestionsQueryDto) {
     return this.service.attendeeSuggestions(query.search);
+  }
+
+  @Get('calendar/availability')
+  @RequirePermissions(PERMISSIONS.LEADS_EDIT)
+  availability(@Query() query: AvailabilityQueryDto, @CurrentUser() user: JwtPayload) {
+    return this.service.availability(query, user);
   }
 
   @Get('leads/:leadId/meetings')

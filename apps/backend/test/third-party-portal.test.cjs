@@ -76,6 +76,7 @@ test('rotas liberadas passam para o THIRD_PARTY', async () => {
     [LeadMeetingsController, 'create'],
     [LeadMeetingsController, 'config'],
     [LeadMeetingsController, 'attendeeSuggestions'],
+    [LeadMeetingsController, 'availability'],
   ];
   for (const [controller, handler] of allowed) {
     assert.equal(await run(SDR, controller, handler), true, `${controller.name}.${handler}`);

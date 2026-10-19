@@ -9,6 +9,8 @@ Quando uma oportunidade é movida para a **etapa de reunião** (padrão: Diagnó
 - **Ao confirmar:** o evento é criado no Google Agenda, o Google envia os convites com o link do Meet e o CRM segue para a confirmação da mudança de etapa, com a ação já descrita.
 - **Mover sem agendar:** segue o fluxo normal de mudança de etapa.
 
+Ao incluir um convidado do domínio do Workspace (ex.: `@multicortex.ai`), o formulário mostra a agenda do mês da reunião com os dias e horários **ocupados** desse convidado e de quem está agendando. O CRM consulta só livre/ocupado, então título, participantes e demais detalhes dos compromissos nunca são lidos. Se o horário escolhido conflitar, aparece um aviso, e clicar em um dia usa essa data. E-mails de fora do domínio não são consultados.
+
 O card ganha um ícone de calendário com a data enquanto houver uma reunião agendada que ainda não terminou. A reunião também aparece na linha do tempo do lead.
 
 ## Em qual agenda a reunião é criada
@@ -28,7 +30,8 @@ A integração usa uma **conta de serviço com delegação em todo o domínio**.
 2. **Conta de serviço:** em IAM e administrador → Contas de serviço, crie uma conta (ex.: `crm-agenda`). Em **Chaves**, adicione uma chave do tipo **JSON** e guarde o arquivo baixado. Anote o **ID do cliente** (número) da conta.
 3. **Delegação em todo o domínio:** no Admin Console do Workspace (https://admin.google.com), vá em Segurança → Acesso e controle de dados → Controles de API → **Gerenciar delegação em todo o domínio** → Adicionar:
    - ID do cliente: o número do passo 2;
-   - Escopo: `https://www.googleapis.com/auth/calendar.events`.
+   - Escopos (separados por vírgula): `https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/calendar.freebusy`.
+     O primeiro cria as reuniões; o segundo, somente leitura, consulta os horários ocupados.
 4. **No CRM:** em **Configurações → Google Agenda**, informe o domínio (`multicortex.ai`) e a agenda padrão (`multicortex@multicortex.ai`). Envie o arquivo JSON da chave, escolha a etapa de reunião, marque **Integração ativa** e salve.
 5. Clique em **Testar conexão**. O teste acessa a agenda padrão. Se falhar com "não autorizou a conta de serviço", confira o passo 3 (pode levar alguns minutos para propagar).
 
@@ -38,6 +41,7 @@ A chave é guardada criptografada (AES-256-GCM), com `GOOGLE_CALENDAR_ENCRYPTION
 
 - `GET /calendar/config`: integração ativa, etapa de reunião e duração padrão.
 - `GET /calendar/attendee-suggestions?search=`: usuários ativos do CRM.
+- `GET /calendar/availability?emails=a,b&from=&to=`: intervalos ocupados (até 45 dias), apenas de e-mails do domínio.
 - `GET /leads/:id/meetings` e `POST /leads/:id/meetings`: o POST recebe `title`, `description`, `startAt`, `endAt`, `attendees[]` e `withMeet`.
 - `GET`/`PUT /google-calendar-settings` e `POST /google-calendar-settings/test`: exigem `settings.manage`.
 

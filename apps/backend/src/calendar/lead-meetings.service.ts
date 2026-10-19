@@ -9,15 +9,19 @@ import { LeadsService } from '../leads/leads.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLeadMeetingDto } from './dto/create-lead-meeting.dto';
 import { GoogleCalendarSettingsService } from './google-calendar-settings.service';
+import { AvailabilityQueryDto } from './dto/availability.query.dto';
 import {
   fetchAccessToken,
+  GOOGLE_FREEBUSY_SCOPE,
   GoogleCalendarError,
   insertCalendarEvent,
   MEETING_TIME_ZONE,
   pickOrganizer,
+  queryFreeBusy,
 } from './google-calendar.client';
 
 const MAX_DURATION_MS = 12 * 3_600_000;
+const MAX_AVAILABILITY_RANGE_MS = 45 * 86_400_000;
 
 @Injectable()
 export class LeadMeetingsService {
@@ -35,7 +39,44 @@ export class LeadMeetingsService {
       enabled: settings.enabled && Boolean(settings.serviceAccountKeyEncrypted),
       meetingStageId: settings.meetingStageId,
       defaultDurationMinutes: settings.defaultDurationMinutes,
+      workspaceDomain: settings.workspaceDomain,
     };
+  }
+
+  /**
+   * Horários ocupados das agendas do domínio do Workspace. Apenas os
+   * intervalos são devolvidos; os compromissos nunca chegam ao CRM.
+   */
+  async availability(query: AvailabilityQueryDto, user: JwtPayload) {
+    const runtime = await this.settings.getRuntime();
+    if (!runtime) {
+      throw new ServiceUnavailableException(
+        'A integração com o Google Agenda não está configurada. Contate o administrador.',
+      );
+    }
+    const from = new Date(query.from);
+    const to = new Date(query.to);
+    if (to <= from || to.getTime() - from.getTime() > MAX_AVAILABILITY_RANGE_MS) {
+      throw new BadRequestException('Período de disponibilidade inválido (máximo de 45 dias).');
+    }
+    const domain = runtime.settings.workspaceDomain;
+    const emails = [...new Set(query.emails)].filter((email) => email.endsWith(`@${domain}`));
+    if (!emails.length) return { timeZone: MEETING_TIME_ZONE, calendars: [] };
+
+    try {
+      const token = await fetchAccessToken(
+        runtime.key,
+        pickOrganizer(user.email, domain, runtime.settings.fallbackOrganizerEmail),
+        GOOGLE_FREEBUSY_SCOPE,
+      );
+      return {
+        timeZone: MEETING_TIME_ZONE,
+        calendars: await queryFreeBusy(token, emails, from, to),
+      };
+    } catch (error) {
+      if (error instanceof GoogleCalendarError) throw new ServiceUnavailableException(error.message);
+      throw error;
+    }
   }
 
   /** Usuários ativos do CRM sugeridos como convidados. */

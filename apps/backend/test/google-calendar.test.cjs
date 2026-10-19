@@ -34,6 +34,18 @@ before(async () => {
         }
         return res.end(JSON.stringify({ access_token: `token-${payload.sub}` }));
       }
+      if (req.url === '/calendar/freeBusy') {
+        const body = JSON.parse(raw);
+        received.freeBusy = { auth: req.headers.authorization, body };
+        return res.end(JSON.stringify({
+          calendars: {
+            'tiago@multicortex.ai': {
+              busy: [{ start: '2026-10-21T12:00:00Z', end: '2026-10-21T13:00:00Z', summary: 'nunca exposto' }],
+            },
+            'sem.acesso@multicortex.ai': { busy: [], errors: [{ domain: 'calendar', reason: 'notFound' }] },
+          },
+        }));
+      }
       if (req.url.startsWith('/calendar/calendars/primary/events')) {
         received.events.push({ url: req.url, auth: req.headers.authorization, body: JSON.parse(raw) });
         return res.end(JSON.stringify({
@@ -117,4 +129,21 @@ test('sem Google Meet não pede sala de conferência', () => {
     title: 'Presencial', startAt: new Date(), endAt: new Date(), attendees: [], withMeet: false,
   });
   assert.equal('conferenceData' in body, false);
+});
+
+test('livre/ocupado: escopo próprio e só intervalos, sem detalhes', async () => {
+  await client.fetchAccessToken(KEY, 'tiago@multicortex.ai', client.GOOGLE_FREEBUSY_SCOPE);
+  assert.equal(received.tokens.at(-1).payload.scope, 'https://www.googleapis.com/auth/calendar.freebusy');
+  const result = await client.queryFreeBusy(
+    'token-fb',
+    ['tiago@multicortex.ai', 'sem.acesso@multicortex.ai'],
+    new Date('2026-10-01T03:00:00Z'),
+    new Date('2026-11-01T03:00:00Z'),
+  );
+  assert.deepEqual(result, [
+    { email: 'tiago@multicortex.ai', busy: [{ start: '2026-10-21T12:00:00Z', end: '2026-10-21T13:00:00Z' }], unavailable: false },
+    { email: 'sem.acesso@multicortex.ai', busy: [], unavailable: true },
+  ]);
+  assert.deepEqual(received.freeBusy.body.items, [{ id: 'tiago@multicortex.ai' }, { id: 'sem.acesso@multicortex.ai' }]);
+  assert.equal(received.freeBusy.body.timeZone, 'America/Sao_Paulo');
 });

@@ -102,6 +102,7 @@ export function useMeetingScheduling({
         <ScheduleMeetingModal
           lead={scheduling.lead}
           defaultDurationMinutes={config?.defaultDurationMinutes ?? 60}
+          workspaceDomain={config?.workspaceDomain}
           onCancel={() => setScheduling(null)}
           onScheduled={(meeting) => {
             const { lead, stage } = scheduling;

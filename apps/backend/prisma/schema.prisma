@@ -140,6 +140,7 @@ model User {
   uploadedTaskAttachments TaskAttachment[]
   taskHistoryActions      TaskHistoryEntry[]
   createdTasks            Task[]              @relation("TaskCreator")
+  createdMeetings         LeadMeeting[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -485,6 +486,7 @@ model Lead {
   activities        LeadActivity[]
   tasks             Task[]
   assignees         LeadAssignee[]
+  meetings          LeadMeeting[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -676,6 +678,7 @@ enum LeadActivityType {
   STAGE_CHANGED
   COMMENT
   ATTACHMENT_ADDED
+  MEETING_SCHEDULED
 }
 
 model LeadActivity {
@@ -781,4 +784,54 @@ model Contact {
   @@index([normalizedEmail])
   @@index([normalizedName, companyId])
   @@map("contacts")
+}
+
+// Integração com o Google Agenda via conta de serviço do Google Workspace
+// (delegação de domínio): o evento é criado na agenda do usuário do domínio
+// ou, para os demais, na agenda do organizador padrão.
+model GoogleCalendarSettings {
+  id                         String   @id @default("default")
+  enabled                    Boolean  @default(false)
+  workspaceDomain            String   @default("multicortex.ai")
+  fallbackOrganizerEmail     String   @default("multicortex@multicortex.ai")
+  serviceAccountEmail        String?
+  serviceAccountKeyEncrypted String?
+  /// Etapa cuja entrada sugere agendar uma reunião.
+  meetingStageId             String?
+  defaultDurationMinutes     Int      @default(60)
+  updatedAt                  DateTime @updatedAt
+  updatedBy                  String?
+
+  @@map("google_calendar_settings")
+}
+
+enum LeadMeetingStatus {
+  SCHEDULED
+  CANCELED
+}
+
+model LeadMeeting {
+  id             String            @id @default(uuid())
+  leadId         String
+  lead           Lead              @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  startAt        DateTime
+  endAt          DateTime
+  attendees      String[]
+  withMeet       Boolean           @default(true)
+  organizerEmail String
+  googleEventId  String
+  htmlLink       String?
+  meetLink       String?
+  status         LeadMeetingStatus @default(SCHEDULED)
+
+  createdByUserId String
+  createdByUser   User   @relation(fields: [createdByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId, startAt])
+  @@map("lead_meetings")
 }

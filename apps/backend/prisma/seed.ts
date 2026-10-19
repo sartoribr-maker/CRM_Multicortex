@@ -312,6 +312,14 @@ async function main() {
     create: { id: 'default', ...sdrSettings },
   });
 
+  console.log('Seed: etapa de reunião do Google Agenda...');
+  const meetingStage = sdrStages.find((stage) => stage.name === SDR_QUALIFIED_STAGE_NAME);
+  await prisma.googleCalendarSettings.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: { id: 'default', meetingStageId: meetingStage?.id ?? null },
+  });
+
   console.log('Seed: tipos de projeto...');
   for (const projectType of PROJECT_TYPE_DEFINITIONS) {
     const existing = await prisma.projectType.findFirst({ where: { name: projectType.name } });

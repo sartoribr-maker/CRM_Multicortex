@@ -12,6 +12,8 @@ const { StagesController } = require('../dist/src/settings/stages/stages.control
 const { AuthController } = require('../dist/src/auth/auth.controller');
 const { SdrPortalController } = require('../dist/src/sdr-portal/sdr-portal.controller');
 const { SdrPortalSettingsController } = require('../dist/src/sdr-portal/sdr-portal-settings.controller');
+const { LeadMeetingsController } = require('../dist/src/calendar/lead-meetings.controller');
+const { GoogleCalendarSettingsController } = require('../dist/src/calendar/google-calendar-settings.controller');
 
 const SDR = { sub: 'sdr', portal: 'THIRD_PARTY', permissions: [] };
 
@@ -44,6 +46,8 @@ test('rotas fora da lista liberada respondem 403 ao THIRD_PARTY e são auditadas
     [DashboardController, 'summary'],
     [StagesController, 'create'],
     [SdrPortalSettingsController, 'update'],
+    [GoogleCalendarSettingsController, 'update'],
+    [GoogleCalendarSettingsController, 'test'],
   ];
   for (const [controller, handler] of denied) {
     await assert.rejects(run(SDR, controller, handler), ForbiddenException, `${controller.name}.${handler}`);
@@ -69,6 +73,9 @@ test('rotas liberadas passam para o THIRD_PARTY', async () => {
     [AuthController, 'me'],
     [SdrPortalController, 'summary'],
     [SdrPortalController, 'config'],
+    [LeadMeetingsController, 'create'],
+    [LeadMeetingsController, 'config'],
+    [LeadMeetingsController, 'attendeeSuggestions'],
   ];
   for (const [controller, handler] of allowed) {
     assert.equal(await run(SDR, controller, handler), true, `${controller.name}.${handler}`);

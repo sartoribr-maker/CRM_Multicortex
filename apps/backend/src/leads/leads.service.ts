@@ -54,6 +54,16 @@ const PARTY_FIELDS = [
   'contactPhone',
 ] as const;
 
+/** Próxima reunião ainda não encerrada (ícone de reunião agendada no card). */
+function upcomingMeetingInclude() {
+  return {
+    where: { status: 'SCHEDULED', endAt: { gte: new Date() } },
+    select: { id: true, title: true, startAt: true, endAt: true, meetLink: true, htmlLink: true },
+    orderBy: { startAt: 'asc' },
+    take: 1,
+  } satisfies Prisma.Lead$meetingsArgs;
+}
+
 const LEAD_LINE_PREFIX: Record<LeadLine, string> = {
   ENTERPRISE: 'ENT',
   PRIVACY: 'PRI',
@@ -150,7 +160,7 @@ export class LeadsService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.lead.findMany({
         where,
-        include: LEAD_LIST_INCLUDE,
+        include: { ...LEAD_LIST_INCLUDE, meetings: upcomingMeetingInclude() },
         orderBy: { updatedAt: 'desc' },
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
@@ -194,7 +204,7 @@ export class LeadsService {
         : this.ownershipFilter(currentUser);
     const lead = await this.prisma.lead.findFirst({
       where: { id, deletedAt: null, ...visibility },
-      include: LEAD_DETAIL_INCLUDE,
+      include: { ...LEAD_DETAIL_INCLUDE, meetings: upcomingMeetingInclude() },
     });
     if (!lead) {
       throw new NotFoundException('Lead não encontrado.');

@@ -180,6 +180,17 @@ A central `/access` permite administrar usuários e criar perfis personalizados 
 - Headers defensivos, limite de upload, suporte correto a proxy e CORS configurável.
 - Procedimento completo em [`docs/DEPLOY.md`](docs/DEPLOY.md) e variáveis em `.env.production.example`.
 
+## Portal de Terceiros — SDR (Fase 11)
+
+Usuários com perfil de portal `THIRD_PARTY` (perfil de sistema **SDR**) entram sempre em `/terceiro` e não acessam nenhuma outra área do CRM. O bloqueio vale no frontend e no backend: um guard global responde 403 e audita qualquer rota não liberada ao portal.
+
+- Dashboard SDR (`/terceiro`) com criados, qualificados, taxa de qualificação, desqualificados, carteira, leads parados, tempo por etapa e evolução no período.
+- Kanban comercial (`/terceiro/kanban`) sobre as mesmas tabelas de leads, com as mesmas regras de movimentação, restrito às etapas e destinos configurados e sem valores financeiros.
+- Configuração em **Configurações → Portal SDR** (`/settings/sdr-portal`).
+- Usuário de demonstração do seed: `sdr@multicortex.com.br` / `Senha@123`.
+
+Detalhes, regras e implantação em [`docs/PORTAL_SDR.md`](docs/PORTAL_SDR.md).
+
 ## Variáveis de ambiente
 
 Ver `.env.example` na raiz. Nesta fase são utilizadas:
@@ -223,3 +234,4 @@ Requer um PostgreSQL local acessível conforme `DATABASE_URL` no `.env`.
 8. ✅ Perfis de acesso avançados
 9. ✅ Refino de UX/UI
 10. ✅ Preparação para deploy
+11. ✅ Portal de Terceiros (SDR) — Fase 1

@@ -9,6 +9,7 @@ import { RequirePermissions } from '../../auth/decorators/require-permissions.de
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { PERMISSIONS } from '../../auth/constants/permissions';
 import type { JwtPayload } from '../../auth/types/jwt-payload.interface';
+import { AllowThirdPartyPortal } from '../../auth/decorators/allow-third-party-portal.decorator';
 
 @ApiTags('settings/stages')
 @Controller('stages')
@@ -16,11 +17,13 @@ export class StagesController {
   constructor(private readonly stagesService: StagesService) {}
 
   @Get()
+  @AllowThirdPartyPortal()
   findAll(@Query() query: ListSettingsQueryDto) {
     return this.stagesService.findAll(query);
   }
 
   @Get(':id')
+  @AllowThirdPartyPortal()
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.stagesService.findOne(id);
   }

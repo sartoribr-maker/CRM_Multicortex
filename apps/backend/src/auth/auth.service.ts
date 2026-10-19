@@ -20,6 +20,7 @@ interface AuthenticatedUser {
   avatarUrl: string | null;
   role: { id: string; name: string };
   permissions: string[];
+  portal: 'INTERNAL' | 'THIRD_PARTY';
   mustChangePassword: boolean;
 }
 
@@ -67,6 +68,7 @@ export class AuthService {
       avatarUrl: user.avatarUrl,
       role: { id: user.role.id, name: user.role.name },
       permissions: user.role.permissions.map((rp) => rp.permission.key),
+      portal: user.role.portal,
       mustChangePassword: user.mustChangePassword,
     };
   }
@@ -103,6 +105,7 @@ export class AuthService {
       roleId: user.role.id,
       roleName: user.role.name,
       permissions: user.permissions,
+      portal: user.portal,
     };
     return this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_SECRET', 'dev-secret'),

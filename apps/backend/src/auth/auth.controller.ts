@@ -18,6 +18,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangeRequiredPasswordDto } from './dto/change-required-password.dto';
 import { Public } from './decorators/public.decorator';
+import { AllowThirdPartyPortal } from './decorators/allow-third-party-portal.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { JwtPayload } from './types/jwt-payload.interface';
 
@@ -131,6 +132,7 @@ export class AuthController {
     return { message: 'Senha redefinida com sucesso.' };
   }
 
+  @AllowThirdPartyPortal()
   @Get('me')
   async me(@CurrentUser() currentUser: JwtPayload) {
     return this.authService.me(currentUser.sub);

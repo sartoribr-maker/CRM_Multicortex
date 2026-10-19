@@ -34,7 +34,9 @@ export type AuditAction =
   | 'TASK_DEADLINE_EXTENDED'
   | 'TASK_TRANSFERRED'
   | 'TASK_REMINDER_SENT'
-  | 'LEAD_DELETED';
+  | 'LEAD_DELETED'
+  | 'THIRD_PARTY_PORTAL_ACCESS_DENIED'
+  | 'SDR_PORTAL_SETTINGS_UPDATED';
 
 interface RecordParams {
   action: AuditAction;

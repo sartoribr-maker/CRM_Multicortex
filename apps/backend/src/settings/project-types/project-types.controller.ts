@@ -8,6 +8,7 @@ import { RequirePermissions } from '../../auth/decorators/require-permissions.de
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { PERMISSIONS } from '../../auth/constants/permissions';
 import type { JwtPayload } from '../../auth/types/jwt-payload.interface';
+import { AllowThirdPartyPortal } from '../../auth/decorators/allow-third-party-portal.decorator';
 
 @ApiTags('settings/project-types')
 @Controller('project-types')
@@ -15,11 +16,13 @@ export class ProjectTypesController {
   constructor(private readonly projectTypesService: ProjectTypesService) {}
 
   @Get()
+  @AllowThirdPartyPortal()
   findAll(@Query() query: ListSettingsQueryDto) {
     return this.projectTypesService.findAll(query);
   }
 
   @Get(':id')
+  @AllowThirdPartyPortal()
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.projectTypesService.findOne(id);
   }

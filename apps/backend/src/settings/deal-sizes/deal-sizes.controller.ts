@@ -8,6 +8,7 @@ import { RequirePermissions } from '../../auth/decorators/require-permissions.de
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { PERMISSIONS } from '../../auth/constants/permissions';
 import type { JwtPayload } from '../../auth/types/jwt-payload.interface';
+import { AllowThirdPartyPortal } from '../../auth/decorators/allow-third-party-portal.decorator';
 
 @ApiTags('settings/deal-sizes')
 @Controller('deal-sizes')
@@ -15,11 +16,13 @@ export class DealSizesController {
   constructor(private readonly dealSizesService: DealSizesService) {}
 
   @Get()
+  @AllowThirdPartyPortal()
   findAll(@Query() query: ListSettingsQueryDto) {
     return this.dealSizesService.findAll(query);
   }
 
   @Get(':id')
+  @AllowThirdPartyPortal()
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.dealSizesService.findOne(id);
   }

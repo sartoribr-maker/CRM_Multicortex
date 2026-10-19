@@ -8,12 +8,13 @@ import { ListSettingsQueryDto } from '../common/dto/list-settings.query.dto';
 import { CreateSegmentDto } from './dto/create-segment.dto';
 import { UpdateSegmentDto } from './dto/update-segment.dto';
 import { SegmentsService } from './segments.service';
+import { AllowThirdPartyPortal } from '../../auth/decorators/allow-third-party-portal.decorator';
 
 @ApiTags('settings/segments')
 @Controller('segments')
 export class SegmentsController {
   constructor(private readonly service: SegmentsService) {}
-  @Get() findAll(@Query() query: ListSettingsQueryDto) {
+  @Get() @AllowThirdPartyPortal() findAll(@Query() query: ListSettingsQueryDto) {
     return this.service.findAll(query);
   }
   @Post()

@@ -21,6 +21,7 @@ import { RequirePermissions } from '../../auth/decorators/require-permissions.de
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { PERMISSIONS } from '../../auth/constants/permissions';
 import type { JwtPayload } from '../../auth/types/jwt-payload.interface';
+import { AllowThirdPartyPortal } from '../../auth/decorators/allow-third-party-portal.decorator';
 
 @ApiTags('leads/attachments')
 @Controller('leads/:leadId/attachments')
@@ -28,6 +29,7 @@ export class AttachmentsController {
   constructor(private readonly attachmentsService: AttachmentsService) {}
 
   @Post()
+  @AllowThirdPartyPortal()
   @RequirePermissions(PERMISSIONS.LEADS_EDIT)
   @UseInterceptors(
     FileInterceptor('file', {
@@ -54,12 +56,14 @@ export class AttachmentsController {
   }
 
   @Get()
+  @AllowThirdPartyPortal()
   @RequirePermissions(PERMISSIONS.LEADS_VIEW)
   list(@Param('leadId', ParseUUIDPipe) leadId: string, @CurrentUser() currentUser: JwtPayload) {
     return this.attachmentsService.list(leadId, currentUser);
   }
 
   @Get(':attachmentId/download')
+  @AllowThirdPartyPortal()
   @RequirePermissions(PERMISSIONS.LEADS_VIEW)
   async download(
     @Param('leadId', ParseUUIDPipe) leadId: string,

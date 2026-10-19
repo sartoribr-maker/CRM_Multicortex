@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
+import { ThirdPartyPortalGuard } from './guards/third-party-portal.guard';
 
 @Module({
   imports: [
@@ -27,6 +28,8 @@ import { PermissionsGuard } from './guards/permissions.guard';
     JwtStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
+    // Precisa vir depois do JwtAuthGuard: depende de request.user.
+    { provide: APP_GUARD, useClass: ThirdPartyPortalGuard },
   ],
   exports: [AuthService],
 })

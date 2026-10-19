@@ -21,17 +21,18 @@ import { TasksService } from './tasks.service';
 import { ExtendTaskDeadlineDto } from './dto/extend-task-deadline.dto';
 import { TransferTaskDto } from './dto/transfer-task.dto';
 import { CompleteTaskDto } from './dto/complete-task.dto';
+import { AllowThirdPartyPortal } from '../auth/decorators/allow-third-party-portal.decorator';
 @ApiTags('tasks')
 @Controller('tasks')
 export class TasksController {
   constructor(private readonly service: TasksService) {}
-  @Get() @RequirePermissions(PERMISSIONS.TASKS_VIEW) findAll(
+  @Get() @AllowThirdPartyPortal() @RequirePermissions(PERMISSIONS.TASKS_VIEW) findAll(
     @Query() query: ListTasksQueryDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.service.findAll(query, user);
   }
-  @Get(':id') @RequirePermissions(PERMISSIONS.TASKS_VIEW) findOne(
+  @Get(':id') @AllowThirdPartyPortal() @RequirePermissions(PERMISSIONS.TASKS_VIEW) findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
   ) {
@@ -50,7 +51,7 @@ export class TasksController {
   ) {
     return this.service.update(id, dto, user);
   }
-  @Post(':id/complete') @RequirePermissions(PERMISSIONS.TASKS_EDIT) complete(
+  @Post(':id/complete') @AllowThirdPartyPortal() @RequirePermissions(PERMISSIONS.TASKS_EDIT) complete(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CompleteTaskDto,
     @CurrentUser() user: JwtPayload,

@@ -9,6 +9,7 @@ import { RequirePermissions } from '../../auth/decorators/require-permissions.de
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { PERMISSIONS } from '../../auth/constants/permissions';
 import type { JwtPayload } from '../../auth/types/jwt-payload.interface';
+import { AllowThirdPartyPortal } from '../../auth/decorators/allow-third-party-portal.decorator';
 
 @ApiTags('settings/priorities')
 @Controller('priorities')
@@ -16,11 +17,13 @@ export class PrioritiesController {
   constructor(private readonly prioritiesService: PrioritiesService) {}
 
   @Get()
+  @AllowThirdPartyPortal()
   findAll(@Query() query: ListSettingsQueryDto) {
     return this.prioritiesService.findAll(query);
   }
 
   @Get(':id')
+  @AllowThirdPartyPortal()
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.prioritiesService.findOne(id);
   }

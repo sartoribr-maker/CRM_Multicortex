@@ -58,11 +58,18 @@ enum UserStatus {
   INACTIVE
 }
 
+enum PortalType {
+  INTERNAL
+  THIRD_PARTY
+}
+
 model Role {
-  id          String  @id @default(uuid())
-  name        String  @unique
+  id          String     @id @default(uuid())
+  name        String     @unique
   description String?
-  isSystem    Boolean @default(false)
+  isSystem    Boolean    @default(false)
+  // Perfis THIRD_PARTY ficam confinados ao Portal de Terceiros (/terceiro).
+  portal      PortalType @default(INTERNAL)
 
   users       User[]
   permissions RolePermission[]
@@ -708,4 +715,20 @@ model MonitoringSettings {
   updatedBy String?
 
   @@map("monitoring_settings")
+}
+
+// Portal de Terceiros (SDR): etapas e regras configuradas por ID, sem
+// depender de nomes de etapas.
+model SdrPortalSettings {
+  id                    String   @id @default("default")
+  visibleStageIds       String[] @default([])
+  allowedTargetStageIds String[] @default([])
+  qualifiedStageId      String?
+  defaultSourceId       String?
+  hideFinancialValues   Boolean  @default(true)
+  staleDays             Int      @default(7)
+  updatedAt             DateTime @updatedAt
+  updatedBy             String?
+
+  @@map("sdr_portal_settings")
 }

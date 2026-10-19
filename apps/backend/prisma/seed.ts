@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PortalType, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PERMISSION_CATALOG, PERMISSIONS, type PermissionKey } from '../src/auth/constants/permissions';
 
@@ -55,6 +55,7 @@ const PARTNER_DEFINITIONS = [
 const ROLE_DEFINITIONS: Array<{
   name: string;
   description: string;
+  portal?: PortalType;
   permissions: PermissionKey[];
 }> = [
   {
@@ -107,6 +108,19 @@ const ROLE_DEFINITIONS: Array<{
       PERMISSIONS.TASKS_VIEW,
       PERMISSIONS.TASKS_VIEW_ALL,
       PERMISSIONS.DASHBOARD_VIEW,
+    ],
+  },
+  {
+    name: 'SDR',
+    description: 'Pré-vendas terceirizado: acesso exclusivo ao Portal de Terceiros.',
+    portal: PortalType.THIRD_PARTY,
+    permissions: [
+      PERMISSIONS.PORTAL_SDR_ACCESS,
+      PERMISSIONS.LEADS_VIEW,
+      PERMISSIONS.LEADS_CREATE,
+      PERMISSIONS.LEADS_EDIT,
+      PERMISSIONS.TASKS_VIEW,
+      PERMISSIONS.TASKS_EDIT,
     ],
   },
 ];
@@ -182,7 +196,12 @@ const USER_DEFINITIONS = [
   { name: 'Vitor Vendedor', email: 'vendedor@multicortex.com.br', role: 'Vendedor' },
   { name: 'Paula Parceira', email: 'parceiro@multicortex.com.br', role: 'Parceiro' },
   { name: 'Vera Visualizadora', email: 'visualizador@multicortex.com.br', role: 'Visualizador' },
+  { name: 'Sérgio SDR', email: 'sdr@multicortex.com.br', role: 'SDR' },
 ];
+
+const SDR_SOURCE_NAME = 'SDR – Prospecção ativa';
+const SDR_VISIBLE_STAGE_NAMES = ['Lead Captado', 'Qualificação', 'Diagnóstico/Reunião'];
+const SDR_QUALIFIED_STAGE_NAME = 'Diagnóstico/Reunião';
 
 async function main() {
   console.log('Seed: catálogo de permissões...');
@@ -198,8 +217,13 @@ async function main() {
   for (const roleDef of ROLE_DEFINITIONS) {
     const role = await prisma.role.upsert({
       where: { name: roleDef.name },
-      update: { description: roleDef.description, isSystem: true },
-      create: { name: roleDef.name, description: roleDef.description, isSystem: true },
+      update: { description: roleDef.description, isSystem: true, portal: roleDef.portal ?? 'INTERNAL' },
+      create: {
+        name: roleDef.name,
+        description: roleDef.description,
+        isSystem: true,
+        portal: roleDef.portal ?? 'INTERNAL',
+      },
     });
 
     const permissions = await prisma.permission.findMany({
@@ -262,6 +286,31 @@ async function main() {
       await prisma.source.create({ data: source });
     }
   }
+
+  console.log('Seed: configurações do Portal SDR...');
+  const sdrSource =
+    (await prisma.source.findFirst({ where: { name: SDR_SOURCE_NAME, deletedAt: null } })) ??
+    (await prisma.source.create({
+      data: { name: SDR_SOURCE_NAME, description: 'Leads criados pela equipe terceirizada de SDR' },
+    }));
+  const sdrStages = await prisma.stage.findMany({
+    where: { deletedAt: null, name: { in: [...SDR_VISIBLE_STAGE_NAMES, 'Perdido'] } },
+    orderBy: { order: 'asc' },
+  });
+  const sdrVisibleStageIds = sdrStages
+    .filter((stage) => SDR_VISIBLE_STAGE_NAMES.includes(stage.name))
+    .map((stage) => stage.id);
+  const sdrSettings = {
+    visibleStageIds: sdrVisibleStageIds,
+    allowedTargetStageIds: sdrStages.map((stage) => stage.id),
+    qualifiedStageId: sdrStages.find((stage) => stage.name === SDR_QUALIFIED_STAGE_NAME)?.id ?? null,
+    defaultSourceId: sdrSource.id,
+  };
+  await prisma.sdrPortalSettings.upsert({
+    where: { id: 'default' },
+    update: sdrSettings,
+    create: { id: 'default', ...sdrSettings },
+  });
 
   console.log('Seed: tipos de projeto...');
   for (const projectType of PROJECT_TYPE_DEFINITIONS) {

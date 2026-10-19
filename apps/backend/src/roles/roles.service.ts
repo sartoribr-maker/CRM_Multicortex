@@ -22,6 +22,7 @@ export class RolesService {
       name: role.name,
       description: role.description,
       isSystem: role.isSystem,
+      portal: role.portal,
       permissions: role.permissions.map((rp) => rp.permission.key),
     };
   }

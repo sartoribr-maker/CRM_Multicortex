@@ -1,4 +1,5 @@
 import { MonitoringSettingsPanel } from './MonitoringSettingsPanel';
+import { SdrPortalSettingsPanel } from './SdrPortalSettingsPanel';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { CurrencyInput } from '../../components/MaskedInputs';
 import { formatCurrency } from '../../lib/formatters';
@@ -28,6 +29,7 @@ export type SettingsSection =
   | 'services'
   | 'customFields'
   | 'monitoring'
+  | 'sdrPortal'
   | 'email'
   | 'whatsapp';
 
@@ -68,6 +70,11 @@ const SECTIONS: Record<SettingsSection, { title: string; description: string }> 
     title: 'Monitoramento Tarefas/Leads',
     description:
       'Agende relatórios de tarefas atrasadas e oportunidades para acompanhamento por e-mail.',
+  },
+  sdrPortal: {
+    title: 'Portal SDR',
+    description:
+      'Defina as etapas, a origem e as regras do Portal de Terceiros usado pela equipe de SDR.',
   },
   email: {
     title: 'Configuração de E-mail',
@@ -204,6 +211,7 @@ export default function SettingsPage({ section }: { section: SettingsSection }) 
 
           {section === 'customFields' && <CustomFieldsPanel />}
           {section === 'monitoring' && <MonitoringSettingsPanel />}
+          {section === 'sdrPortal' && <SdrPortalSettingsPanel />}
           {section === 'email' && <EmailSettingsPanel />}
           {section === 'whatsapp' && <WhatsAppSettingsPanel />}
         </div>

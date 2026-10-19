@@ -160,6 +160,7 @@ function App() {
       <Route path="/settings/services" element={<SettingsScreen section="services" />} />
       <Route path="/settings/custom-fields" element={<SettingsScreen section="customFields" />} />
       <Route path="/settings/monitoring" element={<SettingsScreen section="monitoring" />} />
+      <Route path="/settings/sdr-portal" element={<SettingsScreen section="sdrPortal" />} />
       <Route path="/settings/email" element={<SettingsScreen section="email" />} />
       <Route path="/settings/whatsapp" element={<SettingsScreen section="whatsapp" />} />
       <Route

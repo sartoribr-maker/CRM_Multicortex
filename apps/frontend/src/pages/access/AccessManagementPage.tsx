@@ -23,6 +23,7 @@ const MODULE_LABELS: Record<string, string> = {
   partners: 'Parceiros',
   tasks: 'Tarefas',
   dashboard: 'Dashboard',
+  portal: 'Portal de Terceiros',
 };
 function Modal({
   title,
@@ -341,11 +342,18 @@ export default function AccessManagementPage() {
                       {role.description || 'Sem descrição'}
                     </p>
                   </div>
-                  {role.isSystem && (
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-bold uppercase text-slate-500">
-                      Sistema
-                    </span>
-                  )}
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    {role.isSystem && (
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-bold uppercase text-slate-500">
+                        Sistema
+                      </span>
+                    )}
+                    {role.portal === 'THIRD_PARTY' && (
+                      <span className="rounded-full bg-purple-50 px-2 py-1 text-[9px] font-bold uppercase text-brand-purple">
+                        Portal de Terceiros
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <p className="mt-3 text-[11px] font-semibold text-brand-purple">
                   {role.permissions.length} permissões

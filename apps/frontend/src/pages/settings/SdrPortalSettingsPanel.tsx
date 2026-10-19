@@ -115,7 +115,7 @@ export function SdrPortalSettingsPanel() {
       <div>
         <h3 className="font-heading font-bold text-slate-800">Colunas do Kanban do SDR</h3>
         <p className="mb-3 mt-1 text-xs text-slate-400">
-          O SDR vê apenas as oportunidades sob sua responsabilidade nestas etapas.
+          O SDR vê e trata todas as oportunidades do CRM que estiverem nestas etapas, de qualquer responsável.
         </p>
         <StageChecklist
           stages={stages}

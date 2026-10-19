@@ -23,13 +23,17 @@ export class SdrSummaryService {
     private readonly settingsService: SdrPortalSettingsService,
   ) {}
 
-  /** Indicadores do Dashboard SDR, sempre no escopo do usuário logado. */
+  /**
+   * Indicadores do Dashboard SDR. Criados, qualificados, desqualificados,
+   * tarefas e atividades são do usuário logado; carteira, funil, parados e
+   * tempo por etapa cobrem todos os leads nas etapas do portal (fila da equipe).
+   */
   async summary(query: SdrSummaryQueryDto, user: JwtPayload, now = new Date()) {
     const range = resolvePeriod(query.period, now, query.from, query.to);
     const settings = await this.settingsService.get();
-    const scope: Prisma.LeadWhereInput = {
+    const portalLeads: Prisma.LeadWhereInput = {
       deletedAt: null,
-      OR: [{ ownerId: user.sub }, { assignees: { some: { userId: user.sub } } }],
+      stageId: { in: settings.visibleStageIds },
     };
     const inRange = { gte: range.start, lt: range.end };
     const canViewTasks = user.permissions.includes(PERMISSIONS.TASKS_VIEW);
@@ -80,7 +84,7 @@ export class SdrSummaryService {
         select: { leadId: true, lead: { select: { lossReason: true } } },
       }),
       this.prisma.lead.findMany({
-        where: { ...scope, status: 'OPEN', stageId: { in: settings.visibleStageIds } },
+        where: { ...portalLeads, status: 'OPEN' },
         select: {
           id: true,
           name: true,
@@ -96,7 +100,7 @@ export class SdrSummaryService {
           createdAt: inRange,
           fromStageId: { in: settings.visibleStageIds },
           timeInPreviousStageSeconds: { not: null },
-          lead: scope,
+          lead: { deletedAt: null },
         },
         select: { fromStageId: true, timeInPreviousStageSeconds: true },
       }),
@@ -117,7 +121,7 @@ export class SdrSummaryService {
           })
         : Promise.resolve([]),
       this.prisma.leadActivity.findMany({
-        where: { lead: scope },
+        where: { actorUserId: user.sub, lead: { deletedAt: null } },
         select: {
           id: true,
           type: true,

@@ -80,11 +80,14 @@ export class LeadsService {
         };
   }
 
-  /** Usuários THIRD_PARTY veem apenas leads em etapas visíveis do Portal SDR. */
+  /**
+   * Usuários THIRD_PARTY veem todos os leads do CRM nas etapas visíveis do
+   * Portal SDR, independentemente do responsável (fila de prospecção da equipe).
+   */
   private async visibilityFilter(currentUser: JwtPayload): Promise<Prisma.LeadWhereInput> {
     if (!isThirdParty(currentUser)) return this.ownershipFilter(currentUser);
     const { visibleStageIds } = await this.sdrPortalSettings.get();
-    return { AND: [this.ownershipFilter(currentUser), { stageId: { in: visibleStageIds } }] };
+    return { stageId: { in: visibleStageIds } };
   }
 
   private async presentForUser<T extends object>(lead: T, currentUser: JwtPayload): Promise<T> {
@@ -193,16 +196,19 @@ export class LeadsService {
 
   /**
    * Detalhe sem sanitização, para uso interno. `ignorePortalStages` permite
-   * devolver um lead que o SDR acabou de mover para fora das etapas visíveis.
+   * devolver um lead que o SDR acabou de mover para fora das etapas visíveis
+   * (a visibilidade já foi conferida antes da alteração).
    */
   private async loadDetail(
     id: string,
     currentUser: JwtPayload,
     { ignorePortalStages = false } = {},
   ) {
-    const visibility = ignorePortalStages
-      ? this.ownershipFilter(currentUser)
-      : await this.visibilityFilter(currentUser);
+    const visibility = !ignorePortalStages
+      ? await this.visibilityFilter(currentUser)
+      : isThirdParty(currentUser)
+        ? {}
+        : this.ownershipFilter(currentUser);
     const lead = await this.prisma.lead.findFirst({
       where: { id, deletedAt: null, ...visibility },
       include: LEAD_DETAIL_INCLUDE,

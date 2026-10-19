@@ -177,7 +177,7 @@ export default function SdrKanbanPage() {
       <PageHeader
         eyebrow="Portal SDR"
         title="Kanban comercial"
-        description={`${boardLeads.length} oportunidades na sua carteira`}
+        description={`${boardLeads.length} oportunidades em prospecção no CRM`}
         actions={
           canCreate &&
           !notConfigured && (
@@ -271,7 +271,7 @@ export default function SdrKanbanPage() {
         </div>
       ) : isLoading || !config ? (
         <div className="card flex h-72 items-center justify-center text-sm text-slate-400">
-          Carregando sua carteira…
+          Carregando oportunidades…
         </div>
       ) : (
         <KanbanBoard

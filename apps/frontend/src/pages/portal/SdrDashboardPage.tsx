@@ -329,7 +329,7 @@ export default function SdrDashboardPage() {
               color="bg-red-50 text-red-600"
             />
             <Metric
-              label="Carteira ativa"
+              label="Leads em prospecção"
               value={String(data.metrics.activePortfolio)}
               caption={`${data.metrics.stale} parada(s) há mais de ${data.metrics.staleDays} dias`}
               icon="leads"
@@ -344,7 +344,7 @@ export default function SdrDashboardPage() {
             >
               <EvolutionChart timeline={data.timeline} />
             </Section>
-            <Section title="Seu funil" description="Oportunidades abertas por etapa do portal.">
+            <Section title="Funil de prospecção" description="Oportunidades abertas do CRM por etapa do portal.">
               <div className="space-y-4">
                 {data.funnel.map((stage) => (
                   <div key={stage.id}>
@@ -424,7 +424,7 @@ export default function SdrDashboardPage() {
                 <TaskList tasks={data.tasks.upcoming} empty="Nenhuma tarefa na semana." />
               </Section>
             )}
-            <Section title="Últimas atividades" description="Movimentações recentes nos seus leads.">
+            <Section title="Suas últimas ações" description="Movimentações e comentários que você registrou.">
               {data.recentActivities.length ? (
                 <ul className="divide-y divide-slate-100">
                   {data.recentActivities.map((activity) => (

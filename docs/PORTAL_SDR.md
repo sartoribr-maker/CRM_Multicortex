@@ -30,7 +30,7 @@ Para liberar uma nova rota ao portal, adicione `@AllowThirdPartyPortal()` ao han
 
 ## Regras para leads do SDR
 
-- **Visibilidade:** o SDR vê apenas leads em que é responsável ou participante **e** que estão nas etapas visíveis do portal.
+- **Visibilidade:** o SDR vê e trata **todos** os leads do CRM que estão nas etapas visíveis do portal (por padrão, de Backlog até Diagnóstico/Reunião), de qualquer responsável. Ao mover um lead para uma etapa fora do portal, ele sai da visão do SDR.
 - **Criação:** o backend força responsável = o próprio SDR, origem = origem padrão do portal e etapa = primeira etapa visível.
 - **Campos aceitos:** `line`, `name`, `companyName`, `companyDocument`, `companySegment`, `contactName`, `contactEmail`, `contactPhone`, `projectTypeIds`, `priorityId`, `description` e `customFieldValues`.
   - Na edição, também os campos de movimentação: `stageId`, `actionDescription`, `lossReason`, `createTask`, `taskDueDate` e `taskPriority`.
@@ -54,12 +54,12 @@ A migration `20261020120100_sdr_portal_data` cria a configuração inicial, reso
 
 ## Dashboard SDR
 
-`GET /portal/sdr/summary?period=today|week|month|custom&from=AAAA-MM-DD&to=AAAA-MM-DD`. Períodos em Brasília, com a semana começando na segunda. Calcula:
+`GET /portal/sdr/summary?period=today|week|month|custom&from=AAAA-MM-DD&to=AAAA-MM-DD`. Períodos em Brasília, com a semana começando na segunda. Criados, qualificados, desqualificados, tarefas e últimas ações são do usuário logado; funil, leads parados e tempo por etapa cobrem todos os leads das etapas do portal. Calcula:
 
 - leads criados pelo SDR;
 - qualificados (entradas na etapa qualificada feitas pelo SDR, uma por lead) e taxa de qualificação;
 - desqualificados e os 5 principais motivos;
-- carteira ativa por etapa e leads parados;
+- leads em prospecção por etapa e leads parados (todos os leads das etapas do portal);
 - tempo médio por etapa;
 - evolução diária (semanal acima de 62 dias);
 - leads que precisam de atenção, tarefas atrasadas e dos próximos 7 dias, e as últimas atividades.

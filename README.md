@@ -184,8 +184,8 @@ A central `/access` permite administrar usuários e criar perfis personalizados 
 
 Usuários com perfil de portal `THIRD_PARTY` (perfil de sistema **SDR**) entram sempre em `/terceiro` e não acessam nenhuma outra área do CRM. O bloqueio vale no frontend e no backend: um guard global responde 403 e audita qualquer rota não liberada ao portal.
 
-- Dashboard SDR (`/terceiro`) com criados, qualificados, taxa de qualificação, desqualificados, carteira, leads parados, tempo por etapa e evolução no período.
-- Kanban comercial (`/terceiro/kanban`) sobre as mesmas tabelas de leads, com as mesmas regras de movimentação, restrito às etapas e destinos configurados e sem valores financeiros.
+- Dashboard SDR (`/terceiro`) com criados, qualificados, taxa de qualificação, desqualificados, leads em prospecção, leads parados, tempo por etapa e evolução no período.
+- Kanban comercial (`/terceiro/kanban`) com todos os leads do CRM nas etapas do portal (por padrão, até Diagnóstico/Reunião), sobre as mesmas tabelas de leads, com as mesmas regras de movimentação, restrito às etapas e destinos configurados e sem valores financeiros.
 - Configuração em **Configurações → Portal SDR** (`/settings/sdr-portal`).
 - Usuário de demonstração do seed: `sdr@multicortex.com.br` / `Senha@123`.
 

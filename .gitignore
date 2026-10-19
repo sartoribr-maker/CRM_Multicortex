@@ -53,3 +53,7 @@ storage/
 
 # Saída isolada do backend em desenvolvimento
 apps/backend/dist-dev/
+
+# Chaves de conta de serviço do Google (nunca versionar)
+main-design-*.json
+*service-account*.json

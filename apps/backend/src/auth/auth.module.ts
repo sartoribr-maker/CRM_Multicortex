@@ -27,9 +27,10 @@ import { ThirdPartyPortalGuard } from './guards/third-party-portal.guard';
     AuthService,
     JwtStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
-    { provide: APP_GUARD, useClass: PermissionsGuard },
-    // Precisa vir depois do JwtAuthGuard: depende de request.user.
+    // Depois do JwtAuthGuard (depende de request.user) e antes das permissões,
+    // para que todo acesso fora do portal seja bloqueado e auditado aqui.
     { provide: APP_GUARD, useClass: ThirdPartyPortalGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
   exports: [AuthService],
 })

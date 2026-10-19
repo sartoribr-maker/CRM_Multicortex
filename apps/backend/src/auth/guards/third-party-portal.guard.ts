@@ -6,8 +6,9 @@ import type { JwtPayload } from '../types/jwt-payload.interface';
 
 /**
  * Confina usuários de perfis THIRD_PARTY às rotas marcadas com
- * @AllowThirdPartyPortal(). Roda depois do JwtAuthGuard e do PermissionsGuard
- * (ordem de registro no AuthModule); rotas públicas não têm usuário e passam.
+ * @AllowThirdPartyPortal(). Roda depois do JwtAuthGuard e antes do
+ * PermissionsGuard (ordem de registro no AuthModule); rotas públicas não têm
+ * usuário e passam.
  */
 @Injectable()
 export class ThirdPartyPortalGuard implements CanActivate {

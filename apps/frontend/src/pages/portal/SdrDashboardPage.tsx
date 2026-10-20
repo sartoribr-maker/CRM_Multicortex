@@ -7,6 +7,7 @@ import { TaskDeadline } from '../../components/TaskDeadline';
 import { formatDate } from '../../lib/formatters';
 import { sdrPortalApi } from '../../lib/sdrPortalApi';
 import { useAuthStore } from '../../store/useAuthStore';
+import { ADMIN_ROLE_NAME } from '../../types/auth';
 import { LEAD_ACTIVITY_LABELS, LEAD_TYPE_LABELS } from '../../types/leads';
 import type {
   SdrAttentionLead,
@@ -519,7 +520,12 @@ export default function SdrDashboardPage() {
     setSelectedCard((current) => (current?.key === selection.key ? null : selection));
   const [data, setData] = useState<SdrSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const canImport = useAuthStore((s) => s.user?.permissions.includes('leads.create') ?? false);
+  // Importação Outbound restrita ao perfil Administrador (validado também no backend).
+  const canImport = useAuthStore(
+    (s) =>
+      s.user?.role.name === ADMIN_ROLE_NAME &&
+      (s.user?.permissions.includes('leads.create') ?? false),
+  );
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);

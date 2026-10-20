@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ForbiddenException,
   Controller,
   Get,
   Post,
@@ -12,6 +13,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { ApiTags } from '@nestjs/swagger';
 import { PERMISSIONS } from '../auth/constants/permissions';
+import { ADMIN_ROLE_NAME } from '../auth/constants/roles';
 import { AllowThirdPartyPortal } from '../auth/decorators/allow-third-party-portal.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -38,6 +40,13 @@ const SPREADSHEET_UPLOAD = {
     callback(null, true);
   },
 };
+
+/** A importação Outbound é restrita ao perfil Administrador. */
+function requireAdmin(user: JwtPayload): void {
+  if (user.roleName !== ADMIN_ROLE_NAME) {
+    throw new ForbiddenException('Importação disponível apenas para o perfil Administrador.');
+  }
+}
 
 function requireFile(file: Express.Multer.File | undefined): Express.Multer.File {
   if (!file) throw new BadRequestException('Selecione a planilha a importar.');
@@ -75,7 +84,11 @@ export class SdrPortalController {
   @Post('imports/outbound/preview')
   @RequirePermissions(PERMISSIONS.PORTAL_SDR_ACCESS, PERMISSIONS.LEADS_CREATE)
   @UseInterceptors(FileInterceptor('file', SPREADSHEET_UPLOAD))
-  previewOutboundImport(@UploadedFile() file: Express.Multer.File) {
+  previewOutboundImport(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    requireAdmin(user);
     return this.outboundImport.preview(requireFile(file));
   }
 
@@ -88,6 +101,7 @@ export class SdrPortalController {
     @Body() dto: OutboundImportDto,
     @CurrentUser() user: JwtPayload,
   ) {
+    requireAdmin(user);
     return this.outboundImport.import(requireFile(file), dto, user);
   }
 }

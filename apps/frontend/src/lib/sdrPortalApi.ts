@@ -1,5 +1,8 @@
 import { apiJson } from './api';
 import type {
+  OutboundImportPayload,
+  OutboundImportPreview,
+  OutboundImportResult,
   SdrPeriod,
   SdrPortalConfig,
   SdrPortalSettings,
@@ -36,6 +39,20 @@ export const sdrPortalApi = {
       query.set('to', params.to);
     }
     return apiJson<SdrSummaryLead[]>(`/portal/sdr/summary/leads?${query}`);
+  },
+  previewOutboundImport: (file: File) => {
+    const body = new FormData();
+    body.append('file', file);
+    return apiJson<OutboundImportPreview>('/portal/sdr/imports/outbound/preview', {
+      method: 'POST',
+      body,
+    });
+  },
+  importOutbound: (file: File, payload: OutboundImportPayload) => {
+    const body = new FormData();
+    body.append('file', file);
+    for (const [field, value] of Object.entries(payload)) body.append(field, JSON.stringify(value));
+    return apiJson<OutboundImportResult>('/portal/sdr/imports/outbound', { method: 'POST', body });
   },
   getSettings: () => apiJson<SdrPortalSettings>('/sdr-portal-settings'),
   updateSettings: (payload: SdrPortalSettingsPayload) =>

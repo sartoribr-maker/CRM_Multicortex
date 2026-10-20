@@ -18,6 +18,7 @@ interface KanbanBoardProps {
   onBlockedDrop?: (stage: Stage) => void;
   onMove: (leadId: string, stage: Stage) => void;
   onOpen: (leadId: string) => void;
+  onDoubleOpen?: (leadId: string) => void;
   onAdd?: (stage: Stage) => void;
 }
 
@@ -32,6 +33,7 @@ export function KanbanBoard({
   onBlockedDrop,
   onMove,
   onOpen,
+  onDoubleOpen,
   onAdd,
 }: KanbanBoardProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -126,6 +128,7 @@ export function KanbanBoard({
                         setDragOverStageId(null);
                       }}
                       onClick={() => onOpen(lead.id)}
+                      onDoubleClick={onDoubleOpen ? () => onDoubleOpen(lead.id) : undefined}
                     />
                   ))}
                   {columnLeads.length === 0 && (

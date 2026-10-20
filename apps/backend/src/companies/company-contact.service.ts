@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Company, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { cleanText, normalizeEmail, normalizeName } from './company-contact.normalize';
 
@@ -12,6 +12,15 @@ export interface LeadPartyInput {
   contactName?: string | null;
   contactEmail?: string | null;
   contactPhone?: string | null;
+  companyLocation?: string | null;
+  companyLinkedinUrl?: string | null;
+  companyWebsite?: string | null;
+  companyPhone?: string | null;
+  companySizeEstimate?: string | null;
+  companyRevenue?: string | null;
+  companyEmployeeCount?: string | null;
+  contactPosition?: string | null;
+  contactLinkedinUrl?: string | null;
 }
 
 export interface CompanyContactOption {
@@ -21,6 +30,51 @@ export interface CompanyContactOption {
   contactName: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  companyLocation: string | null;
+  companyLinkedinUrl: string | null;
+  companyWebsite: string | null;
+  companyPhone: string | null;
+  companySizeEstimate: string | null;
+  companyRevenue: string | null;
+  companyEmployeeCount: string | null;
+  contactPosition: string | null;
+  contactLinkedinUrl: string | null;
+}
+
+/** Campos complementares da empresa: (campo do lead, coluna da empresa). */
+const COMPANY_EXTRA_FIELDS = [
+  ['companyLocation', 'location'],
+  ['companyLinkedinUrl', 'linkedinUrl'],
+  ['companyWebsite', 'website'],
+  ['companyPhone', 'phone'],
+  ['companySizeEstimate', 'sizeEstimate'],
+  ['companyRevenue', 'revenue'],
+  ['companyEmployeeCount', 'employeeCount'],
+] as const;
+
+/** Campos complementares do contato: (campo do lead, coluna do contato). */
+const CONTACT_EXTRA_FIELDS = [
+  ['contactPosition', 'position'],
+  ['contactLinkedinUrl', 'linkedinUrl'],
+] as const;
+
+/** Valores informados no lead para as colunas complementares, limpos. */
+function extraValues(
+  input: LeadPartyInput,
+  fields: typeof COMPANY_EXTRA_FIELDS | typeof CONTACT_EXTRA_FIELDS,
+): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const [leadField, column] of fields) {
+    const value = cleanText(input[leadField]);
+    if (value) values[column] = value;
+  }
+  return values;
+}
+
+function companyOption(company: Company | null) {
+  return Object.fromEntries(
+    COMPANY_EXTRA_FIELDS.map(([leadField, column]) => [leadField, company?.[column] ?? null]),
+  ) as Record<(typeof COMPANY_EXTRA_FIELDS)[number][0], string | null>;
 }
 
 const AUTOCOMPLETE_LIMIT = 8;
@@ -58,9 +112,13 @@ export class CompanyContactService {
       ON CONFLICT ("normalizedName") DO NOTHING
     `;
     const company = await tx.company.findUniqueOrThrow({ where: { normalizedName } });
+    const extras = extraValues(input, COMPANY_EXTRA_FIELDS);
     const missing: Prisma.CompanyUpdateInput = {
       ...(!company.document && document ? { document } : {}),
       ...(!company.segment && segment ? { segment } : {}),
+      ...Object.fromEntries(
+        Object.entries(extras).filter(([column]) => !company[column as keyof Company]),
+      ),
     };
     if (Object.keys(missing).length) {
       await tx.company.update({ where: { id: company.id }, data: missing });
@@ -80,6 +138,7 @@ export class CompanyContactService {
     const email = cleanText(input.contactEmail);
     const normalizedEmail = normalizeEmail(email);
     const phone = cleanText(input.contactPhone);
+    const extras = extraValues(input, CONTACT_EXTRA_FIELDS);
 
     // Mesmo e-mail e mesmo nome; senão, mesmo nome dentro da mesma empresa.
     // Exigir o nome evita vincular o lead a outra pessoa que usou o mesmo e-mail.
@@ -96,7 +155,16 @@ export class CompanyContactService {
       }));
     if (!existing) {
       const created = await tx.contact.create({
-        data: { name, normalizedName, email, normalizedEmail, phone, companyId, createdBy: actorUserId },
+        data: {
+          name,
+          normalizedName,
+          email,
+          normalizedEmail,
+          phone,
+          ...extras,
+          companyId,
+          createdBy: actorUserId,
+        },
       });
       return created.id;
     }
@@ -105,6 +173,9 @@ export class CompanyContactService {
       ...(!existing.email && email ? { email, normalizedEmail } : {}),
       ...(!existing.phone && phone ? { phone } : {}),
       ...(!existing.companyId && companyId ? { companyId } : {}),
+      ...Object.fromEntries(
+        Object.entries(extras).filter(([column]) => !existing[column as keyof typeof existing]),
+      ),
     };
     if (Object.keys(missing).length) {
       await tx.contact.update({ where: { id: existing.id }, data: missing });
@@ -125,9 +196,12 @@ export class CompanyContactService {
         companyName: company.name,
         companyDocument: company.document,
         companySegment: company.segment,
+        ...companyOption(company),
         contactName: null,
         contactEmail: null,
         contactPhone: null,
+        contactPosition: null,
+        contactLinkedinUrl: null,
       }));
     }
 
@@ -143,13 +217,19 @@ export class CompanyContactService {
       orderBy: { updatedAt: 'desc' },
       take: AUTOCOMPLETE_LIMIT,
     });
-    return contacts.map((contact) => ({
-      companyName: contact.company?.deletedAt ? null : (contact.company?.name ?? null),
-      companyDocument: contact.company?.deletedAt ? null : (contact.company?.document ?? null),
-      companySegment: contact.company?.deletedAt ? null : (contact.company?.segment ?? null),
-      contactName: contact.name,
-      contactEmail: contact.email,
-      contactPhone: contact.phone,
-    }));
+    return contacts.map((contact) => {
+      const company = contact.company?.deletedAt ? null : contact.company;
+      return {
+        companyName: company?.name ?? null,
+        companyDocument: company?.document ?? null,
+        companySegment: company?.segment ?? null,
+        ...companyOption(company),
+        contactName: contact.name,
+        contactEmail: contact.email,
+        contactPhone: contact.phone,
+        contactPosition: contact.position,
+        contactLinkedinUrl: contact.linkedinUrl,
+      };
+    });
   }
 }

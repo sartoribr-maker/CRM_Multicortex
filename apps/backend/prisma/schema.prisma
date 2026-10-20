@@ -345,6 +345,29 @@ model Service {
   price       Decimal            @db.Decimal(14, 2)
   billingUnit ServiceBillingUnit
 
+  // Composição do preço (planilha de precificação). O "price" é o preço final com imposto.
+  /// Linha comercial do produto (ex.: GOOD, BEST, TITAN).
+  tier                   String?
+  /// Configuração de hardware (ex.: "RTX PRO 6000 — 96 GB").
+  hardwareSpec           String?
+  priceWithoutTax        Decimal? @db.Decimal(14, 2)
+  /// Imposto sobre o preço final, em fração (0.18 = 18%).
+  taxRate                Decimal? @db.Decimal(5, 4)
+  hardwareCost           Decimal? @db.Decimal(14, 2)
+  marginValue            Decimal? @db.Decimal(14, 2)
+  // Cobranças únicas associadas ao serviço.
+  licenseCost            Decimal? @db.Decimal(14, 2)
+  setupPrivateCloudPrice Decimal? @db.Decimal(14, 2)
+  setupOnPremisesPrice   Decimal? @db.Decimal(14, 2)
+  pocPrice               Decimal? @db.Decimal(14, 2)
+  pocDays                Int?
+  /// Data de referência da tabela de preços importada.
+  priceReferenceDate     DateTime?
+  /// Arquivo de origem da última importação.
+  pricingSource          String?
+  /// Parâmetros e notas de cada aba da planilha importada (somente leitura).
+  pricingParameters      Json?
+
   projectTypes ProjectTypeService[]
 
   createdAt DateTime  @default(now())
@@ -437,6 +460,14 @@ model Lead {
   companyName     String?
   companyDocument String?
   companySegment  String?
+  companyLocation      String?
+  companyLinkedinUrl   String?
+  companyWebsite       String?
+  companyPhone         String?
+  /// Porte / faturamento estimado (texto livre, ex.: "Grande (conhecida)").
+  companySizeEstimate  String?
+  companyRevenue       String?
+  companyEmployeeCount String?
   // Vínculos com o cadastro de empresas e contatos, mantidos ao salvar o lead.
   companyId       String?
   company         Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
@@ -444,6 +475,8 @@ model Lead {
   contactName  String?
   contactEmail String?
   contactPhone String?
+  contactPosition    String?
+  contactLinkedinUrl String?
   contactId    String?
   contact      Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
@@ -761,6 +794,13 @@ model Company {
   normalizedName String  @unique
   document       String?
   segment        String?
+  location       String?
+  linkedinUrl    String?
+  website        String?
+  phone          String?
+  sizeEstimate   String?
+  revenue        String?
+  employeeCount  String?
 
   contacts Contact[]
   leads    Lead[]
@@ -781,6 +821,8 @@ model Contact {
   /// E-mail em minúsculas, chave preferencial para evitar duplicidade.
   normalizedEmail String?
   phone           String?
+  position        String?
+  linkedinUrl     String?
 
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
@@ -794,6 +836,26 @@ model Contact {
   @@index([normalizedEmail])
   @@index([normalizedName, companyId])
   @@map("contacts")
+}
+
+/// Registros já apresentados numa importação de planilha Outbound do Portal SDR,
+/// importados ou não. Em importações seguintes eles aparecem desmarcados.
+model LeadImportBlacklist {
+  id          String  @id @default(uuid())
+  /// LinkedIn do contato, e-mail ou nome + empresa, normalizados.
+  key         String  @unique
+  contactName String?
+  companyName String?
+  /// Se o registro foi marcado e virou oportunidade na última importação.
+  imported    Boolean @default(false)
+  leadId      String?
+  fileName    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
+  @@map("lead_import_blacklist")
 }
 
 // Integração com o Google Agenda via conta de serviço do Google Workspace

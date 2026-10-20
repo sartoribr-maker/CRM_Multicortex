@@ -115,3 +115,58 @@ export interface SdrSummaryLead {
   daysInStage: number;
   openInPortal: boolean;
 }
+
+/** Registro da planilha Outbound no grid de importação. */
+export interface OutboundImportRow {
+  rowNumber: number;
+  key: string | null;
+  sdrName: string | null;
+  contactName: string | null;
+  contactPosition: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  contactLinkedinUrl: string | null;
+  companyName: string | null;
+  companyLocation: string | null;
+  companyLinkedinUrl: string | null;
+  companyWebsite: string | null;
+  companyPhone: string | null;
+  companySizeEstimate: string | null;
+  adherence: string | null;
+  companyRevenue: string | null;
+  companyEmployeeCount: string | null;
+  /** Usuário encontrado pelo e-mail da coluna "SDR responsável". */
+  ownerId: string | null;
+  ownerName: string | null;
+  successProbability: number | null;
+  priorityName: string | null;
+  blacklisted: boolean;
+  duplicate: boolean;
+  invalidReason: string | null;
+  selected: boolean;
+}
+
+export interface OutboundImportUser {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface OutboundImportPreview {
+  fileName: string;
+  rows: OutboundImportRow[];
+  /** Usuários de perfil SDR que podem ser escolhidos como responsável. */
+  sdrUsers: OutboundImportUser[];
+}
+
+export interface OutboundImportPayload {
+  selectedKeys: string[];
+  ownerOverrides: Record<string, string>;
+  excludedKeys: string[];
+}
+
+export interface OutboundImportResult {
+  imported: number;
+  blacklisted: number;
+  skipped: number;
+}

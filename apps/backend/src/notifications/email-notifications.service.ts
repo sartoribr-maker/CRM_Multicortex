@@ -50,6 +50,9 @@ interface TaskEmailData {
   leadStageName?: string | null;
 }
 
+/** Leads listados no e-mail de importação; os demais aparecem só na contagem. */
+const OUTBOUND_IMPORT_EMAIL_LIST_LIMIT = 50;
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -131,6 +134,47 @@ export class EmailNotificationsService {
         rows: this.leadRows(data),
         link: `${this.frontendUrl}/leads/${data.id}`,
         linkLabel: 'Abrir oportunidade',
+      }),
+    );
+  }
+
+  /** Resumo, para um responsável, dos leads Outbound importados por planilha para ele. */
+  async outboundLeadsImported(data: {
+    recipient: Recipient;
+    stageName: string;
+    fileName: string;
+    importedByName: string;
+    leads: Array<{
+      businessCode: string;
+      name: string;
+      contactName: string | null;
+      contactPosition: string | null;
+    }>;
+    /** Caminho no CRM aberto pelo botão (ex.: /terceiro/kanban). */
+    path: string;
+  }): Promise<void> {
+    const listed = data.leads.slice(0, OUTBOUND_IMPORT_EMAIL_LIST_LIMIT);
+    const remaining = data.leads.length - listed.length;
+    const count = data.leads.length;
+    await this.sendToEach(
+      [data.recipient],
+      `${count} novo(s) lead(s) Outbound registrado(s) para você`,
+      this.template({
+        title: 'Novos leads Outbound',
+        greeting: `Olá ${data.recipient.name}, ${count} lead(s) Outbound foram registrados sob sua responsabilidade.`,
+        rows: [
+          ['Leads registrados', String(count)],
+          ['Etapa', data.stageName],
+          ['Planilha', data.fileName],
+          ['Importado por', data.importedByName],
+          ...listed.map((lead): [string, string] => [
+            lead.businessCode,
+            [lead.name, lead.contactName, lead.contactPosition].filter(Boolean).join(' — '),
+          ]),
+          ...(remaining > 0 ? ([['…', `e mais ${remaining} lead(s)`]] as Array<[string, string]>) : []),
+        ],
+        link: `${this.frontendUrl}${data.path}`,
+        linkLabel: 'Abrir meus leads',
       }),
     );
   }

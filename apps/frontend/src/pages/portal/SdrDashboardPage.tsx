@@ -6,6 +6,7 @@ import { DateInput } from '../../components/MaskedInputs';
 import { TaskDeadline } from '../../components/TaskDeadline';
 import { formatDate } from '../../lib/formatters';
 import { sdrPortalApi } from '../../lib/sdrPortalApi';
+import { useAuthStore } from '../../store/useAuthStore';
 import { LEAD_ACTIVITY_LABELS, LEAD_TYPE_LABELS } from '../../types/leads';
 import type {
   SdrAttentionLead,
@@ -15,6 +16,7 @@ import type {
   SdrSummaryMetric,
   SdrTask,
 } from '../../types/sdrPortal';
+import { OutboundImportModal } from './OutboundImportModal';
 import { ThirdPartyShell } from './ThirdPartyShell';
 
 const PERIODS: Array<[SdrPeriod, string]> = [
@@ -517,6 +519,10 @@ export default function SdrDashboardPage() {
     setSelectedCard((current) => (current?.key === selection.key ? null : selection));
   const [data, setData] = useState<SdrSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const canImport = useAuthStore((s) => s.user?.permissions.includes('leads.create') ?? false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (period === 'custom' && (!from || !to)) return;
@@ -533,7 +539,7 @@ export default function SdrDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [period, from, to, ownerId]);
+  }, [period, from, to, ownerId, reloadKey]);
 
   const maxFunnel = Math.max(1, ...(data?.funnel.map((stage) => stage.count) ?? [0]));
 
@@ -548,12 +554,50 @@ export default function SdrDashboardPage() {
             : undefined
         }
         actions={
-          <Link to="/terceiro/kanban" className="btn-primary">
-            <Icon name="leads" className="h-4 w-4" />
-            Abrir Kanban
-          </Link>
+          <>
+            {canImport && (
+              <button type="button" className="btn-secondary" onClick={() => setIsImportOpen(true)}>
+                <Icon name="upload" className="h-4 w-4" />
+                Importar Outbound
+              </button>
+            )}
+            <Link to="/terceiro/kanban" className="btn-primary">
+              <Icon name="leads" className="h-4 w-4" />
+              Abrir Kanban
+            </Link>
+          </>
         }
       />
+
+      {importMessage && (
+        <p
+          role="status"
+          className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+        >
+          {importMessage}
+          <button
+            type="button"
+            className="icon-button"
+            onClick={() => setImportMessage(null)}
+            aria-label="Fechar aviso"
+          >
+            <Icon name="x" className="h-4 w-4" />
+          </button>
+        </p>
+      )}
+
+      {isImportOpen && (
+        <OutboundImportModal
+          onClose={() => setIsImportOpen(false)}
+          onImported={(result) => {
+            setIsImportOpen(false);
+            setImportMessage(
+              `${result.imported} oportunidade(s) Outbound importada(s). ${result.blacklisted} registro(s) na blacklist.`,
+            );
+            setReloadKey((key) => key + 1);
+          }}
+        />
+      )}
 
       <div className="mb-5 flex flex-wrap items-end gap-2">
         <div className="flex rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200">

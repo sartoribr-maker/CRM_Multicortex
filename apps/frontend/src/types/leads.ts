@@ -51,6 +51,8 @@ export interface LeadListItem {
   contactName: string | null;
   contactEmail?: string | null;
   contactPhone: string | null;
+  contactLinkedinUrl?: string | null;
+  companyLinkedinUrl?: string | null;
   successProbability: number | null;
   capexValue: string | number | null;
   opexValue: string | number | null;
@@ -100,9 +102,18 @@ export interface CustomFieldValueEntry {
 export interface LeadDetail extends LeadListItem {
   companyDocument: string | null;
   companySegment: string | null;
+  companyLocation: string | null;
+  companyLinkedinUrl: string | null;
+  companyWebsite: string | null;
+  companyPhone: string | null;
+  companySizeEstimate: string | null;
+  companyRevenue: string | null;
+  companyEmployeeCount: string | null;
   contactName: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  contactPosition: string | null;
+  contactLinkedinUrl: string | null;
   successProbability: number | null;
   periodicity: LeadPeriodicity;
   expectedCloseDate: string | null;

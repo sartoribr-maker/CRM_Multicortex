@@ -1,12 +1,22 @@
 import { CustomFieldsFormSection } from '../../components/CustomFieldsFormSection';
 import { LeadAutocompleteInput } from '../../components/LeadAutocompleteInput';
+import { ProductPlansPanel } from '../../components/leads/ProductPlansPanel';
+import {
+  COMPANY_EXTRA_FIELDS,
+  CONTACT_EXTRA_FIELDS,
+  LeadPartyExtraFields,
+  companyExtrasFrom,
+  contactExtrasFrom,
+  type CompanyExtraField,
+  type ContactExtraField,
+} from '../../components/LeadPartyExtraFields';
 import { PhoneInput } from '../../components/MaskedInputs';
 import type { CustomFieldValueInput, LeadFormPayload } from '../../lib/leadsApi';
 import { LEAD_LINE_LABELS, type LeadDetail, type LeadLine } from '../../types/leads';
 import type { Priority, ProjectType, Segment } from '../../types/settings';
 
 /** Campos de prospecção que o SDR pode preencher (espelha a política do backend). */
-export interface SdrLeadFormState {
+export interface SdrLeadFormState extends Record<CompanyExtraField | ContactExtraField, string> {
   name: string;
   line: LeadLine | '';
   companyName: string;
@@ -30,6 +40,15 @@ export const EMPTY_SDR_LEAD_FORM: SdrLeadFormState = {
   contactName: '',
   contactEmail: '',
   contactPhone: '',
+  companyLocation: '',
+  companyLinkedinUrl: '',
+  companyWebsite: '',
+  companyPhone: '',
+  companySizeEstimate: '',
+  companyRevenue: '',
+  companyEmployeeCount: '',
+  contactPosition: '',
+  contactLinkedinUrl: '',
   projectTypeIds: [],
   priorityId: '',
   description: '',
@@ -46,6 +65,15 @@ export function sdrFormFromLead(lead: LeadDetail): SdrLeadFormState {
     contactName: lead.contactName ?? '',
     contactEmail: lead.contactEmail ?? '',
     contactPhone: lead.contactPhone ?? '',
+    companyLocation: lead.companyLocation ?? '',
+    companyLinkedinUrl: lead.companyLinkedinUrl ?? '',
+    companyWebsite: lead.companyWebsite ?? '',
+    companyPhone: lead.companyPhone ?? '',
+    companySizeEstimate: lead.companySizeEstimate ?? '',
+    companyRevenue: lead.companyRevenue ?? '',
+    companyEmployeeCount: lead.companyEmployeeCount ?? '',
+    contactPosition: lead.contactPosition ?? '',
+    contactLinkedinUrl: lead.contactLinkedinUrl ?? '',
     projectTypeIds: lead.projectTypes.map(({ projectType }) => projectType.id),
     priorityId: lead.priority?.id ?? '',
     description: lead.description ?? '',
@@ -74,6 +102,15 @@ export function sdrPayloadFromForm(
     contactName: text(form.contactName),
     contactEmail: form.contactEmail.trim() || undefined,
     contactPhone: text(form.contactPhone),
+    companyLocation: text(form.companyLocation),
+    companyLinkedinUrl: text(form.companyLinkedinUrl),
+    companyWebsite: text(form.companyWebsite),
+    companyPhone: text(form.companyPhone),
+    companySizeEstimate: text(form.companySizeEstimate),
+    companyRevenue: text(form.companyRevenue),
+    companyEmployeeCount: text(form.companyEmployeeCount),
+    contactPosition: text(form.contactPosition),
+    contactLinkedinUrl: text(form.contactLinkedinUrl),
     projectTypeIds: form.projectTypeIds.length ? form.projectTypeIds : undefined,
     priorityId: form.priorityId || undefined,
     description: text(form.description),
@@ -125,6 +162,7 @@ export function SdrLeadFields({
                 companyName: option.companyName ?? '',
                 companyDocument: option.companyDocument ?? form.companyDocument,
                 companySegment: option.companySegment ?? form.companySegment,
+                ...companyExtrasFrom(option),
               })
             }
           />
@@ -171,6 +209,10 @@ export function SdrLeadFields({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
+        <LeadPartyExtraFields fields={COMPANY_EXTRA_FIELDS} values={form} onChange={update} />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
         <div>
           <label className="form-label">Contato</label>
           <LeadAutocompleteInput
@@ -183,12 +225,14 @@ export function SdrLeadFields({
                 contactName: option.contactName ?? '',
                 contactEmail: option.contactEmail ?? form.contactEmail,
                 contactPhone: option.contactPhone ?? form.contactPhone,
+                ...contactExtrasFrom(option),
                 // Preenche a empresa do contato apenas se ainda não houver uma.
                 ...(!form.companyName && option.companyName
                   ? {
                       companyName: option.companyName,
                       companyDocument: option.companyDocument ?? form.companyDocument,
                       companySegment: option.companySegment ?? form.companySegment,
+                      ...companyExtrasFrom(option),
                     }
                   : {}),
               })
@@ -212,51 +256,62 @@ export function SdrLeadFields({
             onValueChange={(value) => update('contactPhone', value)}
           />
         </div>
+        <LeadPartyExtraFields fields={CONTACT_EXTRA_FIELDS} values={form} onChange={update} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="form-label">Prioridade</label>
-          <select
-            className="form-control"
-            value={form.priorityId}
-            onChange={(event) => update('priorityId', event.target.value)}
-          >
-            <option value="">Selecione…</option>
-            {priorities.map((priority) => (
-              <option key={priority.id} value={priority.id}>
-                {priority.name}
-              </option>
-            ))}
-          </select>
+        <div className="space-y-4">
+          <div>
+            <label className="form-label">Prioridade</label>
+            <select
+              className="form-control"
+              value={form.priorityId}
+              onChange={(event) => update('priorityId', event.target.value)}
+            >
+              <option value="">Selecione…</option>
+              {priorities.map((priority) => (
+                <option key={priority.id} value={priority.id}>
+                  {priority.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <span className="form-label">Tipos de projeto</span>
+            <div className="grid max-h-36 gap-1 overflow-y-auto rounded-xl border border-slate-200 p-2">
+              {projectTypes.map((projectType) => (
+                <label
+                  key={projectType.id}
+                  className="flex items-start gap-2 rounded-lg p-1.5 text-sm hover:bg-purple-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.projectTypeIds.includes(projectType.id)}
+                    onChange={(event) =>
+                      update(
+                        'projectTypeIds',
+                        event.target.checked
+                          ? [...form.projectTypeIds, projectType.id]
+                          : form.projectTypeIds.filter((id) => id !== projectType.id),
+                      )
+                    }
+                  />
+                  {projectType.name}
+                </label>
+              ))}
+              {projectTypes.length === 0 && (
+                <p className="p-1.5 text-xs text-slate-400">Nenhum tipo cadastrado.</p>
+              )}
+            </div>
+          </div>
         </div>
         <div>
-          <span className="form-label">Tipos de projeto</span>
-          <div className="grid max-h-36 gap-1 overflow-y-auto rounded-xl border border-slate-200 p-2">
-            {projectTypes.map((projectType) => (
-              <label
-                key={projectType.id}
-                className="flex items-center gap-2 rounded-lg p-1.5 text-sm hover:bg-purple-50"
-              >
-                <input
-                  type="checkbox"
-                  checked={form.projectTypeIds.includes(projectType.id)}
-                  onChange={(event) =>
-                    update(
-                      'projectTypeIds',
-                      event.target.checked
-                        ? [...form.projectTypeIds, projectType.id]
-                        : form.projectTypeIds.filter((id) => id !== projectType.id),
-                    )
-                  }
-                />
-                {projectType.name}
-              </label>
-            ))}
-            {projectTypes.length === 0 && (
-              <p className="p-1.5 text-xs text-slate-400">Nenhum tipo cadastrado.</p>
+          <span className="form-label">Planos e valores dos produtos selecionados</span>
+          <ProductPlansPanel
+            projectTypes={projectTypes.filter((projectType) =>
+              form.projectTypeIds.includes(projectType.id),
             )}
-          </div>
+          />
         </div>
       </div>
 

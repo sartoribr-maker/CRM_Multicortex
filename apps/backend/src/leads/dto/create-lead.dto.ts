@@ -57,6 +57,41 @@ export class CreateLeadDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  companyLocation?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  companyLinkedinUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  companyWebsite?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  companyPhone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  companySizeEstimate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  companyRevenue?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  companyEmployeeCount?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   contactName?: string;
 
   @ApiPropertyOptional()
@@ -68,6 +103,16 @@ export class CreateLeadDto {
   @IsOptional()
   @IsString()
   contactPhone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  contactPosition?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  contactLinkedinUrl?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

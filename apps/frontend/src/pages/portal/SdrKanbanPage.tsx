@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
 import { KanbanBoard } from '../../components/leads/kanban/KanbanBoard';
 import { daysInStage } from '../../components/leads/kanban/LeadKanbanCard';
 import { MoveLeadModal, type MoveLeadPayload } from '../../components/leads/kanban/MoveLeadModal';
+import { openFirstExternalLink } from '../../components/LeadPartyExtraFields';
 import { useMeetingScheduling } from '../../components/leads/meetings/useMeetingScheduling';
 import { leadsApi, type LeadListFilters } from '../../lib/leadsApi';
 import { prioritiesApi, projectTypesApi, segmentsApi } from '../../lib/settingsApi';
@@ -23,6 +24,9 @@ interface PendingMove {
   actionDescription?: string;
 }
 
+/** Intervalo para distinguir o clique simples (abre a oportunidade) do duplo clique (LinkedIn). */
+const DOUBLE_CLICK_DELAY_MS = 250;
+
 export default function SdrKanbanPage() {
   const permissions = useAuthStore((s) => s.user?.permissions ?? []);
   const isThirdParty = useAuthStore((s) => s.user?.portal === 'THIRD_PARTY');
@@ -30,6 +34,8 @@ export default function SdrKanbanPage() {
   const canEdit = permissions.includes('leads.edit');
   const [searchParams, setSearchParams] = useSearchParams();
   const openLeadId = searchParams.get('lead');
+  const clickTimer = useRef<number>();
+  useEffect(() => () => window.clearTimeout(clickTimer.current), []);
   const [config, setConfig] = useState<SdrPortalConfig | null>(null);
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
@@ -341,7 +347,17 @@ export default function SdrKanbanPage() {
             const lead = leads.find((item) => item.id === leadId);
             if (lead) requestMove(lead, stage);
           }}
-          onOpen={openLead}
+          onOpen={(leadId) => {
+            // Espera para distinguir do duplo clique: o painel aberto cobriria o card.
+            window.clearTimeout(clickTimer.current);
+            clickTimer.current = window.setTimeout(() => openLead(leadId), DOUBLE_CLICK_DELAY_MS);
+          }}
+          onDoubleOpen={(leadId) => {
+            // Duplo clique: LinkedIn do contato; senão o da empresa; senão nada.
+            window.clearTimeout(clickTimer.current);
+            const lead = leads.find((item) => item.id === leadId);
+            openFirstExternalLink(lead?.contactLinkedinUrl, lead?.companyLinkedinUrl);
+          }}
         />
       )}
       {config && openLeadId && (

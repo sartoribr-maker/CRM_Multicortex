@@ -2,6 +2,13 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
+import { ProductPlansPanel } from '../../components/leads/ProductPlansPanel';
+import {
+  COMPANY_EXTRA_FIELDS,
+  CONTACT_EXTRA_FIELDS,
+  LeadPartyExtraFields,
+  companyExtrasFrom,
+} from '../../components/LeadPartyExtraFields';
 import { leadsApi, type CustomFieldValueInput, type LeadFormPayload } from '../../lib/leadsApi';
 import {
   stagesApi,
@@ -28,7 +35,6 @@ import {
 } from '../../types/leads';
 import type { DealSize, Priority, ProjectType, Segment, Source, Stage } from '../../types/settings';
 import { formatCurrency } from '../../lib/formatters';
-import { SERVICE_UNIT_LABELS } from '../settings/ServicesPanel';
 
 const inputClass = 'form-control';
 const labelClass = 'form-label';
@@ -119,6 +125,15 @@ export default function LeadFormPage() {
           contactName: lead.contactName ?? undefined,
           contactEmail: lead.contactEmail ?? undefined,
           contactPhone: lead.contactPhone ?? undefined,
+          companyLocation: lead.companyLocation ?? undefined,
+          companyLinkedinUrl: lead.companyLinkedinUrl ?? undefined,
+          companyWebsite: lead.companyWebsite ?? undefined,
+          companyPhone: lead.companyPhone ?? undefined,
+          companySizeEstimate: lead.companySizeEstimate ?? undefined,
+          companyRevenue: lead.companyRevenue ?? undefined,
+          companyEmployeeCount: lead.companyEmployeeCount ?? undefined,
+          contactPosition: lead.contactPosition ?? undefined,
+          contactLinkedinUrl: lead.contactLinkedinUrl ?? undefined,
           projectTypeIds: lead.projectTypes.map(({ projectType }) => projectType.id),
           stageId: lead.stage.id,
           priorityId: lead.priority?.id,
@@ -338,6 +353,7 @@ export default function LeadFormPage() {
                       companyName: option.companyName ?? undefined,
                       companyDocument: option.companyDocument ?? current.companyDocument,
                       companySegment: option.companySegment ?? current.companySegment,
+                      ...companyExtrasFrom(option),
                     }))
                   }
                 />
@@ -377,6 +393,13 @@ export default function LeadFormPage() {
                   ))}
                 </select>
               </div>
+              <LeadPartyExtraFields
+                fields={COMPANY_EXTRA_FIELDS}
+                values={form}
+                onChange={updateField}
+                labelClassName={labelClass}
+                inputClassName={inputClass}
+              />
             </div>
           </section>
 
@@ -400,12 +423,15 @@ export default function LeadFormPage() {
                       contactName: option.contactName ?? undefined,
                       contactEmail: option.contactEmail ?? undefined,
                       contactPhone: option.contactPhone ?? undefined,
+                      contactPosition: option.contactPosition ?? undefined,
+                      contactLinkedinUrl: option.contactLinkedinUrl ?? undefined,
                       // Preenche a empresa do contato apenas se ainda não houver uma.
                       ...(!current.companyName && option.companyName
                         ? {
                             companyName: option.companyName,
                             companyDocument: option.companyDocument ?? current.companyDocument,
                             companySegment: option.companySegment ?? current.companySegment,
+                            ...companyExtrasFrom(option),
                           }
                         : {}),
                     }))
@@ -429,6 +455,13 @@ export default function LeadFormPage() {
                   onValueChange={(value) => updateField('contactPhone', value || undefined)}
                 />
               </div>
+              <LeadPartyExtraFields
+                fields={CONTACT_EXTRA_FIELDS}
+                values={form}
+                onChange={updateField}
+                labelClassName={labelClass}
+                inputClassName={inputClass}
+              />
             </div>
           </section>
 
@@ -573,7 +606,7 @@ export default function LeadFormPage() {
                     return (
                       <label
                         key={projectType.id}
-                        className="flex cursor-pointer items-center gap-2 rounded-lg p-2 text-sm hover:bg-purple-50"
+                        className="flex min-w-0 cursor-pointer items-start gap-2 rounded-lg p-2 text-sm hover:bg-purple-50"
                       >
                         <input
                           type="checkbox"
@@ -587,73 +620,15 @@ export default function LeadFormPage() {
                             )
                           }
                         />
-                        <span>{projectType.name}</span>
+                        <span className="min-w-0 break-words">{projectType.name}</span>
                       </label>
                     );
                   })}
                 </div>
               </div>
               <div>
-                <label className={labelClass}>
-                  Valor estimado dos produtos selecionados (unitário)
-                </label>
-                <div className="min-h-[7.5rem] rounded-xl border border-brand-purple/20 bg-gradient-to-br from-purple-50 to-white p-4">
-                  {selectedProjectTypes.length ? (
-                    <div className="space-y-4">
-                      {selectedProjectTypes.map((projectType) => {
-                        const totals = projectType.services.reduce<Record<string, number>>(
-                          (result, { service }) => ({
-                            ...result,
-                            [service.billingUnit]:
-                              (result[service.billingUnit] ?? 0) + Number(service.price),
-                          }),
-                          {},
-                        );
-                        return (
-                          <div key={projectType.id}>
-                            <p className="text-sm font-bold text-brand-purple-dark">
-                              {projectType.name}
-                            </p>
-                            <div className="mt-1 space-y-1">
-                              {projectType.services.map(({ service }) => (
-                                <div
-                                  key={service.id}
-                                  className="flex justify-between gap-3 text-xs text-slate-500"
-                                >
-                                  <span>{service.name}</span>
-                                  <span className="whitespace-nowrap">
-                                    {formatCurrency(service.price)}/
-                                    {SERVICE_UNIT_LABELS[service.billingUnit]}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {Object.entries(totals).map(([unit, total]) => (
-                                <span
-                                  key={unit}
-                                  className="rounded-full bg-brand-purple px-2.5 py-1 text-xs font-semibold text-white"
-                                >
-                                  {formatCurrency(total)}/
-                                  {SERVICE_UNIT_LABELS[unit as keyof typeof SERVICE_UNIT_LABELS]}
-                                </span>
-                              ))}
-                              {!projectType.services.length && (
-                                <span className="text-xs text-slate-400">
-                                  Sem serviços vinculados
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="flex min-h-[5.5rem] items-center justify-center text-center text-sm text-slate-400">
-                      Selecione um tipo de produto para visualizar os serviços e valores.
-                    </div>
-                  )}
-                </div>
+                <label className={labelClass}>Planos e valores dos produtos selecionados</label>
+                <ProductPlansPanel projectTypes={selectedProjectTypes} />
               </div>
               {canViewAll && (
                 <div className="md:col-span-2">

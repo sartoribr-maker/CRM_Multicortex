@@ -57,8 +57,94 @@ export interface ServiceCatalogItem {
   description: string | null;
   price: string | number;
   billingUnit: ServiceBillingUnit;
+  // Composição do preço (planilha de precificação); "price" é o preço final com imposto.
+  tier?: string | null;
+  hardwareSpec?: string | null;
+  priceWithoutTax?: string | number | null;
+  /** Fração: 0.18 = 18%. */
+  taxRate?: string | number | null;
+  hardwareCost?: string | number | null;
+  marginValue?: string | number | null;
+  // Cobranças únicas.
+  licenseCost?: string | number | null;
+  setupPrivateCloudPrice?: string | number | null;
+  setupOnPremisesPrice?: string | number | null;
+  pocPrice?: string | number | null;
+  pocDays?: number | null;
+  priceReferenceDate?: string | null;
+  pricingSource?: string | null;
+  /** Parâmetros e notas de cada aba da planilha importada. */
+  pricingParameters?: PricingTabParameters[] | null;
   deletedAt: string | null;
   _count?: { projectTypes: number };
+}
+
+export interface PricingParameter {
+  group: string | null;
+  label: string;
+  value: number;
+  format: 'currency' | 'percent' | 'factor' | 'number';
+}
+
+export interface PricingTabParameters {
+  sheet: string;
+  title: string | null;
+  parameters: PricingParameter[];
+  notes: string[];
+}
+
+export type PricingValueField =
+  | 'price'
+  | 'priceWithoutTax'
+  | 'hardwareCost'
+  | 'marginValue'
+  | 'licenseCost'
+  | 'setupPrivateCloudPrice'
+  | 'setupOnPremisesPrice'
+  | 'pocPrice';
+
+/** Aba da planilha de precificação, como aparece no arquivo. */
+export interface PricingImportTab {
+  name: string;
+  title: string | null;
+  columns: Array<{ field: PricingValueField; header: string }>;
+  parameters: PricingParameter[];
+  notes: string[];
+}
+
+/** Item da planilha de precificação no grid de importação. */
+export interface PricingImportRow {
+  name: string;
+  tier: string | null;
+  hardwareSpec: string;
+  price: number | null;
+  priceWithoutTax: number | null;
+  hardwareCost: number | null;
+  marginValue: number | null;
+  licenseCost: number | null;
+  setupPrivateCloudPrice: number | null;
+  setupOnPremisesPrice: number | null;
+  pocPrice: number | null;
+  existingId: string | null;
+  archived: boolean;
+  invalidReason: string | null;
+}
+
+export interface PricingImportPreview {
+  fileName: string;
+  productName: string | null;
+  referenceDate: string | null;
+  taxRate: number | null;
+  pocDays: number | null;
+  tabs: PricingImportTab[];
+  rows: PricingImportRow[];
+  projectTypes: Array<{ id: string; name: string }>;
+  suggestedProjectTypeId: string | null;
+}
+
+export interface PricingImportOptions {
+  productName?: string;
+  projectTypeId?: string;
 }
 
 export type CustomFieldType =

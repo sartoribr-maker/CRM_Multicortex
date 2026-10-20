@@ -20,9 +20,18 @@ export interface LeadFormPayload {
   companyName?: string;
   companyDocument?: string;
   companySegment?: string;
+  companyLocation?: string;
+  companyLinkedinUrl?: string;
+  companyWebsite?: string;
+  companyPhone?: string;
+  companySizeEstimate?: string;
+  companyRevenue?: string;
+  companyEmployeeCount?: string;
   contactName?: string;
   contactEmail?: string;
   contactPhone?: string;
+  contactPosition?: string;
+  contactLinkedinUrl?: string;
   projectTypeId?: string;
   projectTypeIds?: string[];
   stageId?: string;
@@ -56,6 +65,15 @@ export interface LeadAutocompleteOption {
   contactName: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  companyLocation: string | null;
+  companyLinkedinUrl: string | null;
+  companyWebsite: string | null;
+  companyPhone: string | null;
+  companySizeEstimate: string | null;
+  companyRevenue: string | null;
+  companyEmployeeCount: string | null;
+  contactPosition: string | null;
+  contactLinkedinUrl: string | null;
 }
 
 export interface LeadListFilters {

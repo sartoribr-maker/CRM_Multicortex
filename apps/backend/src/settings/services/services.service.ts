@@ -6,6 +6,17 @@ import { ListSettingsQueryDto } from '../common/dto/list-settings.query.dto';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 
+/** A data de referência chega como "AAAA-MM-DD"; o Prisma exige data e hora. */
+function toData<T extends { priceReferenceDate?: string | null }>(dto: T) {
+  const { priceReferenceDate, ...rest } = dto;
+  return {
+    ...rest,
+    ...(priceReferenceDate !== undefined
+      ? { priceReferenceDate: priceReferenceDate ? new Date(priceReferenceDate) : null }
+      : {}),
+  };
+}
+
 @Injectable()
 export class ServicesService {
   constructor(
@@ -29,7 +40,9 @@ export class ServicesService {
 
   async create(dto: CreateServiceDto, actorUserId: string) {
     try {
-      const item = await this.prisma.service.create({ data: { ...dto, createdBy: actorUserId } });
+      const item = await this.prisma.service.create({
+        data: { ...toData(dto), createdBy: actorUserId },
+      });
       await this.record('SETTINGS_ITEM_CREATED', actorUserId, item.id);
       return item;
     } catch (error) {
@@ -41,7 +54,7 @@ export class ServicesService {
 
   async update(id: string, dto: UpdateServiceDto, actorUserId: string) {
     await this.existing(id);
-    const item = await this.prisma.service.update({ where: { id }, data: dto });
+    const item = await this.prisma.service.update({ where: { id }, data: toData(dto) });
     await this.record('SETTINGS_ITEM_UPDATED', actorUserId, id);
     return item;
   }

@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
+import {
+  COMPANY_EXTRA_FIELDS,
+  CONTACT_EXTRA_FIELDS,
+  ExternalLinkIcon,
+  externalHref,
+} from '../../components/LeadPartyExtraFields';
 import { LeadAttachments } from '../../components/leads/LeadAttachments';
 import { LeadTimeline } from '../../components/leads/LeadTimeline';
 import { TaskDeadline } from '../../components/TaskDeadline';
@@ -475,17 +481,23 @@ function OverviewTab({ lead }: { lead: LeadDetail }) {
     label,
     value,
     accent,
+    href,
   }: {
     label: string;
     value?: string | number | null;
     accent?: boolean;
+    /** Exibe o ícone que abre o endereço em nova aba. */
+    href?: string | null;
   }) => (
     <div className="min-w-0">
       <dt className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{label}</dt>
       <dd
-        className={`mt-1 truncate text-sm ${accent ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}
+        className={`mt-1 flex items-center gap-2 text-sm ${accent ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}
       >
-        {value === null || value === undefined || value === '' ? 'Não informado' : value}
+        <span className="truncate">
+          {value === null || value === undefined || value === '' ? 'Não informado' : value}
+        </span>
+        {href && <ExternalLinkIcon href={href} label={`Abrir ${label}`} />}
       </dd>
     </div>
   );
@@ -565,6 +577,14 @@ function OverviewTab({ lead }: { lead: LeadDetail }) {
             <Field label="Empresa" value={lead.companyName} accent />
             <Field label="Documento" value={lead.companyDocument} />
             <Field label="Segmento" value={lead.companySegment} />
+            {COMPANY_EXTRA_FIELDS.map(({ key, label, linkable }) => (
+              <Field
+                key={key}
+                label={label}
+                value={lead[key]}
+                href={linkable ? externalHref(lead[key]) : null}
+              />
+            ))}
             <Field label="Prioridade" value={lead.priority?.name} />
             <Field label="Porte" value={lead.dealSize?.name} />
             <Field
@@ -591,6 +611,14 @@ function OverviewTab({ lead }: { lead: LeadDetail }) {
             <Field label="Nome" value={lead.contactName} accent />
             <Field label="E-mail" value={lead.contactEmail} />
             <Field label="Telefone" value={formatPhone(lead.contactPhone)} />
+            {CONTACT_EXTRA_FIELDS.map(({ key, label, linkable }) => (
+              <Field
+                key={key}
+                label={label}
+                value={lead[key]}
+                href={linkable ? externalHref(lead[key]) : null}
+              />
+            ))}
           </dl>
         </section>
       </div>

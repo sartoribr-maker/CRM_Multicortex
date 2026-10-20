@@ -1,9 +1,11 @@
-import { apiJson } from './api';
+import { apiFetch, apiJson } from './api';
 import type {
   CustomField,
   DealSize,
   Priority,
   ProjectType,
+  PricingImportOptions,
+  PricingImportPreview,
   ServiceCatalogItem,
   Segment,
   Source,
@@ -40,7 +42,39 @@ export const dealSizesApi = makeCrud<DealSize>('/deal-sizes');
 export const sourcesApi = makeCrud<Source>('/sources');
 export const segmentsApi = makeCrud<Segment>('/segments');
 export const projectTypesApi = makeCrud<ProjectType>('/project-types');
-export const servicesApi = makeCrud<ServiceCatalogItem>('/services');
+function pricingForm(file: File, options: PricingImportOptions = {}) {
+  const body = new FormData();
+  body.append('file', file);
+  if (options.productName) body.append('productName', options.productName);
+  if (options.projectTypeId) body.append('projectTypeId', options.projectTypeId);
+  return body;
+}
+
+export const servicesApi = {
+  ...makeCrud<ServiceCatalogItem>('/services'),
+  previewImport: (file: File, options?: PricingImportOptions) =>
+    apiJson<PricingImportPreview>('/services/import/preview', {
+      method: 'POST',
+      body: pricingForm(file, options),
+    }),
+  import: (file: File, options: PricingImportOptions) =>
+    apiJson<{ created: number; updated: number; linked: number }>('/services/import', {
+      method: 'POST',
+      body: pricingForm(file, options),
+    }),
+  downloadTemplate: async () => {
+    const response = await apiFetch('/services/import/template');
+    if (!response.ok) throw new Error(`Erro ao baixar o modelo (${response.status})`);
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'modelo-precificacao-servicos.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  },
+};
 export const customFieldsApi = makeCrud<CustomField>('/custom-fields');
 export const emailSettingsApi = {
   get: () => apiJson<EmailSettings>('/email-settings'),

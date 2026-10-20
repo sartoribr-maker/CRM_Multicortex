@@ -34,6 +34,7 @@ interface LeadKanbanCardProps {
   onDragStart: (event: DragEvent) => void;
   onDragEnd: () => void;
   onClick: () => void;
+  onDoubleClick?: () => void;
 }
 
 export function LeadKanbanCard({
@@ -45,6 +46,7 @@ export function LeadKanbanCard({
   onDragStart,
   onDragEnd,
   onClick,
+  onDoubleClick,
 }: LeadKanbanCardProps) {
   const mandatory = isMandatoryPriority(lead);
   const idleDays = daysInStage(lead);
@@ -57,6 +59,7 @@ export function LeadKanbanCard({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
       className={`group cursor-pointer rounded-xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
         mandatory
           ? 'border-rose-200 bg-rose-50 shadow-rose-200/30 hover:border-rose-300 hover:bg-rose-100/70'

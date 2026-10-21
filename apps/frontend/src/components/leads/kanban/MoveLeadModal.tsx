@@ -11,6 +11,8 @@ export interface MoveLeadPayload {
   lossReason?: string;
   actionDescription: string;
   ownerIds?: string[];
+  /** Assume o lead do site (o backend define o usuário atual como responsável). */
+  claimLead?: boolean;
   createTask: boolean;
   taskDueDate?: string;
   taskPriority?: TaskPriority;
@@ -47,13 +49,15 @@ export function MoveLeadModal({
   const [createTask, setCreateTask] = useState(false);
   const [taskDueDate, setTaskDueDate] = useState('');
   const [taskPriority, setTaskPriority] = useState<TaskPriority>('MEDIUM');
+  // Ao assumir o lead, o responsável passa a ser o usuário atual.
+  const selectsOwners = showOwnerSelector && !lead.awaitingClaim;
   const ownerOptions = userOptions.length
     ? userOptions
     : lead.assignees.map((assignment) => assignment.user);
   const isValid =
     actionDescription.trim() &&
     (!stage.isLostStage || lossReason.trim()) &&
-    (!showOwnerSelector || ownerIds.length > 0);
+    (!selectsOwners || ownerIds.length > 0);
 
   return (
     <div className="mobile-modal-overlay fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
@@ -65,7 +69,8 @@ export function MoveLeadModal({
             stageId: stage.id,
             lossReason: stage.isLostStage ? lossReason.trim() : undefined,
             actionDescription: actionDescription.trim(),
-            ownerIds: showOwnerSelector ? ownerIds : undefined,
+            ownerIds: selectsOwners ? ownerIds : undefined,
+            claimLead: lead.awaitingClaim || undefined,
             createTask,
             taskDueDate: createTask ? new Date(`${taskDueDate}T12:00:00`).toISOString() : undefined,
             taskPriority: createTask ? taskPriority : undefined,
@@ -105,7 +110,12 @@ export function MoveLeadModal({
             />
           </>
         )}
-        {showOwnerSelector && (
+        {lead.awaitingClaim && (
+          <p className="mt-4 rounded-xl bg-purple-50 px-3 py-2 text-sm text-brand-purple">
+            Você será o responsável por esta oportunidade.
+          </p>
+        )}
+        {selectsOwners && (
           <>
             <label className="form-label mt-4">Responsáveis</label>
             <div className="grid max-h-36 gap-1 overflow-y-auto rounded-xl border border-slate-200 p-2 sm:grid-cols-2">

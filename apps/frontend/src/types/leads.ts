@@ -74,6 +74,8 @@ export interface LeadListItem {
   stageEnteredAt: string;
   createdAt: string;
   updatedAt: string;
+  /** Lead do site/WhatsApp ainda sem responsável: quem o mover de etapa deve assumi-lo. */
+  awaitingClaim?: boolean;
   /** Próxima reunião agendada ainda não encerrada (no máximo uma). */
   meetings?: LeadMeetingSummary[];
 }

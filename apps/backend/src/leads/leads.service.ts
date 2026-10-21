@@ -42,6 +42,18 @@ const LEAD_DETAIL_INCLUDE = {
   customFieldValues: { include: { customField: true } },
 } satisfies Prisma.LeadInclude;
 
+/** Usuário da integração SITE: responsável provisório dos leads do site/WhatsApp. */
+const SITE_INTEGRATION_EMAIL = 'multicortex@multicortex.ai';
+
+/** Lead Inbound ainda com a integração como responsável: ninguém o assumiu. */
+function isAwaitingClaim(lead: { owner: { email: string } }): boolean {
+  return lead.owner.email.toLowerCase() === SITE_INTEGRATION_EMAIL;
+}
+
+function withClaimStatus<T extends { owner: { email: string } }>(lead: T) {
+  return { ...lead, awaitingClaim: isAwaitingClaim(lead) };
+}
+
 type LeadEmailPayload = Parameters<EmailNotificationsService['leadCreated']>[0];
 
 /** Campos do lead que alimentam o cadastro de empresas e contatos. */
@@ -124,9 +136,13 @@ export class LeadsService {
       : { id: { in: [] } };
   }
 
-  private async presentForUser<T extends object>(lead: T, currentUser: JwtPayload): Promise<T> {
-    if (!isThirdParty(currentUser)) return lead;
-    return sanitizeLeadForThirdParty(lead, await this.sdrPortalSettings.get());
+  private async presentForUser<T extends { owner: { email: string } }>(
+    lead: T,
+    currentUser: JwtPayload,
+  ) {
+    const result = withClaimStatus(lead);
+    if (!isThirdParty(currentUser)) return result;
+    return sanitizeLeadForThirdParty(result, await this.sdrPortalSettings.get());
   }
 
   async findAll(query: ListLeadsQueryDto, currentUser: JwtPayload) {
@@ -182,8 +198,11 @@ export class LeadsService {
     ]);
 
     const settings = isThirdParty(currentUser) ? await this.sdrPortalSettings.get() : null;
+    const presented = items.map(withClaimStatus);
     return {
-      items: settings ? items.map((item) => sanitizeLeadForThirdParty(item, settings)) : items,
+      items: settings
+        ? presented.map((item) => sanitizeLeadForThirdParty(item, settings))
+        : presented,
       total,
       page: query.page,
       pageSize: query.pageSize,
@@ -375,7 +394,7 @@ export class LeadsService {
         '59c1b75b-0be5-4321-af47-66fdda1b522c';
 
       if (
-        currentUser.email.toLowerCase() !== 'multicortex@multicortex.ai' ||
+        currentUser.email.toLowerCase() !== SITE_INTEGRATION_EMAIL ||
         currentUser.roleName !== 'Integração SITE'
       ) {
         throw new ForbiddenException(
@@ -572,6 +591,20 @@ export class LeadsService {
     }
     await this.validateCustomFieldValues(dto.customFieldValues, { enforceRequired: false });
 
+    // Lead do site/WhatsApp sem responsável: quem o move de etapa precisa assumi-lo.
+    const currentOwner = await this.prisma.user.findUnique({
+      where: { id: existing.ownerId },
+      select: { email: true },
+    });
+    const awaitingClaim = currentOwner !== null && isAwaitingClaim({ owner: currentOwner });
+    if (dto.claimLead && !awaitingClaim) {
+      throw new ConflictException('Esta oportunidade já foi assumida por outro usuário.');
+    }
+    if (awaitingClaim && dto.stageId && dto.stageId !== existing.stageId && !dto.claimLead) {
+      throw new BadRequestException('Assuma a oportunidade para movê-la de etapa.');
+    }
+    if (dto.claimLead) dto = { ...dto, ownerId: undefined, ownerIds: [currentUser.sub] };
+
     let stageChangeMessage: string | null = null;
     const movementTaskIds: string[] = [];
     const financialValuesChanged = dto.capexValue !== undefined || dto.opexValue !== undefined;
@@ -635,6 +668,17 @@ export class LeadsService {
     };
 
     await this.prisma.$transaction(async (tx) => {
+      if (dto.claimLead) {
+        // Atualização condicional: se dois usuários assumirem juntos, só o primeiro vence.
+        const { count } = await tx.lead.updateMany({
+          where: { id, ownerId: existing.ownerId },
+          data: { ownerId: currentUser.sub },
+        });
+        if (count === 0) {
+          throw new ConflictException('Esta oportunidade já foi assumida por outro usuário.');
+        }
+      }
+
       if (dto.line) {
         if (existing.businessCode) {
           data.businessCode = `${LEAD_LINE_PREFIX[dto.line]}${existing.businessCode.slice(3)}`;
@@ -687,6 +731,7 @@ export class LeadsService {
         data.status = newStage.isWonStage ? 'WON' : newStage.isLostStage ? 'LOST' : 'OPEN';
 
         stageChangeMessage = `Etapa alterada para "${newStage.name}". Ação: ${dto.actionDescription.trim()}`;
+        if (dto.claimLead) stageChangeMessage += ` Oportunidade assumida por ${currentUser.name}.`;
       }
 
       if (PARTY_FIELDS.some((field) => dto[field] !== undefined)) {
@@ -772,6 +817,7 @@ export class LeadsService {
       (key) =>
         ![
           'stageId',
+          'claimLead',
           'lossReason',
           'customFieldValues',
           'actionDescription',

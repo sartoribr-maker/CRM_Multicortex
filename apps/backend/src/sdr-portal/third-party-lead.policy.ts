@@ -36,6 +36,7 @@ const PROSPECTING_FIELDS = [
 /** Campos da movimentação de etapa, permitidos apenas na edição. */
 const MOVE_FIELDS = [
   'stageId',
+  'claimLead',
   'actionDescription',
   'lossReason',
   'createTask',

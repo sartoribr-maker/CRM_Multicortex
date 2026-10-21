@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
+import { ClaimLeadModal } from '../../components/leads/kanban/ClaimLeadModal';
 import { KanbanBoard } from '../../components/leads/kanban/KanbanBoard';
 import { daysInStage } from '../../components/leads/kanban/LeadKanbanCard';
 import { MoveLeadModal, type MoveLeadPayload } from '../../components/leads/kanban/MoveLeadModal';
@@ -48,6 +49,9 @@ export default function SdrKanbanPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
+  const [pendingClaim, setPendingClaim] = useState<Omit<PendingMove, 'actionDescription'> | null>(
+    null,
+  );
   const [isMoving, setIsMoving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [drawerReloadKey, setDrawerReloadKey] = useState(0);
@@ -186,7 +190,8 @@ export default function SdrKanbanPage() {
       return;
     }
     setNotice(null);
-    meetingScheduling.startMove(lead, stage);
+    if (lead.awaitingClaim) setPendingClaim({ lead, stage });
+    else meetingScheduling.startMove(lead, stage);
   }
 
   async function persistMove({ lead, stage }: PendingMove, payload: MoveLeadPayload) {
@@ -371,6 +376,17 @@ export default function SdrKanbanPage() {
           onClose={() => openLead(null)}
           onSaved={applyLead}
           onRequestMove={(lead, stage) => requestMove(lead, stage)}
+        />
+      )}
+      {pendingClaim && (
+        <ClaimLeadModal
+          lead={pendingClaim.lead}
+          stage={pendingClaim.stage}
+          onDecline={() => setPendingClaim(null)}
+          onClaim={() => {
+            setPendingClaim(null);
+            meetingScheduling.startMove(pendingClaim.lead, pendingClaim.stage);
+          }}
         />
       )}
       {pendingMove && (

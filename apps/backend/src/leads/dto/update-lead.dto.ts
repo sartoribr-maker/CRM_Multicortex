@@ -14,6 +14,13 @@ export class UpdateLeadDto extends PartialType(CreateLeadDto) {
   @IsString()
   actionDescription?: string;
 
+  @ApiPropertyOptional({
+    description: 'Assume como responsável um lead do site ainda sem responsável (obrigatório ao movê-lo de etapa)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  claimLead?: boolean;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()

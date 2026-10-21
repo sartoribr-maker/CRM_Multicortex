@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
+import { ClaimLeadModal } from '../../components/leads/kanban/ClaimLeadModal';
 import { KanbanBoard } from '../../components/leads/kanban/KanbanBoard';
 import { money } from '../../components/leads/kanban/LeadKanbanCard';
 import { MoveLeadModal, type MoveLeadPayload } from '../../components/leads/kanban/MoveLeadModal';
@@ -46,6 +47,9 @@ export default function LeadsKanbanPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
+  const [pendingClaim, setPendingClaim] = useState<Omit<PendingMove, 'actionDescription'> | null>(
+    null,
+  );
   const [isMoving, setIsMoving] = useState(false);
 
   useEffect(() => {
@@ -68,7 +72,11 @@ export default function LeadsKanbanPage() {
           userData,
           partnerData,
         ]) => {
-          setStages([...stageData].sort((a, b) => a.order - b.order));
+          setStages(
+            stageData
+              .filter((stage) => !stage.hiddenInMainCrm)
+              .sort((a, b) => a.order - b.order),
+          );
           setPriorities(priorityData);
           setDealSizes(dealSizeData);
           setSources(sourceData);
@@ -143,7 +151,8 @@ export default function LeadsKanbanPage() {
   function requestMove(leadId: string, stage: Stage) {
     const lead = leads.find((item) => item.id === leadId);
     if (!lead || lead.stage.id === stage.id || !canEdit) return;
-    meetingScheduling.startMove(lead, stage);
+    if (lead.awaitingClaim) setPendingClaim({ lead, stage });
+    else meetingScheduling.startMove(lead, stage);
   }
 
   async function persistMove(lead: LeadListItem, stage: Stage, payload: MoveLeadPayload) {
@@ -363,6 +372,17 @@ export default function LeadsKanbanPage() {
           onMove={requestMove}
           onOpen={openLead}
           onAdd={() => navigate('/leads/novo')}
+        />
+      )}
+      {pendingClaim && (
+        <ClaimLeadModal
+          lead={pendingClaim.lead}
+          stage={pendingClaim.stage}
+          onDecline={() => setPendingClaim(null)}
+          onClaim={() => {
+            setPendingClaim(null);
+            meetingScheduling.startMove(pendingClaim.lead, pendingClaim.stage);
+          }}
         />
       )}
       {pendingMove && (

@@ -123,6 +123,20 @@ const ROLE_DEFINITIONS: Array<{
       PERMISSIONS.TASKS_EDIT,
     ],
   },
+  {
+    name: 'SDR Admin',
+    description: 'SDR com importação de leads Outbound: acesso exclusivo ao Portal de Terceiros.',
+    portal: PortalType.THIRD_PARTY,
+    permissions: [
+      PERMISSIONS.PORTAL_SDR_ACCESS,
+      PERMISSIONS.PORTAL_SDR_IMPORT,
+      PERMISSIONS.LEADS_VIEW,
+      PERMISSIONS.LEADS_CREATE,
+      PERMISSIONS.LEADS_EDIT,
+      PERMISSIONS.TASKS_VIEW,
+      PERMISSIONS.TASKS_EDIT,
+    ],
+  },
 ];
 
 const LEAD_DEFINITIONS = [

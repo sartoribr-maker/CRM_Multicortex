@@ -7,7 +7,6 @@ import { TaskDeadline } from '../../components/TaskDeadline';
 import { formatDate } from '../../lib/formatters';
 import { sdrPortalApi } from '../../lib/sdrPortalApi';
 import { useAuthStore } from '../../store/useAuthStore';
-import { ADMIN_ROLE_NAME } from '../../types/auth';
 import { LEAD_ACTIVITY_LABELS, LEAD_TYPE_LABELS } from '../../types/leads';
 import type {
   SdrAttentionLead,
@@ -18,6 +17,7 @@ import type {
   SdrTask,
 } from '../../types/sdrPortal';
 import { OutboundImportModal } from './OutboundImportModal';
+import { OutboundImportsDeleteModal } from './OutboundImportsDeleteModal';
 import { ThirdPartyShell } from './ThirdPartyShell';
 
 const PERIODS: Array<[SdrPeriod, string]> = [
@@ -520,13 +520,12 @@ export default function SdrDashboardPage() {
     setSelectedCard((current) => (current?.key === selection.key ? null : selection));
   const [data, setData] = useState<SdrSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Importação Outbound restrita ao perfil Administrador (validado também no backend).
+  // Importação Outbound: perfis Administrador e SDR Admin (validado também no backend).
   const canImport = useAuthStore(
-    (s) =>
-      s.user?.role.name === ADMIN_ROLE_NAME &&
-      (s.user?.permissions.includes('leads.create') ?? false),
+    (s) => s.user?.permissions.includes('portal.sdr.import') ?? false,
   );
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isDeleteImportOpen, setIsDeleteImportOpen] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -562,10 +561,20 @@ export default function SdrDashboardPage() {
         actions={
           <>
             {canImport && (
-              <button type="button" className="btn-secondary" onClick={() => setIsImportOpen(true)}>
-                <Icon name="upload" className="h-4 w-4" />
-                Importar Outbound
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setIsDeleteImportOpen(true)}
+                >
+                  <Icon name="trash" className="h-4 w-4" />
+                  Excluir importação
+                </button>
+                <button type="button" className="btn-secondary" onClick={() => setIsImportOpen(true)}>
+                  <Icon name="upload" className="h-4 w-4" />
+                  Importar Outbound
+                </button>
+              </>
             )}
             <Link to="/terceiro/kanban" className="btn-primary">
               <Icon name="leads" className="h-4 w-4" />
@@ -599,6 +608,18 @@ export default function SdrDashboardPage() {
             setIsImportOpen(false);
             setImportMessage(
               `${result.imported} oportunidade(s) Outbound importada(s). ${result.blacklisted} registro(s) na blacklist.`,
+            );
+            setReloadKey((key) => key + 1);
+          }}
+        />
+      )}
+
+      {isDeleteImportOpen && (
+        <OutboundImportsDeleteModal
+          onClose={() => setIsDeleteImportOpen(false)}
+          onDeleted={(fileName, deletedLeads) => {
+            setImportMessage(
+              `Importação "${fileName}" excluída: ${deletedLeads} oportunidade(s) removida(s).`,
             );
             setReloadKey((key) => key + 1);
           }}

@@ -1,5 +1,6 @@
 import { apiJson } from './api';
 import type {
+  OutboundImportBatch,
   OutboundImportPayload,
   OutboundImportPreview,
   OutboundImportResult,
@@ -54,6 +55,9 @@ export const sdrPortalApi = {
     for (const [field, value] of Object.entries(payload)) body.append(field, JSON.stringify(value));
     return apiJson<OutboundImportResult>('/portal/sdr/imports/outbound', { method: 'POST', body });
   },
+  listOutboundImports: () => apiJson<OutboundImportBatch[]>('/portal/sdr/imports/outbound'),
+  removeOutboundImport: (id: string) =>
+    apiJson<{ deletedLeads: number }>(`/portal/sdr/imports/outbound/${id}`, { method: 'DELETE' }),
   getSettings: () => apiJson<SdrPortalSettings>('/sdr-portal-settings'),
   updateSettings: (payload: SdrPortalSettingsPayload) =>
     apiJson<SdrPortalSettings>('/sdr-portal-settings', {

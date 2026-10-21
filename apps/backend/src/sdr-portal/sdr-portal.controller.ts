@@ -1,9 +1,11 @@
 import {
   BadRequestException,
   Body,
-  ForbiddenException,
   Controller,
+  Delete,
   Get,
+  Param,
+  ParseUUIDPipe,
   Post,
   Query,
   UploadedFile,
@@ -13,7 +15,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { ApiTags } from '@nestjs/swagger';
 import { PERMISSIONS } from '../auth/constants/permissions';
-import { ADMIN_ROLE_NAME } from '../auth/constants/roles';
 import { AllowThirdPartyPortal } from '../auth/decorators/allow-third-party-portal.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -40,13 +41,6 @@ const SPREADSHEET_UPLOAD = {
     callback(null, true);
   },
 };
-
-/** A importação Outbound é restrita ao perfil Administrador. */
-function requireAdmin(user: JwtPayload): void {
-  if (user.roleName !== ADMIN_ROLE_NAME) {
-    throw new ForbiddenException('Importação disponível apenas para o perfil Administrador.');
-  }
-}
 
 function requireFile(file: Express.Multer.File | undefined): Express.Multer.File {
   if (!file) throw new BadRequestException('Selecione a planilha a importar.');
@@ -82,26 +76,38 @@ export class SdrPortalController {
 
   /** Lê a planilha e devolve os registros com a marcação inicial (blacklist). */
   @Post('imports/outbound/preview')
-  @RequirePermissions(PERMISSIONS.PORTAL_SDR_ACCESS, PERMISSIONS.LEADS_CREATE)
+  @RequirePermissions(PERMISSIONS.PORTAL_SDR_ACCESS, PERMISSIONS.PORTAL_SDR_IMPORT)
   @UseInterceptors(FileInterceptor('file', SPREADSHEET_UPLOAD))
-  previewOutboundImport(
-    @UploadedFile() file: Express.Multer.File,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    requireAdmin(user);
+  previewOutboundImport(@UploadedFile() file: Express.Multer.File) {
     return this.outboundImport.preview(requireFile(file));
   }
 
   /** Cria as oportunidades marcadas e envia todos os registros à blacklist. */
   @Post('imports/outbound')
-  @RequirePermissions(PERMISSIONS.PORTAL_SDR_ACCESS, PERMISSIONS.LEADS_CREATE)
+  @RequirePermissions(PERMISSIONS.PORTAL_SDR_ACCESS, PERMISSIONS.PORTAL_SDR_IMPORT)
   @UseInterceptors(FileInterceptor('file', SPREADSHEET_UPLOAD))
   importOutbound(
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: OutboundImportDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    requireAdmin(user);
     return this.outboundImport.import(requireFile(file), dto, user);
+  }
+
+  /** Arquivos importados, para escolher qual importação excluir. */
+  @Get('imports/outbound')
+  @RequirePermissions(PERMISSIONS.PORTAL_SDR_ACCESS, PERMISSIONS.PORTAL_SDR_IMPORT)
+  listOutboundImports() {
+    return this.outboundImport.list();
+  }
+
+  /** Exclui as oportunidades e os registros da blacklist de um arquivo importado. */
+  @Delete('imports/outbound/:id')
+  @RequirePermissions(PERMISSIONS.PORTAL_SDR_ACCESS, PERMISSIONS.PORTAL_SDR_IMPORT)
+  removeOutboundImport(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.outboundImport.remove(id, user);
   }
 }

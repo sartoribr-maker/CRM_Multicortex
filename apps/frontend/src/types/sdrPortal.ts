@@ -170,3 +170,15 @@ export interface OutboundImportResult {
   blacklisted: number;
   skipped: number;
 }
+
+/** Arquivo Outbound já importado (exclusão por arquivo). */
+export interface OutboundImportBatch {
+  id: string;
+  fileName: string;
+  createdAt: string;
+  createdByName: string | null;
+  /** Oportunidades criadas pelo arquivo que ainda existem. */
+  leadCount: number;
+  /** Registros do arquivo na blacklist. */
+  recordCount: number;
+}

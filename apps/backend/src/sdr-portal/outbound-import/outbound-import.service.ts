@@ -1,9 +1,11 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { AuditService } from '../../audit/audit.service';
 import type { JwtPayload } from '../../auth/types/jwt-payload.interface';
 import { CompanyContactService } from '../../companies/company-contact.service';
 import { EmailNotificationsService } from '../../notifications/email-notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { STORAGE_PROVIDER, type StorageProvider } from '../../storage/storage-provider.interface';
 import { SdrPortalSettingsService } from '../sdr-portal-settings.service';
 import { foldName } from '../../common/spreadsheet';
 import { blacklistKey, parseOutboundSheet, type OutboundSheetRow } from './outbound-sheet.parser';
@@ -104,6 +106,8 @@ export class OutboundImportService {
     private readonly settings: SdrPortalSettingsService,
     private readonly companyContacts: CompanyContactService,
     private readonly emailNotifications: EmailNotificationsService,
+    private readonly audit: AuditService,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
   ) {}
 
   async preview(file: Express.Multer.File) {
@@ -229,6 +233,10 @@ export class OutboundImportService {
 
     const created = await this.prisma.$transaction(
       async (tx) => {
+        const batch = await tx.outboundImport.create({
+          data: { fileName, createdBy: currentUser.sub },
+          select: { id: true },
+        });
         const leadIds = new Map<string, string>();
         const createdLeads: Array<{ row: OutboundImportPreviewRow; businessCode: string }> = [];
         for (const row of toImport) {
@@ -238,6 +246,7 @@ export class OutboundImportService {
             partnerId: settings.sdrPartnerId!,
             priorityId: row.priorityName ? priorityIds.get(foldName(row.priorityName)) : undefined,
             description: buildDescription(row, fileName, importedAt),
+            importId: batch.id,
             actorUserId: currentUser.sub,
           });
           leadIds.set(row.key!, lead.id);
@@ -257,9 +266,10 @@ export class OutboundImportService {
               imported: leadId !== undefined,
               leadId,
               fileName,
+              importId: batch.id,
               createdBy: currentUser.sub,
             },
-            update: leadId ? { imported: true, leadId, fileName } : {},
+            update: leadId ? { imported: true, leadId, fileName, importId: batch.id } : {},
           });
         }
         return createdLeads;
@@ -280,6 +290,67 @@ export class OutboundImportService {
     };
   }
 
+  /** Arquivos importados, do mais recente ao mais antigo. */
+  async list() {
+    const imports = await this.prisma.outboundImport.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        fileName: true,
+        createdAt: true,
+        createdBy: true,
+        _count: { select: { leads: true, blacklist: true } },
+      },
+    });
+    const userIds = [...new Set(imports.map((item) => item.createdBy).filter((id): id is string => !!id))];
+    const users = new Map(
+      (
+        await this.prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true },
+        })
+      ).map((user) => [user.id, user.name]),
+    );
+    return imports.map(({ _count, createdBy, ...item }) => ({
+      ...item,
+      createdByName: createdBy ? (users.get(createdBy) ?? null) : null,
+      leadCount: _count.leads,
+      recordCount: _count.blacklist,
+    }));
+  }
+
+  /**
+   * Exclui as oportunidades criadas pelo arquivo e os registros dele na
+   * blacklist, para que possam ser importados de novo. Empresas e contatos
+   * vinculados são mantidos (podem estar em outras oportunidades).
+   */
+  async remove(id: string, currentUser: JwtPayload) {
+    const batch = await this.prisma.outboundImport.findUnique({
+      where: { id },
+      select: { id: true, fileName: true, leads: { select: { id: true } } },
+    });
+    if (!batch) throw new NotFoundException('Importação não encontrada.');
+    const leadIds = batch.leads.map((lead) => lead.id);
+    const attachments = await this.prisma.attachment.findMany({
+      where: { leadId: { in: leadIds } },
+      select: { storageKey: true },
+    });
+
+    const [deletedLeads] = await this.prisma.$transaction([
+      this.prisma.lead.deleteMany({ where: { id: { in: leadIds } } }),
+      this.prisma.outboundImport.delete({ where: { id } }),
+    ]);
+    await Promise.all(attachments.map(({ storageKey }) => this.storage.delete(storageKey)));
+    await this.audit.record({
+      action: 'OUTBOUND_IMPORT_DELETED',
+      actorUserId: currentUser.sub,
+      targetType: 'OutboundImport',
+      targetId: id,
+      metadata: { fileName: batch.fileName, deletedLeads: deletedLeads.count },
+    });
+    return { deletedLeads: deletedLeads.count };
+  }
+
   private async createLead(
     tx: Prisma.TransactionClient,
     row: OutboundImportPreviewRow,
@@ -289,6 +360,7 @@ export class OutboundImportService {
       partnerId: string;
       priorityId?: string;
       description: string;
+      importId: string;
       actorUserId: string;
     },
   ): Promise<{ id: string; businessCode: string }> {
@@ -331,6 +403,7 @@ export class OutboundImportService {
         successProbability: row.successProbability,
         ownerId: row.ownerId!,
         description: context.description,
+        outboundImportId: context.importId,
         status: 'OPEN',
         createdBy: context.actorUserId,
       },

@@ -22,6 +22,7 @@ export const PERMISSIONS = {
   TASKS_DELETE: 'tasks.delete',
   DASHBOARD_VIEW: 'dashboard.view',
   PORTAL_SDR_ACCESS: 'portal.sdr.access',
+  PORTAL_SDR_IMPORT: 'portal.sdr.import',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -50,4 +51,5 @@ export const PERMISSION_CATALOG: Array<{ key: PermissionKey; module: string; des
   { key: PERMISSIONS.TASKS_DELETE, module: 'tasks', description: 'Arquivar tarefas' },
   { key: PERMISSIONS.DASHBOARD_VIEW, module: 'dashboard', description: 'Visualizar indicadores executivos' },
   { key: PERMISSIONS.PORTAL_SDR_ACCESS, module: 'portal', description: 'Acessar o Portal de Terceiros (SDR)' },
+  { key: PERMISSIONS.PORTAL_SDR_IMPORT, module: 'portal', description: 'Importar e excluir leads Outbound no Portal de Terceiros (SDR)' },
 ];

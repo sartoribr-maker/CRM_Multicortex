@@ -1,6 +1,3 @@
-/** Nome do perfil de sistema com acesso administrativo (igual ao backend). */
-export const ADMIN_ROLE_NAME = 'Administrador';
-
 export interface AuthUser {
   id: string;
   name: string;

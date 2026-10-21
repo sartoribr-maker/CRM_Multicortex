@@ -515,6 +515,10 @@ model Lead {
 
   description String?
 
+  /// Importação Outbound que criou o lead (exclusão por arquivo no Portal SDR).
+  outboundImportId String?
+  outboundImport   OutboundImport? @relation(fields: [outboundImportId], references: [id], onDelete: SetNull)
+
   status     LeadStatus @default(OPEN)
   lossReason String?
 
@@ -538,6 +542,7 @@ model Lead {
   @@index([leadType])
   @@index([companyId])
   @@index([contactId])
+  @@index([outboundImportId])
   @@map("leads")
 }
 
@@ -850,12 +855,31 @@ model LeadImportBlacklist {
   imported    Boolean @default(false)
   leadId      String?
   fileName    String?
+  /// Importação em que o registro entrou na blacklist (ou virou oportunidade).
+  importId    String?
+  import      OutboundImport? @relation(fields: [importId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   createdBy String?
 
+  @@index([importId])
   @@map("lead_import_blacklist")
+}
+
+/// Um arquivo de leads Outbound importado no Portal SDR. Excluir a
+/// importação apaga as oportunidades criadas e os registros da blacklist.
+model OutboundImport {
+  id       String @id @default(uuid())
+  fileName String
+
+  leads     Lead[]
+  blacklist LeadImportBlacklist[]
+
+  createdAt DateTime @default(now())
+  createdBy String?
+
+  @@map("outbound_imports")
 }
 
 // Integração com o Google Agenda via conta de serviço do Google Workspace

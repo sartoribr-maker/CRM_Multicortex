@@ -25,6 +25,8 @@ interface MoveLeadModalProps {
   /** Quando falso (Portal SDR), os responsáveis não são alterados. */
   showOwnerSelector?: boolean;
   userOptions?: Array<{ id: string; name: string }>;
+  /** Quando falso (Portal SDR), a opção de cadastrar tarefa aparece desabilitada. */
+  allowTask?: boolean;
   /** Texto inicial da ação (ex.: reunião recém-agendada). */
   initialActionDescription?: string;
   onCancel: () => void;
@@ -36,6 +38,7 @@ export function MoveLeadModal({
   stage,
   isSubmitting,
   showOwnerSelector = true,
+  allowTask = true,
   userOptions = [],
   initialActionDescription = '',
   onCancel,
@@ -141,9 +144,12 @@ export function MoveLeadModal({
             </div>
           </>
         )}
-        <label className="mt-4 flex items-center gap-2 text-sm font-semibold">
+        <label
+          className={`mt-4 flex items-center gap-2 text-sm font-semibold ${allowTask ? '' : 'cursor-not-allowed opacity-50'}`}
+        >
           <input
             type="checkbox"
+            disabled={!allowTask}
             checked={createTask}
             onChange={(event) => setCreateTask(event.target.checked)}
           />

@@ -118,7 +118,9 @@ export function SdrPortalSettingsPanel() {
   }
 
   const portalStages = stages.filter((stage) => stage.visibleInSdrPortal);
-  const allowedStages = stages.filter((stage) => settings.allowedTargetStageIds.includes(stage.id));
+  const allowedStages = stages.filter(
+    (stage) => stage.visibleInSdrPortal || settings.allowedTargetStageIds.includes(stage.id),
+  );
 
   return (
     <form onSubmit={save} className="space-y-6">
@@ -148,15 +150,17 @@ export function SdrPortalSettingsPanel() {
       <div>
         <h3 className="font-heading font-bold text-slate-800">Destinos permitidos</h3>
         <p className="mb-3 mt-1 text-xs text-slate-400">
-          Etapas para as quais o SDR pode mover uma oportunidade, incluindo a passagem para o
-          comercial e, se desejado, a etapa de perda (desqualificação).
+          O SDR sempre pode mover entre as etapas do portal acima. Marque aqui as etapas fora do
+          portal para onde ele também pode mover, como a passagem para o comercial e, se desejado, a
+          etapa de perda (desqualificação).
         </p>
         <StageChecklist
           stages={stages}
           selected={settings.allowedTargetStageIds}
           onChange={(ids) => {
             update('allowedTargetStageIds', ids);
-            if (settings.qualifiedStageId && !ids.includes(settings.qualifiedStageId)) {
+            const qualified = stages.find((stage) => stage.id === settings.qualifiedStageId);
+            if (qualified && !qualified.visibleInSdrPortal && !ids.includes(qualified.id)) {
               update('qualifiedStageId', null);
             }
           }}
@@ -179,7 +183,8 @@ export function SdrPortalSettingsPanel() {
             ))}
           </select>
           <p className="mt-1 text-xs text-slate-400">
-            Marco de conversão do SDR no dashboard. Precisa ser um destino permitido.
+            Marco de conversão do SDR no dashboard. Precisa ser etapa do portal ou destino
+            permitido.
           </p>
         </div>
         <div>

@@ -395,6 +395,7 @@ export default function SdrKanbanPage() {
           stage={pendingMove.stage}
           isSubmitting={isMoving}
           showOwnerSelector={false}
+          allowTask={false}
           initialActionDescription={pendingMove.actionDescription}
           onCancel={() => setPendingMove(null)}
           onConfirm={(payload) => void persistMove(pendingMove, payload)}

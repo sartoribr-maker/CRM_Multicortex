@@ -78,11 +78,21 @@ export function assertThirdPartyLeadPayload(
   }
 }
 
+/** Etapas do portal são sempre destinos válidos; as permitidas somam-se a elas. */
+export function isSdrTargetStage(
+  stageId: string,
+  settings: Pick<SdrLeadPolicySettings, 'visibleStageIds' | 'allowedTargetStageIds'>,
+): boolean {
+  return (
+    settings.visibleStageIds.includes(stageId) || settings.allowedTargetStageIds.includes(stageId)
+  );
+}
+
 export function assertThirdPartyStageMove(
   targetStageId: string,
-  settings: Pick<SdrLeadPolicySettings, 'allowedTargetStageIds'>,
+  settings: Pick<SdrLeadPolicySettings, 'visibleStageIds' | 'allowedTargetStageIds'>,
 ): void {
-  if (!settings.allowedTargetStageIds.includes(targetStageId)) {
+  if (!isSdrTargetStage(targetStageId, settings)) {
     throw new ForbiddenException('Etapa de destino não permitida no Portal SDR.');
   }
 }

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateSdrPortalSettingsDto } from './dto/update-sdr-portal-settings.dto';
+import { isSdrTargetStage } from './third-party-lead.policy';
 
 const STAGE_SELECT = {
   id: true,
@@ -49,9 +50,7 @@ export class SdrPortalSettingsService {
     });
     return {
       visibleStages: stages.filter((stage) => settings.visibleStageIds.includes(stage.id)),
-      allowedTargetStages: stages.filter((stage) =>
-        settings.allowedTargetStageIds.includes(stage.id),
-      ),
+      allowedTargetStages: stages.filter((stage) => isSdrTargetStage(stage.id, settings)),
       qualifiedStageId: settings.qualifiedStageId,
       defaultSourceId: settings.defaultSourceId,
       sdrPartnerId: settings.sdrPartnerId,
@@ -71,9 +70,15 @@ export class SdrPortalSettingsService {
     if (existingStages !== stageIds.length) {
       throw new BadRequestException('Uma ou mais etapas informadas não existem ou estão arquivadas.');
     }
-    if (dto.qualifiedStageId && !allowedTargetStageIds.includes(dto.qualifiedStageId)) {
+    if (
+      dto.qualifiedStageId &&
+      !isSdrTargetStage(dto.qualifiedStageId, {
+        visibleStageIds: (await this.get()).visibleStageIds,
+        allowedTargetStageIds,
+      })
+    ) {
       throw new BadRequestException(
-        'A etapa de lead qualificado precisa estar entre as etapas de destino permitidas.',
+        'A etapa de lead qualificado precisa ser uma etapa do portal ou um destino permitido.',
       );
     }
     if (

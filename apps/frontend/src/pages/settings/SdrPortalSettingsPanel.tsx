@@ -62,7 +62,6 @@ export function SdrPortalSettingsPanel() {
         const activeStageIds = new Set(stageData.map((stage) => stage.id));
         // Etapas arquivadas depois da configuração deixam de ser exibidas e salvas.
         setSettings({
-          visibleStageIds: data.visibleStageIds.filter((id) => activeStageIds.has(id)),
           allowedTargetStageIds: data.allowedTargetStageIds.filter((id) => activeStageIds.has(id)),
           qualifiedStageId:
             data.qualifiedStageId && activeStageIds.has(data.qualifiedStageId)
@@ -99,7 +98,6 @@ export function SdrPortalSettingsPanel() {
     try {
       const saved = await sdrPortalApi.updateSettings(settings);
       setSettings({
-        visibleStageIds: saved.visibleStageIds,
         allowedTargetStageIds: saved.allowedTargetStageIds,
         qualifiedStageId: saved.qualifiedStageId,
         defaultSourceId: saved.defaultSourceId,
@@ -119,21 +117,32 @@ export function SdrPortalSettingsPanel() {
     return <p className="text-sm text-slate-400">{error || 'Carregando…'}</p>;
   }
 
+  const portalStages = stages.filter((stage) => stage.visibleInSdrPortal);
   const allowedStages = stages.filter((stage) => settings.allowedTargetStageIds.includes(stage.id));
 
   return (
     <form onSubmit={save} className="space-y-6">
       <div>
         <h3 className="font-heading font-bold text-slate-800">Colunas do Kanban do SDR</h3>
-        <p className="mb-3 mt-1 text-xs text-slate-400">
-          O SDR vê e trata as oportunidades do parceiro SDR que estiverem nestas etapas, de qualquer
-          responsável.
+        <p className="mt-1 text-xs text-slate-400">
+          O SDR vê e trata as oportunidades do parceiro SDR que estiverem nas etapas marcadas com
+          "Aparece no Portal SDR" em Configurações › Etapas do Funil, de qualquer responsável.
         </p>
-        <StageChecklist
-          stages={stages}
-          selected={settings.visibleStageIds}
-          onChange={(ids) => update('visibleStageIds', ids)}
-        />
+        <p className="mt-3 flex flex-wrap gap-2 text-sm text-slate-700">
+          {portalStages.length === 0 ? (
+            <span className="text-slate-400">Nenhuma etapa marcada.</span>
+          ) : (
+            portalStages.map((stage) => (
+              <span
+                key={stage.id}
+                className="flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1"
+              >
+                <span className="status-dot" style={{ backgroundColor: stage.color }} />
+                {stage.name}
+              </span>
+            ))
+          )}
+        </p>
       </div>
 
       <div>

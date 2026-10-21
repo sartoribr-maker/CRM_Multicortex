@@ -93,6 +93,24 @@ const SECTIONS: Record<SettingsSection, { title: string; description: string }> 
   },
 };
 
+const STAGE_TAG_TONES = {
+  won: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/25 dark:text-emerald-300',
+  lost: 'bg-rose-500/10 text-rose-700 ring-rose-500/25 dark:text-rose-300',
+  sdr: 'bg-purple-500/10 text-brand-purple ring-purple-500/25 dark:text-purple-300',
+  hidden: 'bg-slate-500/10 text-slate-600 ring-slate-500/25 dark:text-slate-300',
+};
+
+/** Selo da coluna Classificação das etapas do funil. */
+function StageTag({ tone, children }: { tone: keyof typeof STAGE_TAG_TONES; children: string }) {
+  return (
+    <span
+      className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ring-1 ring-inset ${STAGE_TAG_TONES[tone]}`}
+    >
+      {children}
+    </span>
+  );
+}
+
 export default function SettingsPage({ section }: { section: SettingsSection }) {
   const page = SECTIONS[section];
 
@@ -108,9 +126,16 @@ export default function SettingsPage({ section }: { section: SettingsSection }) 
               description="Colunas do Kanban de vendas, na ordem em que aparecem."
               itemNoun="etapa"
               api={stagesApi}
-              emptyDraft={{ name: '', color: '#74529F', isWonStage: false, isLostStage: false }}
+              emptyDraft={{
+                name: '',
+                color: '#74529F',
+                isWonStage: false,
+                isLostStage: false,
+                visibleInSdrPortal: false,
+                hiddenInMainCrm: false,
+              }}
               renderExtraFormFields={(draft, setDraft) => (
-                <div className="flex gap-4 text-sm text-ink">
+                <div className="flex flex-wrap gap-4 text-sm text-ink">
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -127,17 +152,31 @@ export default function SettingsPage({ section }: { section: SettingsSection }) 
                     />
                     Etapa de perda
                   </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={draft.visibleInSdrPortal ?? false}
+                      onChange={(e) => setDraft({ visibleInSdrPortal: e.target.checked })}
+                    />
+                    Aparece no Portal SDR
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={draft.hiddenInMainCrm ?? false}
+                      onChange={(e) => setDraft({ hiddenInMainCrm: e.target.checked })}
+                    />
+                    Ocultar CRM Principal
+                  </label>
                 </div>
               )}
               renderExtraColumns={(item) => (
-                <>
-                  {item.isWonStage && (
-                    <span className="text-xs font-semibold text-success">GANHO</span>
-                  )}
-                  {item.isLostStage && (
-                    <span className="text-xs font-semibold text-danger">PERDIDO</span>
-                  )}
-                </>
+                <div className="flex flex-wrap gap-1.5">
+                  {item.isWonStage && <StageTag tone="won">Ganho</StageTag>}
+                  {item.isLostStage && <StageTag tone="lost">Perdido</StageTag>}
+                  {item.visibleInSdrPortal && <StageTag tone="sdr">Portal SDR</StageTag>}
+                  {item.hiddenInMainCrm && <StageTag tone="hidden">Oculta no CRM</StageTag>}
+                </div>
               )}
             />
           )}

@@ -25,7 +25,8 @@ export interface SdrPortalSettings {
   updatedAt: string;
 }
 
-export type SdrPortalSettingsPayload = Omit<SdrPortalSettings, 'updatedAt'>;
+/** As etapas visíveis são definidas no cadastro de etapas, não aqui. */
+export type SdrPortalSettingsPayload = Omit<SdrPortalSettings, 'updatedAt' | 'visibleStageIds'>;
 
 interface SummaryStage {
   id: string;

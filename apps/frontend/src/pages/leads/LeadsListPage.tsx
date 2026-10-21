@@ -96,7 +96,7 @@ export default function LeadsListPage() {
       canViewAll ? usersApi.list() : Promise.resolve([]),
       partnersApi.options(),
     ]).then(([a, b, c, d, e, f, g]) => {
-      setStages(a);
+      setStages(a.filter((stage) => !stage.hiddenInMainCrm));
       setPriorities(b);
       setDealSizes(c);
       setSources(d);

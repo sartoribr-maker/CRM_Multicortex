@@ -20,4 +20,14 @@ export class CreateStageDto {
   @IsOptional()
   @IsBoolean()
   isLostStage?: boolean;
+
+  @ApiProperty({ required: false, default: false, description: 'Exibir a etapa no Portal SDR' })
+  @IsOptional()
+  @IsBoolean()
+  visibleInSdrPortal?: boolean;
+
+  @ApiProperty({ required: false, default: false, description: 'Ocultar a etapa no CRM principal' })
+  @IsOptional()
+  @IsBoolean()
+  hiddenInMainCrm?: boolean;
 }

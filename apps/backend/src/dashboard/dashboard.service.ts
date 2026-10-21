@@ -40,7 +40,10 @@ export class DashboardService {
         },
         orderBy: { updatedAt: 'desc' },
       }),
-      this.prisma.stage.findMany({ where: { deletedAt: null }, orderBy: { order: 'asc' } }),
+      this.prisma.stage.findMany({
+        where: { deletedAt: null, hiddenInMainCrm: false },
+        orderBy: { order: 'asc' },
+      }),
       this.prisma.task.findMany({
         where: { ...taskWhere, dueDate: { lt: now }, status: { notIn: ['DONE', 'CANCELED'] } },
         select: {

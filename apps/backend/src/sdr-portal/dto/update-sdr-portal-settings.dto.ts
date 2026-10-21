@@ -12,12 +12,6 @@ import {
 } from 'class-validator';
 
 export class UpdateSdrPortalSettingsDto {
-  @ApiProperty({ type: [String], description: 'Etapas exibidas como colunas no Kanban do SDR' })
-  @IsArray()
-  @ArrayMaxSize(50)
-  @IsUUID(undefined, { each: true })
-  visibleStageIds!: string[];
-
   @ApiProperty({ type: [String], description: 'Etapas para as quais o SDR pode mover um card' })
   @IsArray()
   @ArrayMaxSize(50)

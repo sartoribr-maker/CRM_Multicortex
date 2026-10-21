@@ -239,6 +239,10 @@ model Stage {
   color       String
   isWonStage  Boolean @default(false)
   isLostStage Boolean @default(false)
+  /// Exibida como coluna no Kanban do Portal SDR (/terceiro).
+  visibleInSdrPortal Boolean @default(false)
+  /// Oculta a etapa no CRM principal (Kanban, filtros, relatórios e dashboard).
+  hiddenInMainCrm    Boolean @default(false)
 
   leads            Lead[]
   stageHistoryFrom StageHistoryEntry[] @relation("StageHistoryFrom")
@@ -777,7 +781,6 @@ model MonitoringSettings {
 // depender de nomes de etapas.
 model SdrPortalSettings {
   id                    String   @id @default("default")
-  visibleStageIds       String[] @default([])
   allowedTargetStageIds String[] @default([])
   qualifiedStageId      String?
   defaultSourceId       String?

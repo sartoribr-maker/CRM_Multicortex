@@ -44,9 +44,14 @@ export function ScheduleMeetingModal({
     [lead.businessCode, lead.name].filter(Boolean).join(' — '),
   );
   const [withMeet, setWithMeet] = useState(true);
-  const [attendees, setAttendees] = useState<string[]>(
-    lead.contactEmail ? [lead.contactEmail.toLowerCase()] : [],
-  );
+  // Contato do lead e quem está agendando (quem moveu o card para a etapa de reunião).
+  const [attendees, setAttendees] = useState<string[]>(() => [
+    ...new Set(
+      [lead.contactEmail?.toLowerCase(), currentUserEmail].filter((email): email is string =>
+        Boolean(email),
+      ),
+    ),
+  ]);
   const [guestInput, setGuestInput] = useState('');
   const [suggestions, setSuggestions] = useState<AttendeeSuggestion[]>([]);
   const [error, setError] = useState<string | null>(null);

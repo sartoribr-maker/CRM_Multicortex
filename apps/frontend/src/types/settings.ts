@@ -5,6 +5,10 @@ export interface Stage {
   color: string;
   isWonStage: boolean;
   isLostStage: boolean;
+  /** Exibida como coluna no Kanban do Portal SDR (/terceiro). */
+  visibleInSdrPortal: boolean;
+  /** Oculta a etapa no CRM principal; ela pode seguir visível no Portal SDR. */
+  hiddenInMainCrm: boolean;
   deletedAt: string | null;
 }
 

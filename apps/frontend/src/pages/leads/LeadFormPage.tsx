@@ -546,11 +546,14 @@ export default function LeadFormPage() {
                   onChange={(e) => updateField('stageId', e.target.value)}
                 >
                   <option value="">Etapa inicial padrão</option>
-                  {stages.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
+                  {/* Etapas ocultas no CRM só aparecem se o lead já estiver nelas. */}
+                  {stages
+                    .filter((s) => !s.hiddenInMainCrm || s.id === initialStageId)
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
                 </select>
               </div>
               <div>

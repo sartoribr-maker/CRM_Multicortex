@@ -321,7 +321,6 @@ async function main() {
     }));
   const sdrSettings = {
     sdrPartnerId: sdrPartner.id,
-    visibleStageIds: sdrVisibleStageIds,
     allowedTargetStageIds: sdrStages.map((stage) => stage.id),
     qualifiedStageId: sdrStages.find((stage) => stage.name === SDR_QUALIFIED_STAGE_NAME)?.id ?? null,
     defaultSourceId: sdrSource.id,
@@ -330,6 +329,10 @@ async function main() {
     where: { id: 'default' },
     update: sdrSettings,
     create: { id: 'default', ...sdrSettings },
+  });
+  await prisma.stage.updateMany({
+    where: { id: { in: sdrVisibleStageIds } },
+    data: { visibleInSdrPortal: true },
   });
 
   console.log('Seed: etapa de reunião do Google Agenda...');

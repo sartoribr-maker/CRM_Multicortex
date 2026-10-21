@@ -25,7 +25,7 @@ export default function PipelineReportPage() {
         );
         const remaining = await Promise.all(remainingPages);
         setLeads([firstPage, ...remaining].flatMap((page) => page.items));
-        setStages(stageItems);
+        setStages(stageItems.filter((stage) => !stage.hiddenInMainCrm));
       })
       .catch((loadError) =>
         setError(loadError instanceof Error ? loadError.message : 'Erro ao carregar relatório.'),

@@ -10,6 +10,7 @@ const STAGE_SELECT = {
   order: true,
   isWonStage: true,
   isLostStage: true,
+  visibleInSdrPortal: true,
   deletedAt: true,
 } as const;
 
@@ -20,12 +21,21 @@ export class SdrPortalSettingsService {
     private readonly audit: AuditService,
   ) {}
 
-  get() {
-    return this.prisma.sdrPortalSettings.upsert({
-      where: { id: 'default' },
-      update: {},
-      create: { id: 'default' },
-    });
+  /** Configuração do portal; as etapas visíveis vêm do cadastro de etapas. */
+  async get() {
+    const [settings, visibleStages] = await Promise.all([
+      this.prisma.sdrPortalSettings.upsert({
+        where: { id: 'default' },
+        update: {},
+        create: { id: 'default' },
+      }),
+      this.prisma.stage.findMany({
+        where: { visibleInSdrPortal: true, deletedAt: null },
+        select: { id: true },
+        orderBy: { order: 'asc' },
+      }),
+    ]);
+    return { ...settings, visibleStageIds: visibleStages.map((stage) => stage.id) };
   }
 
   /** Configuração consumida pelo portal, com as etapas já resolvidas e ordenadas. */
@@ -51,10 +61,9 @@ export class SdrPortalSettingsService {
   }
 
   async update(dto: UpdateSdrPortalSettingsDto, actorUserId: string) {
-    const visibleStageIds = [...new Set(dto.visibleStageIds)];
     const allowedTargetStageIds = [...new Set(dto.allowedTargetStageIds)];
     const stageIds = [
-      ...new Set([...visibleStageIds, ...allowedTargetStageIds, ...(dto.qualifiedStageId ? [dto.qualifiedStageId] : [])]),
+      ...new Set([...allowedTargetStageIds, ...(dto.qualifiedStageId ? [dto.qualifiedStageId] : [])]),
     ];
     const existingStages = await this.prisma.stage.count({
       where: { id: { in: stageIds }, deletedAt: null },
@@ -81,7 +90,6 @@ export class SdrPortalSettingsService {
     }
 
     const data = {
-      visibleStageIds,
       allowedTargetStageIds,
       qualifiedStageId: dto.qualifiedStageId ?? null,
       defaultSourceId: dto.defaultSourceId ?? null,
@@ -101,6 +109,6 @@ export class SdrPortalSettingsService {
       targetType: 'SdrPortalSettings',
       targetId: settings.id,
     });
-    return settings;
+    return this.get();
   }
 }

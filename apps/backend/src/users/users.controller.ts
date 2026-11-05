@@ -23,7 +23,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ListUsersQueryDto } from './dto/list-users.query.dto';
 import { ResetUserPasswordDto } from './dto/reset-user-password.dto';
-import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
+import { RequireAnyPermission, RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { PERMISSIONS } from '../auth/constants/permissions';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
@@ -38,6 +38,16 @@ export class UsersController {
   @RequirePermissions(PERMISSIONS.USERS_VIEW)
   findAll(@Query() query: ListUsersQueryDto) {
     return this.usersService.findAll(query);
+  }
+
+  /**
+   * Lista enxuta para filtros e seleção de responsáveis. Não exige acesso à
+   * gestão de usuários: basta ver leads ou tarefas de toda a equipe.
+   */
+  @Get('options')
+  @RequireAnyPermission(PERMISSIONS.USERS_VIEW, PERMISSIONS.LEADS_VIEW_ALL, PERMISSIONS.TASKS_VIEW_ALL)
+  options() {
+    return this.usersService.options();
   }
 
   @Get(':id')

@@ -24,6 +24,7 @@ import {
 } from '../../types/leads';
 import type { Partner } from '../../types/partners';
 import type { DealSize, Priority, ProjectType, Source, Stage } from '../../types/settings';
+import { canDeleteRecord, canViewAllStages } from '../../lib/permissions';
 
 type SortKey =
   | 'name'
@@ -54,9 +55,9 @@ function isMandatoryPriority(lead: LeadListItem) {
 export default function LeadsListPage() {
   const user = useAuthStore((s) => s.user);
   const canViewAll = user?.permissions.includes('leads.view.all') ?? false;
+  const showAllStages = canViewAllStages(user);
   const canCreate = user?.permissions.includes('leads.create') ?? false;
   const canEdit = user?.permissions.includes('leads.edit') ?? false;
-  const canDelete = user?.permissions.includes('leads.delete') ?? false;
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -93,10 +94,10 @@ export default function LeadsListPage() {
       dealSizesApi.list(),
       sourcesApi.list(),
       projectTypesApi.list(),
-      canViewAll ? usersApi.list() : Promise.resolve([]),
+      canViewAll ? usersApi.options() : Promise.resolve([]),
       partnersApi.options(),
     ]).then(([a, b, c, d, e, f, g]) => {
-      setStages(a.filter((stage) => !stage.hiddenInMainCrm));
+      setStages(a.filter((stage) => showAllStages || !stage.hiddenInMainCrm));
       setPriorities(b);
       setDealSizes(c);
       setSources(d);
@@ -104,7 +105,7 @@ export default function LeadsListPage() {
       setUsers(f);
       setPartners(g);
     });
-  }, [canViewAll]);
+  }, [canViewAll, showAllStages]);
   useEffect(() => {
     setIsLoading(true);
     setError(null);
@@ -480,7 +481,7 @@ export default function LeadsListPage() {
                           <Icon name="edit" className="h-4 w-4" />
                         </button>
                       )}
-                      {canDelete && (
+                      {canDeleteRecord(user, 'leads', lead.createdBy) && (
                         <button
                           className="icon-button hover:!text-red-600"
                           title="Excluir definitivamente"

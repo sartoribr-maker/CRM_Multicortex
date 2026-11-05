@@ -29,6 +29,7 @@ import {
   TASK_STATUS_LABELS,
   type Task,
 } from '../../types/tasks';
+import { canDeleteRecord } from '../../lib/permissions';
 
 type Tab = 'overview' | 'tasks' | 'timeline' | 'attachments';
 
@@ -47,7 +48,6 @@ export default function LeadDetailPage() {
   const user = useAuthStore((s) => s.user);
   const canEdit = user?.permissions.includes('leads.edit') ?? false;
   const canCreate = user?.permissions.includes('leads.create') ?? false;
-  const canDelete = user?.permissions.includes('leads.delete') ?? false;
   const canCreateTask = user?.permissions.includes('tasks.create') ?? false;
   const canViewTasks = user?.permissions.includes('tasks.view') ?? false;
 
@@ -135,7 +135,7 @@ export default function LeadDetailPage() {
                   Editar
                 </button>
               )}
-              {canDelete && (
+              {canDeleteRecord(user, 'leads', lead.createdBy) && (
                 <>
                   <button onClick={handleArchive} className="btn-secondary">
                     <Icon name="archive" className="h-4 w-4" />
@@ -250,7 +250,6 @@ function TasksTab({
   const location = useLocation();
   const user = useAuthStore((state) => state.user);
   const canEdit = user?.permissions.includes('tasks.edit') ?? false;
-  const canDelete = user?.permissions.includes('tasks.delete') ?? false;
   const [tasks, setTasks] = useState<Task[]>([]);
   const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
   const [loading, setLoading] = useState(canView);
@@ -434,7 +433,7 @@ function TasksTab({
                         <Icon name="edit" className="h-4 w-4" />
                       </button>
                     )}
-                    {canDelete && (
+                    {canDeleteRecord(user, 'tasks', task.createdByUser.id) && (
                       <button
                         className="icon-button hover:!text-red-600"
                         title="Excluir tarefa"

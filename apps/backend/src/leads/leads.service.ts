@@ -3,6 +3,8 @@ import { CustomFieldType, LeadLine, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeadActivityService } from './lead-activity.service';
 import { PERMISSIONS } from '../auth/constants/permissions';
+import { assertCanDeleteRecord } from '../auth/delete-ownership';
+import { canViewMandatoryLeads, mandatoryLeadFilter, mandatoryPriorityIds } from './mandatory-priority';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
@@ -128,12 +130,23 @@ export class LeadsService {
    * Portal SDR, independentemente do responsável (fila de prospecção da equipe).
    */
   private async visibilityFilter(currentUser: JwtPayload): Promise<Prisma.LeadWhereInput> {
-    if (!isThirdParty(currentUser)) return this.ownershipFilter(currentUser);
+    const mandatory = await mandatoryLeadFilter(this.prisma, currentUser);
+    if (!isThirdParty(currentUser)) {
+      return { AND: [this.ownershipFilter(currentUser), mandatory] };
+    }
     const { visibleStageIds, sdrPartnerId } = await this.sdrPortalSettings.get();
     // Somente leads do parceiro comercial SDR; sem parceiro configurado, nenhum.
     return sdrPartnerId
-      ? { stageId: { in: visibleStageIds }, partnerId: sdrPartnerId }
+      ? { AND: [{ stageId: { in: visibleStageIds }, partnerId: sdrPartnerId }, mandatory] }
       : { id: { in: [] } };
+  }
+
+  /** Perfis sem "leads.view.mandatory" não podem marcar um lead como Mandatório. */
+  private async assertPriorityAllowed(priorityId: string | null | undefined, currentUser: JwtPayload) {
+    if (!priorityId || canViewMandatoryLeads(currentUser)) return;
+    if ((await mandatoryPriorityIds(this.prisma)).includes(priorityId)) {
+      throw new ForbiddenException('Seu perfil não pode usar a prioridade Mandatória.');
+    }
   }
 
   private async presentForUser<T extends { owner: { email: string } }>(
@@ -231,9 +244,12 @@ export class LeadsService {
   ) {
     const visibility = !ignorePortalStages
       ? await this.visibilityFilter(currentUser)
-      : isThirdParty(currentUser)
-        ? {}
-        : this.ownershipFilter(currentUser);
+      : {
+          AND: [
+            isThirdParty(currentUser) ? {} : this.ownershipFilter(currentUser),
+            await mandatoryLeadFilter(this.prisma, currentUser),
+          ],
+        };
     const lead = await this.prisma.lead.findFirst({
       where: { id, deletedAt: null, ...visibility },
       include: { ...LEAD_DETAIL_INCLUDE, meetings: upcomingMeetingInclude() },
@@ -384,6 +400,7 @@ export class LeadsService {
   }
 
   async create(dto: CreateLeadDto, currentUser: JwtPayload) {
+    await this.assertPriorityAllowed(dto.priorityId, currentUser);
     if (isThirdParty(currentUser)) {
       dto = await this.applyThirdPartyCreateRules(dto, currentUser);
     }
@@ -581,6 +598,7 @@ export class LeadsService {
 
   async update(id: string, dto: UpdateLeadDto, currentUser: JwtPayload) {
     const existing = await this.ensureVisible(id, currentUser);
+    await this.assertPriorityAllowed(dto.priorityId, currentUser);
     const thirdParty = isThirdParty(currentUser);
     if (thirdParty) {
       const settings = await this.sdrPortalSettings.get();
@@ -933,12 +951,14 @@ export class LeadsService {
   }
 
   async archive(id: string, currentUser: JwtPayload) {
-    await this.ensureVisible(id, currentUser);
+    const lead = await this.ensureVisible(id, currentUser);
+    assertCanDeleteRecord(currentUser, PERMISSIONS.LEADS_DELETE, lead.createdBy);
     await this.prisma.lead.update({ where: { id }, data: { deletedAt: new Date() } });
   }
 
   async remove(id: string, currentUser: JwtPayload) {
     const lead = await this.ensureVisible(id, currentUser);
+    assertCanDeleteRecord(currentUser, PERMISSIONS.LEADS_DELETE, lead.createdBy);
     const attachments = await this.prisma.attachment.findMany({
       where: { leadId: id },
       select: { storageKey: true },

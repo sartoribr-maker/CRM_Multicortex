@@ -6,11 +6,14 @@ import { leadsApi } from '../../lib/leadsApi';
 import { stagesApi } from '../../lib/settingsApi';
 import type { LeadListItem } from '../../types/leads';
 import type { Stage } from '../../types/settings';
+import { useAuthStore } from '../../store/useAuthStore';
+import { canViewAllStages } from '../../lib/permissions';
 
 const numberValue = (value: string | number | null) => Number(value ?? 0);
 
 export default function PipelineReportPage() {
   const navigate = useNavigate();
+  const showAllStages = canViewAllStages(useAuthStore((s) => s.user));
   const [leads, setLeads] = useState<LeadListItem[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,13 +28,13 @@ export default function PipelineReportPage() {
         );
         const remaining = await Promise.all(remainingPages);
         setLeads([firstPage, ...remaining].flatMap((page) => page.items));
-        setStages(stageItems.filter((stage) => !stage.hiddenInMainCrm));
+        setStages(stageItems.filter((stage) => showAllStages || !stage.hiddenInMainCrm));
       })
       .catch((loadError) =>
         setError(loadError instanceof Error ? loadError.message : 'Erro ao carregar relatório.'),
       )
       .finally(() => setLoading(false));
-  }, []);
+  }, [showAllStages]);
 
   const totals = useMemo(
     () =>

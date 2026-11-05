@@ -59,8 +59,8 @@ export class SdrPortalController {
   ) {}
 
   @Get('config')
-  config() {
-    return this.settings.getPortalConfig();
+  config(@CurrentUser() user: JwtPayload) {
+    return this.settings.getPortalConfig(user.permissions.includes(PERMISSIONS.STAGES_VIEW_ALL));
   }
 
   @Get('summary')
@@ -70,8 +70,8 @@ export class SdrPortalController {
 
   /** Leads que compõem um card do dashboard. */
   @Get('summary/leads')
-  summaryLeads(@Query() query: SdrSummaryLeadsQueryDto) {
-    return this.summaryService.leads(query);
+  summaryLeads(@Query() query: SdrSummaryLeadsQueryDto, @CurrentUser() user: JwtPayload) {
+    return this.summaryService.leads(query, user);
   }
 
   /** Lê a planilha e devolve os registros com a marcação inicial (blacklist). */

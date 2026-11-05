@@ -40,17 +40,22 @@ export class SdrPortalSettingsService {
   }
 
   /** Configuração consumida pelo portal, com as etapas já resolvidas e ordenadas. */
-  async getPortalConfig() {
+  /** `allStages`: perfis com "stages.view.all" veem e movem leads em todas as etapas. */
+  async getPortalConfig(allStages = false) {
     const settings = await this.get();
     const stageIds = [...new Set([...settings.visibleStageIds, ...settings.allowedTargetStageIds])];
     const stages = await this.prisma.stage.findMany({
-      where: { id: { in: stageIds }, deletedAt: null },
+      where: allStages ? { deletedAt: null } : { id: { in: stageIds }, deletedAt: null },
       select: STAGE_SELECT,
       orderBy: { order: 'asc' },
     });
     return {
-      visibleStages: stages.filter((stage) => settings.visibleStageIds.includes(stage.id)),
-      allowedTargetStages: stages.filter((stage) => isSdrTargetStage(stage.id, settings)),
+      visibleStages: allStages
+        ? stages
+        : stages.filter((stage) => settings.visibleStageIds.includes(stage.id)),
+      allowedTargetStages: allStages
+        ? stages
+        : stages.filter((stage) => isSdrTargetStage(stage.id, settings)),
       qualifiedStageId: settings.qualifiedStageId,
       defaultSourceId: settings.defaultSourceId,
       sdrPartnerId: settings.sdrPartnerId,

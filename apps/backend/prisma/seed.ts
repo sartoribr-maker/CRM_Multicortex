@@ -61,12 +61,16 @@ const ROLE_DEFINITIONS: Array<{
   {
     name: 'Administrador',
     description: 'Acesso total à plataforma, incluindo configurações.',
-    permissions: PERMISSION_CATALOG.map((p) => p.key),
+    // "Ver todas as etapas" mostraria as etapas ocultas no CRM principal.
+    permissions: PERMISSION_CATALOG.map((p) => p.key).filter(
+      (key) => key !== PERMISSIONS.STAGES_VIEW_ALL,
+    ),
   },
   {
     name: 'Gestor Comercial',
     description: 'Visão de toda a equipe, gestão de leads e parceiros.',
     permissions: [
+      PERMISSIONS.LEADS_VIEW_MANDATORY,
       PERMISSIONS.USERS_VIEW,
       PERMISSIONS.ROLES_VIEW,
       PERMISSIONS.LEADS_VIEW,
@@ -89,17 +93,18 @@ const ROLE_DEFINITIONS: Array<{
   {
     name: 'Vendedor',
     description: 'Visão dos próprios leads e tarefas.',
-    permissions: [PERMISSIONS.LEADS_VIEW, PERMISSIONS.LEADS_CREATE, PERMISSIONS.LEADS_EDIT, PERMISSIONS.PARTNERS_VIEW, PERMISSIONS.PARTNERS_CREATE, PERMISSIONS.TASKS_VIEW, PERMISSIONS.TASKS_CREATE, PERMISSIONS.TASKS_EDIT, PERMISSIONS.DASHBOARD_VIEW],
+    permissions: [PERMISSIONS.LEADS_VIEW_MANDATORY, PERMISSIONS.LEADS_VIEW, PERMISSIONS.LEADS_CREATE, PERMISSIONS.LEADS_EDIT, PERMISSIONS.PARTNERS_VIEW, PERMISSIONS.PARTNERS_CREATE, PERMISSIONS.TASKS_VIEW, PERMISSIONS.TASKS_CREATE, PERMISSIONS.TASKS_EDIT, PERMISSIONS.DASHBOARD_VIEW],
   },
   {
     name: 'Parceiro',
     description: 'Acesso restrito aos leads indicados pelo próprio parceiro.',
-    permissions: [PERMISSIONS.DASHBOARD_VIEW],
+    permissions: [PERMISSIONS.DASHBOARD_VIEW, PERMISSIONS.LEADS_VIEW_MANDATORY],
   },
   {
     name: 'Visualizador',
     description: 'Acesso somente leitura ao dashboard e relatórios.',
     permissions: [
+      PERMISSIONS.LEADS_VIEW_MANDATORY,
       PERMISSIONS.USERS_VIEW,
       PERMISSIONS.ROLES_VIEW,
       PERMISSIONS.LEADS_VIEW,
@@ -111,10 +116,35 @@ const ROLE_DEFINITIONS: Array<{
     ],
   },
   {
+    name: 'Comercial',
+    description:
+      'Equipe comercial: menus do CRM e Portal SDR, todas as etapas, sem leads Mandatórios; exclui só o que criou.',
+    permissions: [
+      PERMISSIONS.LEADS_VIEW,
+      PERMISSIONS.LEADS_VIEW_ALL,
+      PERMISSIONS.LEADS_CREATE,
+      PERMISSIONS.LEADS_EDIT,
+      PERMISSIONS.LEADS_DELETE_OWN,
+      PERMISSIONS.PARTNERS_VIEW,
+      PERMISSIONS.PARTNERS_CREATE,
+      PERMISSIONS.PARTNERS_EDIT,
+      PERMISSIONS.PARTNERS_DELETE_OWN,
+      PERMISSIONS.TASKS_VIEW,
+      PERMISSIONS.TASKS_VIEW_ALL,
+      PERMISSIONS.TASKS_CREATE,
+      PERMISSIONS.TASKS_EDIT,
+      PERMISSIONS.TASKS_DELETE_OWN,
+      PERMISSIONS.DASHBOARD_VIEW,
+      PERMISSIONS.PORTAL_SDR_ACCESS,
+      PERMISSIONS.STAGES_VIEW_ALL,
+    ],
+  },
+  {
     name: 'SDR',
     description: 'Pré-vendas terceirizado: acesso exclusivo ao Portal de Terceiros.',
     portal: PortalType.THIRD_PARTY,
     permissions: [
+      PERMISSIONS.LEADS_VIEW_MANDATORY,
       PERMISSIONS.PORTAL_SDR_ACCESS,
       PERMISSIONS.LEADS_VIEW,
       PERMISSIONS.LEADS_CREATE,
@@ -128,6 +158,7 @@ const ROLE_DEFINITIONS: Array<{
     description: 'SDR com importação de leads Outbound: acesso exclusivo ao Portal de Terceiros.',
     portal: PortalType.THIRD_PARTY,
     permissions: [
+      PERMISSIONS.LEADS_VIEW_MANDATORY,
       PERMISSIONS.PORTAL_SDR_ACCESS,
       PERMISSIONS.PORTAL_SDR_IMPORT,
       PERMISSIONS.LEADS_VIEW,

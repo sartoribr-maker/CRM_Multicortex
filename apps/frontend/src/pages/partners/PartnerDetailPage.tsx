@@ -10,13 +10,13 @@ import {
   PARTNER_TYPE_LABELS,
   type PartnerDetail,
 } from '../../types/partners';
+import { canDeleteRecord } from '../../lib/permissions';
 
 export default function PartnerDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const canEdit = user?.permissions.includes('partners.edit') ?? false;
-  const canDelete = user?.permissions.includes('partners.delete') ?? false;
   const [partner, setPartner] = useState<PartnerDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -96,7 +96,7 @@ export default function PartnerDetailPage() {
                   Editar
                 </button>
               )}
-              {canDelete && (
+              {canDeleteRecord(user, 'partners', partner.createdBy) && (
                 <>
                   <button
                     className="btn-secondary"

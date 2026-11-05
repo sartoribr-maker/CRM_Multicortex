@@ -35,6 +35,7 @@ import {
 } from '../../types/leads';
 import type { DealSize, Priority, ProjectType, Segment, Source, Stage } from '../../types/settings';
 import { formatCurrency } from '../../lib/formatters';
+import { canViewAllStages } from '../../lib/permissions';
 
 const inputClass = 'form-control';
 const labelClass = 'form-label';
@@ -107,7 +108,7 @@ export default function LeadFormPage() {
       .options()
       .then(setPartners)
       .catch(() => setPartners([]));
-    if (canViewAll) usersApi.list().then(setUsers);
+    if (canViewAll) usersApi.options().then(setUsers);
   }, []);
 
   useEffect(() => {
@@ -546,9 +547,9 @@ export default function LeadFormPage() {
                   onChange={(e) => updateField('stageId', e.target.value)}
                 >
                   <option value="">Etapa inicial padrão</option>
-                  {/* Etapas ocultas no CRM só aparecem se o lead já estiver nelas. */}
+                  {/* Etapas ocultas no CRM só aparecem se o lead já estiver nelas (ou para quem vê todas). */}
                   {stages
-                    .filter((s) => !s.hiddenInMainCrm || s.id === initialStageId)
+                    .filter((s) => canViewAllStages(user) || !s.hiddenInMainCrm || s.id === initialStageId)
                     .map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name}

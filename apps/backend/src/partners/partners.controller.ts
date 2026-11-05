@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query
 import { ApiTags } from '@nestjs/swagger';
 import { PERMISSIONS } from '../auth/constants/permissions';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
+import { RequireAnyPermission, RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
 import { CreatePartnerDto } from './dto/create-partner.dto';
 import { ListPartnersQueryDto } from './dto/list-partners.query.dto';
@@ -17,9 +17,13 @@ export class PartnersController {
   @Get(':id') @RequirePermissions(PERMISSIONS.PARTNERS_VIEW) findOne(@Param('id', ParseUUIDPipe) id: string) { return this.service.findOne(id); }
   @Post() @RequirePermissions(PERMISSIONS.PARTNERS_CREATE) create(@Body() dto: CreatePartnerDto, @CurrentUser() user: JwtPayload) { return this.service.create(dto, user.sub); }
   @Patch(':id') @RequirePermissions(PERMISSIONS.PARTNERS_EDIT) update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdatePartnerDto, @CurrentUser() user: JwtPayload) { return this.service.update(id, dto, user.sub); }
-  @Post(':id/deactivate') @RequirePermissions(PERMISSIONS.PARTNERS_DELETE) deactivate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) { return this.service.setStatus(id, 'INACTIVE', user.sub); }
+  @Post(':id/deactivate') @RequireAnyPermission(PERMISSIONS.PARTNERS_DELETE, PERMISSIONS.PARTNERS_DELETE_OWN) async deactivate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    await this.service.assertCanDelete(id, user);
+    return this.service.setStatus(id, 'INACTIVE', user.sub);
+  }
   @Post(':id/reactivate') @RequirePermissions(PERMISSIONS.PARTNERS_EDIT) reactivate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) { return this.service.setStatus(id, 'ACTIVE', user.sub); }
-  @Delete(':id') @RequirePermissions(PERMISSIONS.PARTNERS_DELETE) async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+  @Delete(':id') @RequireAnyPermission(PERMISSIONS.PARTNERS_DELETE, PERMISSIONS.PARTNERS_DELETE_OWN) async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    await this.service.assertCanDelete(id, user);
     await this.service.remove(id, user.sub);
     return { success: true };
   }

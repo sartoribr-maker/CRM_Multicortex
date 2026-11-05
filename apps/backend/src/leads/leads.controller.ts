@@ -16,7 +16,7 @@ import { UpdateLeadDto } from './dto/update-lead.dto';
 import { ListLeadsQueryDto } from './dto/list-leads.query.dto';
 import { AddCommentDto } from './dto/add-comment.dto';
 import { AutocompleteLeadsQueryDto } from './dto/autocomplete-leads.query.dto';
-import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
+import { RequireAnyPermission, RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { PERMISSIONS } from '../auth/constants/permissions';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
@@ -67,14 +67,14 @@ export class LeadsController {
   }
 
   @Post(':id/archive')
-  @RequirePermissions(PERMISSIONS.LEADS_DELETE)
+  @RequireAnyPermission(PERMISSIONS.LEADS_DELETE, PERMISSIONS.LEADS_DELETE_OWN)
   async archive(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() currentUser: JwtPayload) {
     await this.leadsService.archive(id, currentUser);
     return { success: true };
   }
 
   @Delete(':id')
-  @RequirePermissions(PERMISSIONS.LEADS_DELETE)
+  @RequireAnyPermission(PERMISSIONS.LEADS_DELETE, PERMISSIONS.LEADS_DELETE_OWN)
   async remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() currentUser: JwtPayload) {
     await this.leadsService.remove(id, currentUser);
     return { success: true };

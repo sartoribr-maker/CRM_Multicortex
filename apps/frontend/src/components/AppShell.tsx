@@ -14,6 +14,7 @@ const navItems: Array<{ to: string; label: string; icon: IconName; permission?: 
   { to: '/leads/kanban', label: 'Kanban comercial', icon: 'dashboard', permission: 'leads.view' },
   { to: '/partners', label: 'Parceiros', icon: 'user', permission: 'partners.view' },
   { to: '/tasks', label: 'Tarefas', icon: 'file', permission: 'tasks.view' },
+  { to: '/terceiro', label: 'Portal SDR', icon: 'external', permission: 'portal.sdr.access' },
 ];
 
 const reportItems = [{ to: '/reports/pipeline', label: 'Pipeline', permission: 'leads.view.all' }];

@@ -10,6 +10,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { PERMISSIONS } from '../../auth/constants/permissions';
 import type { JwtPayload } from '../../auth/types/jwt-payload.interface';
 import { AllowThirdPartyPortal } from '../../auth/decorators/allow-third-party-portal.decorator';
+import { canViewMandatoryLeads, isMandatoryPriorityName } from '../../leads/mandatory-priority';
 
 @ApiTags('settings/priorities')
 @Controller('priorities')
@@ -18,8 +19,12 @@ export class PrioritiesController {
 
   @Get()
   @AllowThirdPartyPortal()
-  findAll(@Query() query: ListSettingsQueryDto) {
-    return this.prioritiesService.findAll(query);
+  async findAll(@Query() query: ListSettingsQueryDto, @CurrentUser() currentUser: JwtPayload) {
+    const priorities = await this.prioritiesService.findAll(query);
+    // Quem não vê leads Mandatórios também não recebe essa opção nos filtros e formulários.
+    return canViewMandatoryLeads(currentUser)
+      ? priorities
+      : priorities.filter((priority) => !isMandatoryPriorityName(priority.name));
   }
 
   @Get(':id')

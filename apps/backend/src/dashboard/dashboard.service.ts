@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PERMISSIONS } from '../auth/constants/permissions';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
+import { mandatoryLeadFilter, mandatoryTaskFilter } from '../leads/mandatory-priority';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -12,13 +13,19 @@ export class DashboardService {
     const allTasks = user.permissions.includes(PERMISSIONS.TASKS_VIEW_ALL);
     const leadWhere: Prisma.LeadWhereInput = {
       deletedAt: null,
-      ...(allLeads
-        ? {}
-        : { OR: [{ ownerId: user.sub }, { assignees: { some: { userId: user.sub } } }] }),
+      AND: [
+        allLeads
+          ? {}
+          : { OR: [{ ownerId: user.sub }, { assignees: { some: { userId: user.sub } } }] },
+        await mandatoryLeadFilter(this.prisma, user),
+      ],
     };
     const taskWhere: Prisma.TaskWhereInput = {
       deletedAt: null,
-      ...(allTasks ? {} : { assignees: { some: { userId: user.sub } } }),
+      AND: [
+        allTasks ? {} : { assignees: { some: { userId: user.sub } } },
+        await mandatoryTaskFilter(this.prisma, user),
+      ],
     };
     const now = new Date();
     const nextWeek = new Date(now.getTime() + 7 * 86400000);
@@ -41,7 +48,10 @@ export class DashboardService {
         orderBy: { updatedAt: 'desc' },
       }),
       this.prisma.stage.findMany({
-        where: { deletedAt: null, hiddenInMainCrm: false },
+        where: {
+          deletedAt: null,
+          ...(user.permissions.includes(PERMISSIONS.STAGES_VIEW_ALL) ? {} : { hiddenInMainCrm: false }),
+        },
         orderBy: { order: 'asc' },
       }),
       this.prisma.task.findMany({

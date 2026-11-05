@@ -14,6 +14,7 @@ import {
   type TaskAttachment,
   type TaskHistoryEntry,
 } from '../../types/tasks';
+import { canDeleteRecord } from '../../lib/permissions';
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -33,7 +34,6 @@ export default function TaskDetailPage() {
   const user = useAuthStore((s) => s.user);
   const canCreate = user?.permissions.includes('tasks.create') ?? false;
   const canEdit = user?.permissions.includes('tasks.edit') ?? false;
-  const canDelete = user?.permissions.includes('tasks.delete') ?? false;
   const isAdministrator = user?.role.name.trim().toLocaleLowerCase('pt-BR') === 'administrador';
   const [task, setTask] = useState<Task | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -222,7 +222,7 @@ export default function TaskDetailPage() {
                   Editar
                 </button>
               )}
-              {canDelete && (
+              {canDeleteRecord(user, 'tasks', task.createdByUser.id) && (
                 <>
                   <button className="btn-secondary" onClick={archive}>
                     <Icon name="archive" className="h-4 w-4" />

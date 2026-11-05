@@ -21,6 +21,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { LEAD_LINE_LABELS, LEAD_TYPE_LABELS, type LeadListItem } from '../../types/leads';
 import type { Partner } from '../../types/partners';
 import type { DealSize, Priority, ProjectType, Source, Stage } from '../../types/settings';
+import { canViewAllStages } from '../../lib/permissions';
 
 interface PendingMove {
   lead: LeadListItem;
@@ -33,6 +34,7 @@ export default function LeadsKanbanPage() {
   const location = useLocation();
   const user = useAuthStore((state) => state.user);
   const canViewAll = user?.permissions.includes('leads.view.all') ?? false;
+  const showAllStages = canViewAllStages(user);
   const canCreate = user?.permissions.includes('leads.create') ?? false;
   const canEdit = user?.permissions.includes('leads.edit') ?? false;
   const [stages, setStages] = useState<Stage[]>([]);
@@ -59,7 +61,7 @@ export default function LeadsKanbanPage() {
       dealSizesApi.list(),
       sourcesApi.list(),
       projectTypesApi.list(),
-      canViewAll ? usersApi.list() : Promise.resolve([]),
+      canViewAll ? usersApi.options() : Promise.resolve([]),
       partnersApi.options(),
     ])
       .then(
@@ -74,7 +76,7 @@ export default function LeadsKanbanPage() {
         ]) => {
           setStages(
             stageData
-              .filter((stage) => !stage.hiddenInMainCrm)
+              .filter((stage) => showAllStages || !stage.hiddenInMainCrm)
               .sort((a, b) => a.order - b.order),
           );
           setPriorities(priorityData);
@@ -86,7 +88,7 @@ export default function LeadsKanbanPage() {
         },
       )
       .catch(() => setError('Não foi possível carregar as configurações do funil.'));
-  }, [canViewAll]);
+  }, [canViewAll, showAllStages]);
 
   useEffect(() => {
     let cancelled = false;

@@ -11,6 +11,7 @@ import {
   type Partner,
   type PartnerFilters,
 } from '../../types/partners';
+import { canDeleteRecord } from '../../lib/permissions';
 
 type SortKey = 'name' | 'type' | 'contactName' | 'leads' | 'status';
 export default function PartnersListPage() {
@@ -18,7 +19,6 @@ export default function PartnersListPage() {
   const user = useAuthStore((state) => state.user);
   const canCreate = user?.permissions.includes('partners.create') ?? false;
   const canEdit = user?.permissions.includes('partners.edit') ?? false;
-  const canDelete = user?.permissions.includes('partners.delete') ?? false;
   const [items, setItems] = useState<Partner[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -247,7 +247,7 @@ export default function PartnersListPage() {
                           <Icon name="edit" className="h-4 w-4" />
                         </button>
                       )}
-                      {canDelete && (
+                      {canDeleteRecord(user, 'partners', partner.createdBy) && (
                         <button
                           className="icon-button hover:!text-red-600"
                           title="Excluir definitivamente"

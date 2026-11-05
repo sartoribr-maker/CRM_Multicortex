@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PERMISSIONS } from '../auth/constants/permissions';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
+import { mandatoryLeadFilter } from '../leads/mandatory-priority';
 import { PrismaService } from '../prisma/prisma.service';
 import { SdrSummaryLeadsQueryDto, SdrSummaryQueryDto } from './dto/sdr-summary.query.dto';
 import { SdrPortalSettingsService } from './sdr-portal-settings.service';
@@ -29,11 +30,15 @@ export class SdrSummaryService {
    * usuário logado.
    */
   /** Período, configuração e escopo de leads comuns aos indicadores e às listas. */
-  private async context(query: SdrSummaryQueryDto, now: Date) {
+  private async context(query: SdrSummaryQueryDto, user: JwtPayload, now: Date) {
     const range = resolvePeriod(query.period, now, query.from, query.to);
     const settings = await this.settingsService.get();
     const sdrLeads: Prisma.LeadWhereInput = settings.sdrPartnerId
-      ? { deletedAt: null, partnerId: settings.sdrPartnerId }
+      ? {
+          deletedAt: null,
+          partnerId: settings.sdrPartnerId,
+          AND: [await mandatoryLeadFilter(this.prisma, user)],
+        }
       : { id: { in: [] } };
     const scope: Prisma.LeadWhereInput = query.ownerId
       ? {
@@ -45,7 +50,7 @@ export class SdrSummaryService {
   }
 
   async summary(query: SdrSummaryQueryDto, user: JwtPayload, now = new Date()) {
-    const { range, settings, sdrLeads, scope, inRange } = await this.context(query, now);
+    const { range, settings, sdrLeads, scope, inRange } = await this.context(query, user, now);
     const canViewTasks = user.permissions.includes(PERMISSIONS.TASKS_VIEW);
     const openTask: Prisma.TaskWhereInput = {
       deletedAt: null,
@@ -178,8 +183,8 @@ export class SdrSummaryService {
    * Leads que compõem um card do dashboard, com as mesmas regras do indicador.
    * Nenhum valor financeiro é selecionado.
    */
-  async leads(query: SdrSummaryLeadsQueryDto, now = new Date()) {
-    const { settings, scope, inRange } = await this.context(query, now);
+  async leads(query: SdrSummaryLeadsQueryDto, user: JwtPayload, now = new Date()) {
+    const { settings, scope, inRange } = await this.context(query, user, now);
     const typeFilter: Prisma.LeadWhereInput =
       query.leadType === undefined
         ? {}

@@ -21,7 +21,7 @@ test('atenção imediata exclui ganho, perdido e em espera/pausado', async () =>
     stage: { findMany: async () => [] },
     task: { findMany: async () => [], count: async () => 0 },
   });
-  const result = await service.summary({ sub: 'owner', permissions: [] });
+  const result = await service.summary({ sub: 'owner', permissions: ['leads.view.mandatory'] });
   assert.equal(result.metrics.pipelineValue, 1250);
   assert.deepEqual(result.mandatoryLeads.map(lead => lead.id), ['active']);
 });

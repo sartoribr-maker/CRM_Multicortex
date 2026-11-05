@@ -43,6 +43,8 @@ interface RefName {
 
 export interface LeadListItem {
   id: string;
+  /** Usuário que criou o lead (exclusão restrita ao criador). */
+  createdBy?: string | null;
   businessCode: string | null;
   line: LeadLine | null;
   leadType?: LeadType | null;

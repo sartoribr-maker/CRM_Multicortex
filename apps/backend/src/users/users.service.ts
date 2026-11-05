@@ -36,6 +36,14 @@ export class UsersService {
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
   ) {}
 
+  options() {
+    return this.prisma.user.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true, email: true, avatarUrl: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async findAll(query: ListUsersQueryDto) {
     const where: Prisma.UserWhereInput = {
       deletedAt: null,

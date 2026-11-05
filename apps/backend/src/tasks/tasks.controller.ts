@@ -12,7 +12,7 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { PERMISSIONS } from '../auth/constants/permissions';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
+import { RequireAnyPermission, RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { ListTasksQueryDto } from './dto/list-tasks.query.dto';
@@ -93,14 +93,14 @@ export class TasksController {
   ) {
     return this.service.history(id, user);
   }
-  @Post(':id/archive') @RequirePermissions(PERMISSIONS.TASKS_DELETE) async archive(
+  @Post(':id/archive') @RequireAnyPermission(PERMISSIONS.TASKS_DELETE, PERMISSIONS.TASKS_DELETE_OWN) async archive(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
   ) {
     await this.service.archive(id, user);
     return { success: true };
   }
-  @Delete(':id') @RequirePermissions(PERMISSIONS.TASKS_DELETE) async remove(
+  @Delete(':id') @RequireAnyPermission(PERMISSIONS.TASKS_DELETE, PERMISSIONS.TASKS_DELETE_OWN) async remove(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
   ) {

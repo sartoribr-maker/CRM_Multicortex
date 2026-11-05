@@ -1,6 +1,9 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { PERMISSIONS } from '../auth/constants/permissions';
+import { assertCanDeleteRecord } from '../auth/delete-ownership';
+import type { JwtPayload } from '../auth/types/jwt-payload.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePartnerDto } from './dto/create-partner.dto';
 import { ListPartnersQueryDto } from './dto/list-partners.query.dto';
@@ -67,6 +70,12 @@ export class PartnersService {
     const partner = await this.prisma.partner.update({ where: { id }, data: { status }, include: PARTNER_INCLUDE });
     await this.audit.record({ action: status === 'ACTIVE' ? 'PARTNER_REACTIVATED' : 'PARTNER_DEACTIVATED', actorUserId, targetType: 'Partner', targetId: id });
     return partner;
+  }
+
+  /** Perfis com "partners.delete.own" só excluem/inativam os parceiros que criaram. */
+  async assertCanDelete(id: string, user: JwtPayload) {
+    const partner = await this.findOne(id);
+    assertCanDeleteRecord(user, PERMISSIONS.PARTNERS_DELETE, partner.createdBy);
   }
 
   async remove(id: string, actorUserId: string) {

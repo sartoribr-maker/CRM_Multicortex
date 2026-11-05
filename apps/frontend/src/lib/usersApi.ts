@@ -50,6 +50,8 @@ export const avatarUrl = (id: string, version?: string | null) =>
   apiAssetUrl(`/users/${id}/avatar${version ? `?v=${encodeURIComponent(version)}` : ''}`);
 export const usersApi = {
   list: () => apiJson<UsersListResponse>('/users?pageSize=100').then((r) => r.items),
+  /** Id, nome, e-mail e foto: para filtros e responsáveis, sem exigir users.view. */
+  options: () => apiJson<UserOption[]>('/users/options'),
   listPage: (filters: UsersFilters = {}) => apiJson<UsersListResponse>(`/users${query(filters)}`),
   get: (id: string) => apiJson<UserRecord>(`/users/${id}`),
   create: (payload: UserPayload) =>

@@ -6,7 +6,7 @@ export const PARTNER_TYPE_LABELS: Record<PartnerType, string> = { REFERRAL: 'Ind
 export const PARTNER_STATUS_LABELS: Record<PartnerStatus, string> = { ACTIVE: 'Ativo', INACTIVE: 'Inativo' };
 
 export interface Partner {
-  id: string; name: string; legalName: string | null; type: PartnerType; document: string | null;
+  id: string; createdBy?: string | null; name: string; legalName: string | null; type: PartnerType; document: string | null;
   contactName: string | null; email: string | null; phone: string | null; website: string | null;
   commissionPercentage: string | number | null; status: PartnerStatus; notes: string | null;
   createdAt: string; updatedAt: string; _count: { leads: number };

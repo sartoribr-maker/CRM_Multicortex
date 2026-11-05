@@ -6,6 +6,9 @@ import {
 } from '@nestjs/common';
 import { Prisma, TaskStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { PERMISSIONS } from '../auth/constants/permissions';
+import { assertCanDeleteRecord } from '../auth/delete-ownership';
+import { mandatoryTaskFilter } from '../leads/mandatory-priority';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -43,15 +46,20 @@ export class TasksService {
   private canViewAll(user: JwtPayload) {
     return user.roleName.trim().toLocaleLowerCase('pt-BR') === 'administrador';
   }
-  private visibility(user: JwtPayload): Prisma.TaskWhereInput {
-    return this.canViewAll(user) ? {} : { assignees: { some: { userId: user.sub } } };
+  private async visibility(user: JwtPayload): Promise<Prisma.TaskWhereInput> {
+    return {
+      AND: [
+        this.canViewAll(user) ? {} : { assignees: { some: { userId: user.sub } } },
+        await mandatoryTaskFilter(this.prisma, user),
+      ],
+    };
   }
 
-  private listWhere(query: ListTasksQueryDto, user: JwtPayload): Prisma.TaskWhereInput {
+  private async listWhere(query: ListTasksQueryDto, user: JwtPayload): Promise<Prisma.TaskWhereInput> {
     const effectiveAssigneeId = query.mine ? user.sub : query.assigneeId;
     return {
       deletedAt: null,
-      ...this.visibility(user),
+      ...(await this.visibility(user)),
       ...(effectiveAssigneeId && this.canViewAll(user)
         ? { assignees: { some: { userId: effectiveAssigneeId } } }
         : {}),
@@ -74,7 +82,7 @@ export class TasksService {
   }
 
   async findAll(query: ListTasksQueryDto, user: JwtPayload) {
-    const where = this.listWhere(query, user);
+    const where = await this.listWhere(query, user);
     const [items, total] = await this.prisma.$transaction([
       this.prisma.task.findMany({
         where,
@@ -98,7 +106,7 @@ export class TasksService {
   async statusSummary(query: ListTasksQueryDto, user: JwtPayload) {
     const groups = await this.prisma.task.groupBy({
       by: ['status'],
-      where: this.listWhere({ ...query, status: undefined }, user),
+      where: await this.listWhere({ ...query, status: undefined }, user),
       _count: { _all: true },
     });
     const counts = Object.fromEntries(
@@ -109,7 +117,7 @@ export class TasksService {
   }
   async findOne(id: string, user: JwtPayload) {
     const task = await this.prisma.task.findFirst({
-      where: { id, deletedAt: null, ...this.visibility(user) },
+      where: { id, deletedAt: null, ...(await this.visibility(user)) },
       include: INCLUDE,
     });
     if (!task) throw new NotFoundException('Tarefa não encontrada.');
@@ -334,7 +342,8 @@ export class TasksService {
     return task;
   }
   async archive(id: string, user: JwtPayload) {
-    await this.findOne(id, user);
+    const task = await this.findOne(id, user);
+    assertCanDeleteRecord(user, PERMISSIONS.TASKS_DELETE, task.createdByUserId);
     await this.prisma.task.update({ where: { id }, data: { deletedAt: new Date() } });
     await this.audit.record({
       action: 'TASK_ARCHIVED',
@@ -346,6 +355,7 @@ export class TasksService {
 
   async remove(id: string, user: JwtPayload) {
     const task = await this.findOne(id, user);
+    assertCanDeleteRecord(user, PERMISSIONS.TASKS_DELETE, task.createdByUserId);
     await this.prisma.task.delete({ where: { id } });
     await this.audit.record({
       action: 'TASK_DELETED',

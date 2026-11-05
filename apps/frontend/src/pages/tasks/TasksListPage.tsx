@@ -16,6 +16,7 @@ import {
   type TaskFilters,
   type TaskStatus,
 } from '../../types/tasks';
+import { canDeleteRecord } from '../../lib/permissions';
 type Sort = 'title' | 'dueDate' | 'priority' | 'status' | 'assignee';
 
 export default function TasksListPage() {
@@ -25,7 +26,6 @@ export default function TasksListPage() {
   const isAdministrator = user?.role.name.trim().toLocaleLowerCase('pt-BR') === 'administrador';
   const canCreate = user?.permissions.includes('tasks.create') ?? false;
   const canEdit = user?.permissions.includes('tasks.edit') ?? false;
-  const canDelete = user?.permissions.includes('tasks.delete') ?? false;
   const [items, setItems] = useState<Task[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [total, setTotal] = useState(0);
@@ -461,7 +461,7 @@ export default function TasksListPage() {
                           <Icon name="edit" className="h-4 w-4" />
                         </button>
                       )}
-                      {canDelete && (
+                      {canDeleteRecord(user, 'tasks', t.createdByUser.id) && (
                         <button
                           className="icon-button hover:!text-red-600"
                           title="Excluir definitivamente"

@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
+import { ANY_PERMISSIONS_KEY, PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
 import type { PermissionKey } from '../constants/permissions';
 import type { JwtPayload } from '../types/jwt-payload.interface';
 
@@ -14,7 +14,12 @@ export class PermissionsGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    if (!requiredPermissions || requiredPermissions.length === 0) {
+    const anyPermissions = this.reflector.getAllAndOverride<PermissionKey[]>(ANY_PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    if (!requiredPermissions?.length && !anyPermissions?.length) {
       return true;
     }
 
@@ -22,9 +27,12 @@ export class PermissionsGuard implements CanActivate {
     const user: JwtPayload | undefined = request.user;
 
     const hasAllPermissions =
-      !!user && requiredPermissions.every((permission) => user.permissions.includes(permission));
+      !!user && (requiredPermissions ?? []).every((permission) => user.permissions.includes(permission));
+    const hasAnyPermission =
+      !anyPermissions?.length ||
+      (!!user && anyPermissions.some((permission) => user.permissions.includes(permission)));
 
-    if (!hasAllPermissions) {
+    if (!hasAllPermissions || !hasAnyPermission) {
       throw new ForbiddenException('Você não tem permissão para executar esta ação.');
     }
 

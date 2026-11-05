@@ -32,6 +32,12 @@ export class TasksController {
   ) {
     return this.service.findAll(query, user);
   }
+  @Get('summary') @AllowThirdPartyPortal() @RequirePermissions(PERMISSIONS.TASKS_VIEW) summary(
+    @Query() query: ListTasksQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.statusSummary(query, user);
+  }
   @Get(':id') @AllowThirdPartyPortal() @RequirePermissions(PERMISSIONS.TASKS_VIEW) findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,
@@ -51,7 +57,10 @@ export class TasksController {
   ) {
     return this.service.update(id, dto, user);
   }
-  @Post(':id/complete') @AllowThirdPartyPortal() @RequirePermissions(PERMISSIONS.TASKS_EDIT) complete(
+  @Post(':id/complete')
+  @AllowThirdPartyPortal()
+  @RequirePermissions(PERMISSIONS.TASKS_EDIT)
+  complete(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CompleteTaskDto,
     @CurrentUser() user: JwtPayload,

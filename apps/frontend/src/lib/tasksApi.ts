@@ -6,6 +6,7 @@ import type {
   TaskHistoryEntry,
   TaskListResponse,
   TaskPayload,
+  TaskStatus,
 } from '../types/tasks';
 function qs(filters: TaskFilters) {
   const p = new URLSearchParams();
@@ -14,6 +15,10 @@ function qs(filters: TaskFilters) {
 }
 export const tasksApi = {
   list: (filters: TaskFilters = {}) => apiJson<TaskListResponse>(`/tasks${qs(filters)}`),
+  summary: (filters: TaskFilters = {}) =>
+    apiJson<Record<TaskStatus, number>>(
+      `/tasks/summary${qs({ ...filters, status: undefined, page: undefined, pageSize: undefined })}`,
+    ),
   get: (id: string) => apiJson<Task>(`/tasks/${id}`),
   create: (payload: TaskPayload) =>
     apiJson<Task>('/tasks', { method: 'POST', body: JSON.stringify(payload) }),

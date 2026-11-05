@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, TaskStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
 import { PrismaService } from '../prisma/prisma.service';
@@ -47,9 +47,9 @@ export class TasksService {
     return this.canViewAll(user) ? {} : { assignees: { some: { userId: user.sub } } };
   }
 
-  async findAll(query: ListTasksQueryDto, user: JwtPayload) {
+  private listWhere(query: ListTasksQueryDto, user: JwtPayload): Prisma.TaskWhereInput {
     const effectiveAssigneeId = query.mine ? user.sub : query.assigneeId;
-    const where: Prisma.TaskWhereInput = {
+    return {
       deletedAt: null,
       ...this.visibility(user),
       ...(effectiveAssigneeId && this.canViewAll(user)
@@ -71,6 +71,10 @@ export class TasksService {
           }
         : {}),
     };
+  }
+
+  async findAll(query: ListTasksQueryDto, user: JwtPayload) {
+    const where = this.listWhere(query, user);
     const [items, total] = await this.prisma.$transaction([
       this.prisma.task.findMany({
         where,
@@ -88,6 +92,20 @@ export class TasksService {
       pageSize: query.pageSize,
       totalPages: Math.ceil(total / query.pageSize),
     };
+  }
+
+  /** Quantidade de tarefas por status, com os mesmos filtros da lista exceto o de status. */
+  async statusSummary(query: ListTasksQueryDto, user: JwtPayload) {
+    const groups = await this.prisma.task.groupBy({
+      by: ['status'],
+      where: this.listWhere({ ...query, status: undefined }, user),
+      _count: { _all: true },
+    });
+    const counts = Object.fromEntries(
+      Object.values(TaskStatus).map((status) => [status, 0]),
+    ) as Record<TaskStatus, number>;
+    for (const group of groups) counts[group.status] = group._count._all;
+    return counts;
   }
   async findOne(id: string, user: JwtPayload) {
     const task = await this.prisma.task.findFirst({
@@ -147,7 +165,9 @@ export class TasksService {
       });
       if (dto.status === 'DONE') {
         if (!dto.completionReason?.trim()) {
-          throw new BadRequestException('Informe a justificativa obrigatória ao concluir a tarefa.');
+          throw new BadRequestException(
+            'Informe a justificativa obrigatória ao concluir a tarefa.',
+          );
         }
         await tx.taskHistoryEntry.create({
           data: {

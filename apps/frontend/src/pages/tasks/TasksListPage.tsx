@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
 import { TaskDeadline, taskDeadlineStatus } from '../../components/TaskDeadline';
+import { TaskStatusContextMenu } from './TaskStatusContextMenu';
 import { tasksApi } from '../../lib/tasksApi';
 import { brazilianDateToIso, isoToBrazilianDate } from '../../lib/formatters';
 import { usersApi, type UserOption } from '../../lib/usersApi';
@@ -13,6 +14,7 @@ import {
   TASK_STATUS_LABELS,
   type Task,
   type TaskFilters,
+  type TaskStatus,
 } from '../../types/tasks';
 type Sort = 'title' | 'dueDate' | 'priority' | 'status' | 'assignee';
 
@@ -29,6 +31,7 @@ export default function TasksListPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statusMenu, setStatusMenu] = useState<{ task: Task; x: number; y: number } | null>(null);
   const [filters, setFilters] = useState<TaskFilters>({
     page: 1,
     pageSize: 20,
@@ -40,6 +43,14 @@ export default function TasksListPage() {
     key: 'dueDate',
     dir: 'asc',
   });
+  // Contagem por status para os cards: respeita os demais filtros, mas não o de status.
+  const [summary, setSummary] = useState<Record<TaskStatus, number> | null>(null);
+  const loadSummary = useCallback((current: TaskFilters) => {
+    tasksApi
+      .summary(current)
+      .then(setSummary)
+      .catch(() => setSummary(null));
+  }, []);
   useEffect(() => {
     if (isAdministrator) usersApi.list().then(setUsers);
   }, [isAdministrator]);
@@ -53,7 +64,8 @@ export default function TasksListPage() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Erro ao carregar tarefas.'))
       .finally(() => setLoading(false));
-  }, [filters]);
+    loadSummary(filters);
+  }, [filters, loadSummary]);
   const sorted = useMemo(
     () =>
       [...items].sort((a, b) => {
@@ -100,6 +112,7 @@ export default function TasksListPage() {
     try {
       const u = await tasksApi.complete(t.id, reason.trim());
       setItems((c) => c.map((i) => (i.id === t.id ? u : i)));
+      loadSummary(filters);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao concluir.');
     }
@@ -156,6 +169,28 @@ export default function TasksListPage() {
       setError(actionError instanceof Error ? actionError.message : 'Erro ao transferir tarefa.');
     }
   }
+  function openStatusMenu(event: React.MouseEvent, task: Task) {
+    // Tarefa concluída (ou usuário sem permissão) mantém o menu padrão do navegador.
+    if (!canEdit || task.status === 'DONE') return;
+    event.preventDefault();
+    setStatusMenu({ task, x: event.clientX, y: event.clientY });
+  }
+  const closeStatusMenu = useCallback(() => setStatusMenu(null), []);
+  async function changeStatus(task: Task, status: TaskStatus) {
+    setStatusMenu(null);
+    // "Concluída" exige justificativa: segue o mesmo fluxo do botão Concluir.
+    if (status === 'DONE') {
+      await complete(task);
+      return;
+    }
+    try {
+      await tasksApi.update(task.id, { status });
+      // Recarrega a lista: a tarefa pode sair do filtro de status atual.
+      setFilters((current) => ({ ...current }));
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Erro ao alterar status.');
+    }
+  }
   async function remove(t: Task) {
     const confirmation = window.prompt(
       `Exclusão definitiva. Digite o título da tarefa para confirmar:\n\n${t.title}`,
@@ -168,6 +203,7 @@ export default function TasksListPage() {
       await tasksApi.remove(t.id);
       setItems((current) => current.filter((item) => item.id !== t.id));
       setTotal((current) => Math.max(0, current - 1));
+      loadSummary(filters);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao excluir a tarefa.');
     }
@@ -187,6 +223,43 @@ export default function TasksListPage() {
           )
         }
       />
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+        {(
+          [
+            { status: undefined, label: 'Todas', accent: 'bg-slate-400' },
+            { status: 'TODO', label: TASK_STATUS_LABELS.TODO, accent: 'bg-sky-500' },
+            {
+              status: 'IN_PROGRESS',
+              label: TASK_STATUS_LABELS.IN_PROGRESS,
+              accent: 'bg-brand-purple',
+            },
+            { status: 'DONE', label: TASK_STATUS_LABELS.DONE, accent: 'bg-emerald-500' },
+            { status: 'CANCELED', label: TASK_STATUS_LABELS.CANCELED, accent: 'bg-slate-500' },
+          ] as { status: TaskStatus | undefined; label: string; accent: string }[]
+        ).map(({ status, label, accent }) => {
+          const active = filters.status === status;
+          const count = summary
+            ? status
+              ? summary[status]
+              : Object.values(summary).reduce((sum, value) => sum + value, 0)
+            : null;
+          return (
+            <button
+              key={label}
+              type="button"
+              aria-pressed={active}
+              className={`card flex flex-col items-start gap-1 p-4 text-left transition hover:border-brand-purple/60 ${active ? '!border-brand-purple ring-2 ring-purple-200' : ''}`}
+              onClick={() => upd({ status })}
+            >
+              <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                <span className={`status-dot ${accent}`} />
+                {label}
+              </span>
+              <span className="font-heading text-2xl font-bold text-slate-900">{count ?? '—'}</span>
+            </button>
+          );
+        })}
+      </div>
       <div className="filter-panel">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <div className="relative xl:col-span-2">
@@ -293,7 +366,16 @@ export default function TasksListPage() {
             </thead>
             <tbody>
               {sorted.map((t) => (
-                <tr key={t.id}>
+                <tr
+                  key={t.id}
+                  className={statusMenu?.task.id === t.id ? 'bg-purple-50' : undefined}
+                  title={
+                    canEdit && t.status !== 'DONE'
+                      ? 'Clique com o botão direito para alterar o status'
+                      : undefined
+                  }
+                  onContextMenu={(event) => openStatusMenu(event, t)}
+                >
                   <td>
                     <button
                       className="text-left font-semibold text-slate-800 hover:text-brand-purple"
@@ -403,6 +485,15 @@ export default function TasksListPage() {
           </table>
         )}
       </div>
+      {statusMenu && (
+        <TaskStatusContextMenu
+          task={statusMenu.task}
+          x={statusMenu.x}
+          y={statusMenu.y}
+          onClose={closeStatusMenu}
+          onSelect={(status) => void changeStatus(statusMenu.task, status)}
+        />
+      )}
     </AppShell>
   );
 }

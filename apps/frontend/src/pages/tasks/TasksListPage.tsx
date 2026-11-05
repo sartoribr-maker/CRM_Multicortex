@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell, PageHeader } from '../../components/AppShell';
 import { Icon } from '../../components/Icon';
+import { PageSizeStepper, Paginator, clampPageSize } from '../../components/Pagination';
 import { TaskDeadline, taskDeadlineStatus } from '../../components/TaskDeadline';
 import { TaskStatusContextMenu } from './TaskStatusContextMenu';
 import { tasksApi } from '../../lib/tasksApi';
@@ -17,6 +18,15 @@ import {
   type TaskStatus,
 } from '../../types/tasks';
 import { canDeleteRecord } from '../../lib/permissions';
+const PAGE_SIZE_KEY = 'crm.tasks.pageSize';
+function storedPageSize() {
+  try {
+    const value = Number(localStorage.getItem(PAGE_SIZE_KEY));
+    return value ? clampPageSize(value) : 20;
+  } catch {
+    return 20;
+  }
+}
 type Sort = 'title' | 'dueDate' | 'priority' | 'status' | 'assignee';
 
 export default function TasksListPage() {
@@ -34,7 +44,7 @@ export default function TasksListPage() {
   const [statusMenu, setStatusMenu] = useState<{ task: Task; x: number; y: number } | null>(null);
   const [filters, setFilters] = useState<TaskFilters>({
     page: 1,
-    pageSize: 20,
+    pageSize: storedPageSize(),
     mine: true,
     status: 'IN_PROGRESS',
     overdue: searchParams.get('overdue') === 'true' || undefined,
@@ -86,6 +96,18 @@ export default function TasksListPage() {
   );
   function upd(p: Partial<TaskFilters>) {
     setFilters((c) => ({ ...c, ...p, page: 1 }));
+  }
+  function changePageSize(pageSize: number) {
+    try {
+      localStorage.setItem(PAGE_SIZE_KEY, String(pageSize));
+    } catch {
+      /* armazenamento indisponível: vale só para esta sessão */
+    }
+    upd({ pageSize });
+  }
+  function changePage(page: number) {
+    setFilters((c) => ({ ...c, page }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   function toggle(key: Sort) {
     setSort((c) => ({ key, dir: c.key === key && c.dir === 'asc' ? 'desc' : 'asc' }));
@@ -201,6 +223,11 @@ export default function TasksListPage() {
     }
     try {
       await tasksApi.remove(t.id);
+      if (items.length === 1 && (filters.page ?? 1) > 1) {
+        // Página ficou vazia: volta para a anterior (o efeito recarrega lista e resumo).
+        setFilters((c) => ({ ...c, page: (c.page ?? 1) - 1 }));
+        return;
+      }
       setItems((current) => current.filter((item) => item.id !== t.id));
       setTotal((current) => Math.max(0, current - 1));
       loadSummary(filters);
@@ -335,6 +362,9 @@ export default function TasksListPage() {
             </label>
           )}
         </div>
+      </div>
+      <div className="mb-3 flex justify-end">
+        <PageSizeStepper pageSize={filters.pageSize ?? 20} onChange={changePageSize} />
       </div>
       {error && <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</p>}
       <div className="table-shell overflow-x-auto">
@@ -485,6 +515,14 @@ export default function TasksListPage() {
           </table>
         )}
       </div>
+      {!loading && total > 0 && (
+        <Paginator
+          page={filters.page ?? 1}
+          pageSize={filters.pageSize ?? 20}
+          total={total}
+          onPageChange={changePage}
+        />
+      )}
       {statusMenu && (
         <TaskStatusContextMenu
           task={statusMenu.task}

@@ -240,12 +240,12 @@ export default function TaskFormPage() {
                     type="file"
                     multiple
                     className="hidden"
-                    accept=".doc,.docx,.xls,.xlsx,.pdf,image/*,.txt,.zip"
+                    accept=".doc,.docx,.xls,.xlsx,.pdf,image/*,.txt,.zip,.html,.htm"
                     onChange={selectFiles}
                   />
                 </label>
                 <p className="mt-2 text-xs text-slate-400">
-                  DOC, DOCX, PDF, XLS, XLSX, imagens, TXT ou ZIP — até 15 MB por arquivo.
+                  DOC, DOCX, PDF, XLS, XLSX, imagens, TXT, HTML ou ZIP — até 15 MB por arquivo.
                 </p>
                 {files.length > 0 && (
                   <ul className="mt-3 space-y-2">

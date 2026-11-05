@@ -21,6 +21,7 @@ export const ALLOWED_ATTACHMENT_MIME_TYPES = [
   'image/tiff',
   'image/svg+xml',
   'text/plain',
+  'text/html',
   'application/zip',
   'application/x-zip-compressed',
 ];

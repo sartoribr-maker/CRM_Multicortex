@@ -71,7 +71,7 @@ export function LeadAttachments({
             />
           </label>
           <p className="mt-1 text-xs text-ink/50">
-            Máximo 15MB. Imagens, PDF, Office, texto ou zip.
+            Máximo 15MB. Imagens, PDF, Office, texto, HTML ou zip.
           </p>
         </div>
       )}

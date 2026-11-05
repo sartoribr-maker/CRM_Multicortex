@@ -8,6 +8,9 @@ import type {
   TaskPayload,
   TaskStatus,
 } from '../types/tasks';
+
+const ACTIVE_CONTENT_TYPES = new Set(['text/html', 'image/svg+xml']);
+
 function qs(filters: TaskFilters) {
   const p = new URLSearchParams();
   Object.entries(filters).forEach(([k, v]) => v !== undefined && v !== '' && p.set(k, String(v)));
@@ -75,7 +78,27 @@ export const tasksApi = {
       previewWindow?.close();
       throw new Error(`Erro ao visualizar anexo (${response.status})`);
     }
-    const url = URL.createObjectURL(await response.blob());
+    const blob = await response.blob();
+    // HTML e SVG podem conter scripts: um blob: aberto direto rodaria na origem do CRM,
+    // com acesso à sessão. Eles são exibidos em iframe sandbox (origem opaca).
+    if (ACTIVE_CONTENT_TYPES.has(blob.type.split(';')[0].trim().toLowerCase())) {
+      const content = await blob.text();
+      if (!previewWindow) throw new Error('O navegador bloqueou a janela de visualização.');
+      previewWindow.opener = null;
+      const doc = previewWindow.document;
+      doc.open();
+      doc.write(
+        '<!doctype html><meta charset="utf-8"><title>Anexo</title>' +
+          '<style>html,body{margin:0;height:100%}iframe{border:0;width:100%;height:100%;display:block}</style>',
+      );
+      doc.close();
+      const frame = doc.createElement('iframe');
+      frame.setAttribute('sandbox', 'allow-scripts allow-popups allow-popups-to-escape-sandbox');
+      frame.srcdoc = content;
+      doc.body.appendChild(frame);
+      return;
+    }
+    const url = URL.createObjectURL(blob);
     if (previewWindow) {
       previewWindow.location.href = url;
     } else {

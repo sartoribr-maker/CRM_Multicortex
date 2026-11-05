@@ -347,7 +347,7 @@ export default function TaskDetailPage() {
                   type="file"
                   multiple
                   className="hidden"
-                  accept=".doc,.docx,.xls,.xlsx,.pdf,image/*,.txt,.zip"
+                  accept=".doc,.docx,.xls,.xlsx,.pdf,image/*,.txt,.zip,.html,.htm"
                   disabled={uploading}
                   onChange={upload}
                 />

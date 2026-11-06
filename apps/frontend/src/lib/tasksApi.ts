@@ -3,6 +3,7 @@ import type {
   Task,
   TaskAttachment,
   TaskFilters,
+  TaskGoogleCalendarConfig,
   TaskHistoryEntry,
   TaskListResponse,
   TaskPayload,
@@ -23,6 +24,7 @@ export const tasksApi = {
       `/tasks/summary${qs({ ...filters, status: undefined, page: undefined, pageSize: undefined })}`,
     ),
   get: (id: string) => apiJson<Task>(`/tasks/${id}`),
+  googleCalendarConfig: () => apiJson<TaskGoogleCalendarConfig>('/tasks/google-calendar'),
   create: (payload: TaskPayload) =>
     apiJson<Task>('/tasks', { method: 'POST', body: JSON.stringify(payload) }),
   update: (id: string, payload: Partial<TaskPayload>) =>

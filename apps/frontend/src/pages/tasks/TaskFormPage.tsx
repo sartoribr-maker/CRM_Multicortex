@@ -10,6 +10,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import {
   TASK_PRIORITY_LABELS,
   TASK_STATUS_LABELS,
+  type TaskGoogleCalendarConfig,
   type TaskPayload,
   type TaskPriority,
   type TaskStatus,
@@ -47,8 +48,16 @@ export default function TaskFormPage() {
   const [error, setError] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [originalStatus, setOriginalStatus] = useState<TaskStatus | null>(null);
+  const [calendarConfig, setCalendarConfig] = useState<TaskGoogleCalendarConfig | null>(null);
+  const [syncCalendar, setSyncCalendar] = useState(false);
+  const [calendarLinked, setCalendarLinked] = useState(false);
+  const [calendarLink, setCalendarLink] = useState<string | null>(null);
   useEffect(() => {
     leadsApi.list({ pageSize: 100 }).then((r) => setLeads(r.items));
+    tasksApi
+      .googleCalendarConfig()
+      .then(setCalendarConfig)
+      .catch(() => setCalendarConfig(null));
     if (isAdministrator) usersApi.list().then(setUsers);
   }, [isAdministrator]);
   useEffect(() => {
@@ -57,6 +66,10 @@ export default function TaskFormPage() {
       .get(id)
       .then((t) => {
         setOriginalStatus(t.status);
+        const ownEvent = t.googleTasks?.find((linked) => linked.userId === user?.id);
+        setCalendarLinked(Boolean(ownEvent));
+        setSyncCalendar(Boolean(ownEvent));
+        setCalendarLink(ownEvent?.webViewLink ?? null);
         setForm({
           title: t.title,
           description: t.description ?? undefined,
@@ -69,7 +82,7 @@ export default function TaskFormPage() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Erro ao carregar.'))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, user?.id]);
   function field<K extends keyof TaskPayload>(k: K, v: TaskPayload[K]) {
     setForm((c) => ({ ...c, [k]: v }));
   }
@@ -78,6 +91,8 @@ export default function TaskFormPage() {
     const payload: TaskPayload = {
       ...form,
       dueDate: new Date(`${form.dueDate}T12:00:00`).toISOString(),
+      // Só envia quando há algo a fazer: vincular/atualizar ou desfazer um vínculo existente.
+      syncGoogleCalendar: syncCalendar || calendarLinked ? syncCalendar : undefined,
     };
     const completing = form.status === 'DONE' && (!editing || originalStatus !== 'DONE');
     if (completing) {
@@ -93,6 +108,9 @@ export default function TaskFormPage() {
     try {
       const r = editing ? await tasksApi.update(id!, payload) : await tasksApi.create(payload);
       await Promise.all(files.map((file) => tasksApi.uploadAttachment(r.id, file)));
+      if (r.googleCalendar && !r.googleCalendar.synced && r.googleCalendar.message) {
+        window.alert(r.googleCalendar.message);
+      }
       nav(`/tasks/${r.id}`, { state: { returnTo } });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar tarefa.');
@@ -222,6 +240,54 @@ export default function TaskFormPage() {
                   ))}
                 </select>
               </div>
+              {calendarConfig?.enabled && (
+                <div className="md:col-span-2">
+                  <label
+                    className={`flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm ${
+                      calendarConfig.eligible
+                        ? 'cursor-pointer hover:bg-purple-50'
+                        : 'cursor-not-allowed opacity-60'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      disabled={!calendarConfig.eligible}
+                      checked={syncCalendar}
+                      onChange={(event) => setSyncCalendar(event.target.checked)}
+                    />
+                    <span>
+                      <span className="flex items-center gap-1.5 font-semibold text-slate-700">
+                        <Icon name="calendar" className="h-4 w-4 text-brand-purple" />
+                        Vincular com o Google Agenda
+                      </span>
+                      <span className="mt-0.5 block text-xs text-slate-500">
+                        {!calendarConfig.eligible
+                          ? `Disponível apenas para usuários com e-mail @${calendarConfig.workspaceDomain}.`
+                          : calendarLinked && !syncCalendar
+                            ? 'Ao salvar, a tarefa será removida do seu Google Agenda.'
+                            : calendarLinked
+                              ? 'Já vinculada: ao salvar, ela e o lembrete das 10h serão atualizados no seu Google Agenda.'
+                              : `Ao salvar, a tarefa entra em "Minhas tarefas" do Google Agenda de ${user?.email}, com lembrete às 10h do dia do prazo.`}
+                        {calendarLinked && calendarLink && (
+                          <>
+                            {' '}
+                            <a
+                              href={calendarLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-semibold text-brand-purple hover:underline"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              Abrir no Google Agenda
+                            </a>
+                          </>
+                        )}
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              )}
               <div className="md:col-span-2">
                 <label className="form-label">Descrição</label>
                 <textarea

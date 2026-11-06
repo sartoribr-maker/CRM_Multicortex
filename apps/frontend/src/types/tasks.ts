@@ -30,6 +30,10 @@ export interface Task {
   assignee: { id: string; name: string; email: string };
   assignees: Array<{ user: { id: string; name: string; email: string } }>;
   createdByUser: { id: string; name: string };
+  /** Usuários que vincularam a tarefa ao próprio Google Tasks ("Minhas tarefas"). */
+  googleTasks?: Array<{ userId: string; webViewLink: string | null }>;
+  /** Resultado da sincronização com o Google Agenda nesta gravação. */
+  googleCalendar?: { synced: boolean; message?: string; webViewLink?: string | null };
   lead: {
     id: string;
     name: string;
@@ -49,6 +53,13 @@ export interface TaskPayload {
   assigneeId?: string;
   assigneeIds?: string[];
   completionReason?: string;
+  /** true vincula/atualiza no Google Tasks do usuário logado; false remove o vínculo. */
+  syncGoogleCalendar?: boolean;
+}
+export interface TaskGoogleCalendarConfig {
+  enabled: boolean;
+  workspaceDomain: string;
+  eligible: boolean;
 }
 export interface TaskAttachment {
   id: string;

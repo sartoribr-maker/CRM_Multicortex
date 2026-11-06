@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TaskPriority, TaskStatus } from '@prisma/client';
-import { ArrayMinSize, IsArray, IsDateString, IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import { ArrayMinSize, IsArray, IsBoolean, IsDateString, IsEnum, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
 
 export class CreateTaskDto {
   @ApiProperty() @IsString() @MinLength(2) title!: string;
@@ -21,4 +21,11 @@ export class CreateTaskDto {
   @IsString()
   @MinLength(3)
   completionReason?: string;
+  @ApiPropertyOptional({
+    description:
+      'Vincula a tarefa à agenda Google do usuário logado (true) ou remove o vínculo (false).',
+  })
+  @IsOptional()
+  @IsBoolean()
+  syncGoogleCalendar?: boolean;
 }

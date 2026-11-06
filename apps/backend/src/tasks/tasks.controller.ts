@@ -38,6 +38,11 @@ export class TasksController {
   ) {
     return this.service.statusSummary(query, user);
   }
+  @Get('google-calendar') @AllowThirdPartyPortal() @RequirePermissions(PERMISSIONS.TASKS_VIEW) googleCalendar(
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.googleCalendarConfig(user);
+  }
   @Get(':id') @AllowThirdPartyPortal() @RequirePermissions(PERMISSIONS.TASKS_VIEW) findOne(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: JwtPayload,

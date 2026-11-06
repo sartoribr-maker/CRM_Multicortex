@@ -30,12 +30,26 @@ A integração usa uma **conta de serviço com delegação em todo o domínio**.
 2. **Conta de serviço:** em IAM e administrador → Contas de serviço, crie uma conta (ex.: `crm-agenda`). Em **Chaves**, adicione uma chave do tipo **JSON** e guarde o arquivo baixado. Anote o **ID do cliente** (número) da conta.
 3. **Delegação em todo o domínio:** no Admin Console do Workspace (https://admin.google.com), vá em Segurança → Acesso e controle de dados → Controles de API → **Gerenciar delegação em todo o domínio** → Adicionar:
    - ID do cliente: o número do passo 2;
-   - Escopos (separados por vírgula): `https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/calendar.freebusy`.
+   - Escopos (separados por vírgula): `https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/calendar.freebusy,https://www.googleapis.com/auth/tasks` (o último é usado pelas tarefas; veja abaixo).
      O primeiro cria as reuniões; o segundo, somente leitura, consulta os horários ocupados.
 4. **No CRM:** em **Configurações → Google Agenda**, informe o domínio (`multicortex.ai`) e a agenda padrão (`multicortex@multicortex.ai`). Envie o arquivo JSON da chave, escolha a etapa de reunião, marque **Integração ativa** e salve.
 5. Clique em **Testar conexão**. O teste acessa a agenda padrão. Se falhar com "não autorizou a conta de serviço", confira o passo 3 (pode levar alguns minutos para propagar).
 
 A chave é guardada criptografada (AES-256-GCM), com `GOOGLE_CALENDAR_ENCRYPTION_KEY` ou, na ausência dela, `JWT_SECRET`. Trocar esse segredo exige reenviar a chave. Arquivos de chave não devem ser versionados no Git.
+
+## Tarefas no Google Agenda (Google Tasks)
+
+No formulário de inclusão/alteração de tarefas há o checkbox **Vincular com o Google Agenda**. A tarefa entra em **"Minhas tarefas"** (Google Tasks), que aparece no painel de tarefas e na grade do Google Agenda. O checkbox só fica habilitado para usuários com e-mail do domínio do Workspace (`workspaceDomain`, padrão `multicortex.ai`), porque a tarefa é criada na conta do próprio usuário.
+
+- **Marcado ao salvar:** cria a tarefa com o título, as notas (descrição + link para o CRM) e o prazo como data. Se ela já existe, é atualizada. Uma tarefa excluída no Google é recriada.
+- **Lembrete às 10h:** como a API do Google Tasks não aceita horário nem notificação, o CRM cria também um evento `⏰ <título>` das 10h às 10h15 (São Paulo) no dia do prazo, com notificação no horário, sem convidados e como "livre". Ele acompanha as alterações da tarefa e é apagado quando ela é concluída ou cancelada (volta se a tarefa for reaberta). O evento usa o escopo `calendar.events`, que já está autorizado.
+- **Desmarcado numa tarefa já vinculada:** a tarefa e o lembrete são apagados do Google.
+- O vínculo é por usuário (`task_google_tasks`). Alterar, prorrogar ou transferir a tarefa atualiza as tarefas Google de todos os vinculados. Concluir no CRM marca como concluída no Google, e reabrir desmarca. Arquivar ou excluir apaga.
+- Se o Google falhar, a tarefa é salva mesmo assim e o usuário vê um aviso.
+
+**Configuração extra (uma vez):**
+1. No Google Cloud, no projeto da conta de serviço, ative a **Google Tasks API**.
+2. No Admin Console (Segurança → Controles de API → Delegação em todo o domínio), edite o client ID da conta de serviço e acrescente o escopo `https://www.googleapis.com/auth/tasks` aos que já existem (`calendar.events` e `calendar.freebusy`).
 
 ## API
 
@@ -43,6 +57,7 @@ A chave é guardada criptografada (AES-256-GCM), com `GOOGLE_CALENDAR_ENCRYPTION
 - `GET /calendar/attendee-suggestions?search=`: usuários ativos do CRM.
 - `GET /calendar/availability?emails=a,b&from=&to=`: intervalos ocupados (até 45 dias), apenas de e-mails do domínio.
 - `GET /leads/:id/meetings` e `POST /leads/:id/meetings`: o POST recebe `title`, `description`, `startAt`, `endAt`, `attendees[]` e `withMeet`.
+- `GET /tasks/google-calendar`: integração ativa e se o usuário logado pode vincular. `POST /tasks` e `PATCH /tasks/:id` aceitam `syncGoogleCalendar` (`true` vincula/atualiza no Google Tasks, `false` remove).
 - `GET`/`PUT /google-calendar-settings` e `POST /google-calendar-settings/test`: exigem `settings.manage`.
 
 ## Limitações atuais

@@ -261,3 +261,96 @@ export async function queryFreeBusy(
     };
   });
 }
+
+/** Horário (São Paulo) do evento-lembrete das tarefas e duração dele. */
+export const TASK_REMINDER_TIME = '10:00:00';
+export const TASK_REMINDER_END_TIME = '10:15:00';
+
+export interface TaskReminderInput {
+  title: string;
+  description?: string | null;
+  /** Data local (AAAA-MM-DD) do prazo da tarefa. */
+  day: string;
+  crmUrl?: string | null;
+}
+
+/** Evento curto às 10h do prazo, com notificação no próprio horário. */
+export function buildTaskReminderBody(input: TaskReminderInput) {
+  const description = [input.description?.trim(), input.crmUrl ? `Tarefa no CRM: ${input.crmUrl}` : null]
+    .filter(Boolean)
+    .join('\n\n');
+  return {
+    summary: `⏰ ${input.title}`,
+    description,
+    start: { dateTime: `${input.day}T${TASK_REMINDER_TIME}`, timeZone: MEETING_TIME_ZONE },
+    end: { dateTime: `${input.day}T${TASK_REMINDER_END_TIME}`, timeZone: MEETING_TIME_ZONE },
+    // Lembrete não ocupa a agenda (aparece como "livre").
+    transparency: 'transparent',
+    reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 0 }] },
+    status: 'confirmed',
+    ...(input.crmUrl ? { source: { title: 'CRM Multicortex', url: input.crmUrl } } : {}),
+  };
+}
+
+async function eventsRequest(
+  accessToken: string,
+  method: 'POST' | 'PATCH' | 'DELETE',
+  eventId?: string,
+  payload?: unknown,
+) {
+  const path = eventId ? `/${encodeURIComponent(eventId)}` : '';
+  const response = await fetch(
+    `${CALENDAR_API_URL}/calendars/primary/events${path}?sendUpdates=none`,
+    {
+      method,
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      ...(payload ? { body: JSON.stringify(payload) } : {}),
+    },
+  );
+  const body = (await response.json().catch(() => ({}))) as {
+    id?: string;
+    error?: { message?: string };
+  };
+  return { response, body };
+}
+
+/**
+ * Cria o evento-lembrete ou, com `eventId`, atualiza o existente
+ * (inclusive restaurando um evento cancelado). Se ele sumiu (404/410), cria outro.
+ */
+export async function saveTaskReminderEvent(
+  accessToken: string,
+  input: TaskReminderInput,
+  eventId?: string | null,
+): Promise<string> {
+  const payload = buildTaskReminderBody(input);
+  if (eventId) {
+    const { response, body } = await eventsRequest(accessToken, 'PATCH', eventId, payload);
+    if (response.ok && body.id) return body.id;
+    if (response.status !== 404 && response.status !== 410) {
+      throw new GoogleCalendarError(
+        `O Google Agenda recusou a atualização do lembrete (${response.status}${body.error?.message ? `: ${body.error.message}` : ''}).`,
+        response.status,
+      );
+    }
+  }
+  const { response, body } = await eventsRequest(accessToken, 'POST', undefined, payload);
+  if (!response.ok || !body.id) {
+    throw new GoogleCalendarError(
+      `O Google Agenda recusou o lembrete (${response.status}${body.error?.message ? `: ${body.error.message}` : ''}).`,
+      response.status,
+    );
+  }
+  return body.id;
+}
+
+/** Remove o evento; já removido no Google (404/410) conta como sucesso. */
+export async function deleteCalendarEvent(accessToken: string, eventId: string): Promise<void> {
+  const { response, body } = await eventsRequest(accessToken, 'DELETE', eventId);
+  if (!response.ok && response.status !== 404 && response.status !== 410) {
+    throw new GoogleCalendarError(
+      `O Google Agenda recusou a exclusão do lembrete (${response.status}${body.error?.message ? `: ${body.error.message}` : ''}).`,
+      response.status,
+    );
+  }
+}

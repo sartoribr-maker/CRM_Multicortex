@@ -18,6 +18,7 @@ import { EmailNotificationsService } from '../notifications/email-notifications.
 import { ExtendTaskDeadlineDto } from './dto/extend-task-deadline.dto';
 import { TransferTaskDto } from './dto/transfer-task.dto';
 import { CompleteTaskDto } from './dto/complete-task.dto';
+import { GoogleTasksService } from '../calendar/google-tasks.service';
 
 const INCLUDE = {
   assignee: { select: { id: true, name: true, email: true } },
@@ -26,6 +27,7 @@ const INCLUDE = {
     orderBy: { assignedAt: 'asc' },
   },
   createdByUser: { select: { id: true, name: true } },
+  googleTasks: { select: { userId: true, webViewLink: true } },
   lead: {
     select: {
       id: true,
@@ -42,7 +44,31 @@ export class TasksService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly emailNotifications: EmailNotificationsService,
+    private readonly calendar: GoogleTasksService,
   ) {}
+  googleCalendarConfig(user: JwtPayload) {
+    return this.calendar.config(user);
+  }
+  /** Aplica o checkbox "Vincular com o Google Agenda" e propaga a alteração aos demais vínculos. */
+  private async syncCalendar(
+    task: Prisma.TaskGetPayload<{ include: typeof INCLUDE }>,
+    syncGoogleCalendar: boolean | undefined,
+    user: JwtPayload,
+  ) {
+    const googleCalendar =
+      syncGoogleCalendar === true
+        ? await this.calendar.link(task, user)
+        : syncGoogleCalendar === false
+          ? await this.calendar.unlink(task.id, user)
+          : undefined;
+    await this.calendar.refresh(task, syncGoogleCalendar === undefined ? undefined : user.sub);
+    if (!googleCalendar) return task;
+    const refreshed = await this.prisma.task.findUniqueOrThrow({
+      where: { id: task.id },
+      include: INCLUDE,
+    });
+    return { ...refreshed, googleCalendar };
+  }
   private canViewAll(user: JwtPayload) {
     return user.roleName.trim().toLocaleLowerCase('pt-BR') === 'administrador';
   }
@@ -154,6 +180,7 @@ export class TasksService {
     const assigneeId = assigneeIds[0];
     if (assigneeIds.some((id) => id !== user.sub) && !this.canViewAll(user))
       throw new ForbiddenException('Você não pode atribuir tarefas a outro usuário.');
+    if (dto.syncGoogleCalendar) await this.calendar.assertCanLink(user);
     const task = await this.prisma.$transaction(async (tx) => {
       const created = await tx.task.create({
         data: {
@@ -209,7 +236,7 @@ export class TasksService {
       leadCompanyName: task.lead?.companyName,
       leadStageName: task.lead?.stage.name,
     });
-    return task;
+    return this.syncCalendar(task, dto.syncGoogleCalendar || undefined, user);
   }
   async update(id: string, dto: UpdateTaskDto, user: JwtPayload) {
     const existing = await this.findOne(id, user);
@@ -232,6 +259,7 @@ export class TasksService {
     if (transitioningToDone && !dto.completionReason?.trim()) {
       throw new BadRequestException('Informe a justificativa obrigatória ao concluir a tarefa.');
     }
+    if (dto.syncGoogleCalendar) await this.calendar.assertCanLink(user);
     const task = await this.prisma.$transaction(async (tx) => {
       await tx.task.update({
         where: { id },
@@ -293,7 +321,7 @@ export class TasksService {
       leadCompanyName: task.lead?.companyName,
       leadStageName: task.lead?.stage.name,
     });
-    return task;
+    return this.syncCalendar(task, dto.syncGoogleCalendar, user);
   }
   async complete(id: string, dto: CompleteTaskDto, user: JwtPayload) {
     const existing = await this.findOne(id, user);
@@ -339,12 +367,14 @@ export class TasksService {
       leadCompanyName: task.lead?.companyName,
       leadStageName: task.lead?.stage.name,
     });
+    await this.calendar.refresh(task);
     return task;
   }
   async archive(id: string, user: JwtPayload) {
     const task = await this.findOne(id, user);
     assertCanDeleteRecord(user, PERMISSIONS.TASKS_DELETE, task.createdByUserId);
     await this.prisma.task.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.calendar.removeAll(id);
     await this.audit.record({
       action: 'TASK_ARCHIVED',
       actorUserId: user.sub,
@@ -356,6 +386,7 @@ export class TasksService {
   async remove(id: string, user: JwtPayload) {
     const task = await this.findOne(id, user);
     assertCanDeleteRecord(user, PERMISSIONS.TASKS_DELETE, task.createdByUserId);
+    await this.calendar.removeAll(id);
     await this.prisma.task.delete({ where: { id } });
     await this.audit.record({
       action: 'TASK_DELETED',
@@ -399,6 +430,7 @@ export class TasksService {
       targetId: id,
       metadata: { reason: dto.reason },
     });
+    await this.calendar.refresh(task);
     return task;
   }
 

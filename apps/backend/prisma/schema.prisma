@@ -141,6 +141,7 @@ model User {
   taskHistoryActions      TaskHistoryEntry[]
   createdTasks            Task[]              @relation("TaskCreator")
   createdMeetings         LeadMeeting[]
+  taskGoogleTasks         TaskGoogleTask[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -592,6 +593,7 @@ model Task {
   assignees          TaskAssignee[]
   attachments        TaskAttachment[]
   history            TaskHistoryEntry[]
+  googleTasks        TaskGoogleTask[]
 
   createdByUserId String
   createdByUser   User   @relation("TaskCreator", fields: [createdByUserId], references: [id])
@@ -602,6 +604,26 @@ model Task {
 
   @@index([assigneeId, status, dueDate])
   @@map("tasks")
+}
+
+/// Tarefa do Google Tasks ("Minhas tarefas") vinculada a uma tarefa do CRM, na conta de um usuário.
+model TaskGoogleTask {
+  id           String   @id @default(uuid())
+  taskId       String
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  googleEmail  String
+  googleTaskId String
+  webViewLink  String?
+  /// Evento às 10h do prazo no Google Agenda, com notificação (o Tasks não tem lembrete pela API).
+  reminderEventId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@map("task_google_tasks")
 }
 
 model TaskAssignee {

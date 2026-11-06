@@ -4,10 +4,12 @@ import { GoogleCalendarSettingsController } from './google-calendar-settings.con
 import { GoogleCalendarSettingsService } from './google-calendar-settings.service';
 import { LeadMeetingsController } from './lead-meetings.controller';
 import { LeadMeetingsService } from './lead-meetings.service';
+import { GoogleTasksService } from './google-tasks.service';
 
 @Module({
   imports: [LeadsModule],
   controllers: [GoogleCalendarSettingsController, LeadMeetingsController],
-  providers: [GoogleCalendarSettingsService, LeadMeetingsService],
+  providers: [GoogleCalendarSettingsService, LeadMeetingsService, GoogleTasksService],
+  exports: [GoogleTasksService],
 })
 export class CalendarModule {}

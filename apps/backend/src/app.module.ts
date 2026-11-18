@@ -34,7 +34,11 @@ import { WhatsAppSettingsModule } from './notifications/whatsapp-settings.module
       isGlobal: true,
       envFilePath: ['.env', '../../.env'],
     }),
-    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 60 }]),
+    // Limite geral por IP: uma tela como o Kanban faz dezenas de chamadas ao abrir (catálogos,
+    // páginas de leads, fotos). Login e recuperação de senha mantêm 5/min nos próprios endpoints.
+    ThrottlerModule.forRoot([
+      { name: 'default', ttl: 60_000, limit: Number(process.env.THROTTLE_LIMIT) || 300 },
+    ]),
     PrismaModule,
     PmoModule,
     EmailNotificationsModule,

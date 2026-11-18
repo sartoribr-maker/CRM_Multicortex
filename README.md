@@ -216,7 +216,8 @@ Desde 2026-11-17 as tarefas do CRM e do Multicortex Projetos (PMO) ficam numa **
 - Movimentar um lead com "criar tarefa" cria a tarefa no PMO; renomear o lead atualiza o nome nas tarefas; excluir o lead só desvincula as tarefas.
 - O dashboard, o Dashboard SDR e o monitoramento leem as tarefas do PMO; o monitoramento avisa só sobre as tarefas criadas no CRM (as do PMO têm os avisos do PMO).
 - O PMO busca leads em `GET /api/v1/integration/pmo/leads` (mesma chave; só os leads que a pessoa vê no CRM).
-- As tabelas antigas de tarefas (`tasks`, `task_assignees`, `task_attachments`, `task_history_entries`) ficam intactas até a migração dos dados para o PMO.
+- As tarefas antigas foram migradas para o PMO em 2026-11-18 (`migrar-tarefas-crm`); as tabelas antigas (`tasks`, `task_assignees`, `task_attachments`, `task_history_entries`) ficam como cópia de segurança até uma limpeza futura.
+- **Oportunidade ganha vira projeto:** ao mover uma oportunidade para uma etapa de ganho (`isWonStage`), no Kanban ou no formulário, o CRM pergunta se ela deve virar projeto. "Sim" abre o cadastro de projeto do PMO (`PMO_URL`/projects/novo) em outra aba, preenchido com nome, patrocinador (contato — empresa), objetivo (código + descrição), escopo (tipos de projeto) e início; a ação da movimentação é sugerida. "Não" segue a movimentação normal.
 - Desenvolvimento local: CRM (API 3334) e PMO (API 3333) se alcançam por `host.docker.internal` (`extra_hosts` no compose de desenvolvimento).
 - Produção: rede Docker `multicortex-integracao` (criada pelo `deploy-crm`), alias `crm-backend`; o Nginx público responde 404 em `/api/v1/integration/pmo/`. Publicação e migração das tarefas antigas: roteiro `docs/integracao-crm.md` no repositório do PMO (`migrar-tarefas-crm`).
 
@@ -237,6 +238,9 @@ Ver `.env.example` na raiz. Nesta fase são utilizadas:
 | `STORAGE_DRIVER`                                      | driver de armazenamento de anexos (`local` por ora; `s3`/`r2` em produção futura)          |
 | `STORAGE_LOCAL_PATH`                                  | caminho no container onde os anexos ficam gravados (montado como volume `backend_uploads`) |
 | `PMO_API_URL` / `PMO_INTEGRATION_KEY`                 | API do Multicortex Projetos (onde as tarefas moram) e chave compartilhada da integração   |
+| `PMO_URL`                                             | endereço público do PMO (navegador), usado para converter oportunidade ganha em projeto  |
+| `THROTTLE_LIMIT`                                      | requisições por minuto por IP (padrão `300`; login fica em 5/min)                         |
+| `TRUST_PROXY_HOPS`                                    | proxies à frente do backend (padrão `1`; produção `2`: Nginx de borda + Nginx do app)     |
 
 O refresh token não é um JWT: é um valor aleatório opaco, guardado com hash (SHA-256) no banco, entregue ao navegador em um cookie `httpOnly`. Variáveis de storage e SMTP estão documentadas no `.env.example` para as fases futuras, mas ainda não são utilizadas.
 
@@ -284,3 +288,6 @@ ssh ec2-user@52.207.145.100
 # 3. Já dentro do servidor, cole este comando separado (sem sudo):
 
 nohup deploy-crm > ~/deploy-$(date +%Y%m%d-%H%M).log 2>&1 & sleep 2; tail -f ~/deploy-*.log
+
+# Subir a plataforma:
+docker compose --env-file .env -f infra/docker-compose.yml up -d --build

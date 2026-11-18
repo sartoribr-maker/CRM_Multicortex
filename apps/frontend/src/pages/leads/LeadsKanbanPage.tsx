@@ -7,7 +7,9 @@ import { KanbanBoard } from '../../components/leads/kanban/KanbanBoard';
 import { money } from '../../components/leads/kanban/LeadKanbanCard';
 import { MoveLeadModal, type MoveLeadPayload } from '../../components/leads/kanban/MoveLeadModal';
 import { useMeetingScheduling } from '../../components/leads/meetings/useMeetingScheduling';
+import { useProjectConversion } from '../../components/leads/projects/useProjectConversion';
 import { leadsApi, type LeadListFilters } from '../../lib/leadsApi';
+import { returnHereState } from '../../lib/leadNavigation';
 import { partnersApi } from '../../lib/partnersApi';
 import {
   dealSizesApi,
@@ -137,13 +139,17 @@ export default function LeadsKanbanPage() {
   }
 
   function openLead(leadId: string) {
-    navigate(`/leads/${leadId}`, {
-      state: { returnTo: `${location.pathname}${location.search}` },
-    });
+    navigate(`/leads/${leadId}`, { state: returnHereState(location) });
   }
 
+  // Etapa de ganho: pergunta se a oportunidade vira projeto no PMO antes de confirmar a movimentação.
+  const projectConversion = useProjectConversion({
+    onProceed: (lead, stage, actionDescription) =>
+      setPendingMove({ lead, stage, actionDescription }),
+  });
+
   const meetingScheduling = useMeetingScheduling({
-    onProceed: (lead, stage, actionDescription) => setPendingMove({ lead, stage, actionDescription }),
+    onProceed: projectConversion.startMove,
     onMeetingScheduled: (leadId, meeting) =>
       setLeads((items) =>
         items.map((item) => (item.id === leadId ? { ...item, meetings: [meeting] } : item)),
@@ -195,7 +201,10 @@ export default function LeadsKanbanPage() {
         description={`${leads.length} oportunidades · ${money(totalValue)} em valor estimado`}
         actions={
           canCreate && (
-            <button className="btn-primary" onClick={() => navigate('/leads/novo')}>
+            <button
+              className="btn-primary"
+              onClick={() => navigate('/leads/novo', { state: returnHereState(location) })}
+            >
               <Icon name="plus" className="h-4 w-4" />
               Nova oportunidade
             </button>
@@ -373,7 +382,7 @@ export default function LeadsKanbanPage() {
           isMoving={isMoving}
           onMove={requestMove}
           onOpen={openLead}
-          onAdd={() => navigate('/leads/novo')}
+          onAdd={() => navigate('/leads/novo', { state: returnHereState(location) })}
         />
       )}
       {pendingClaim && (
@@ -399,6 +408,7 @@ export default function LeadsKanbanPage() {
         />
       )}
       {meetingScheduling.modals}
+      {projectConversion.modals}
     </AppShell>
   );
 }

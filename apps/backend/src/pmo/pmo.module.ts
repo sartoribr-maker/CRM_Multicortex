@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { PmoClientService } from './pmo-client.service';
+import { PmoConfigController } from './pmo-config.controller';
 import { PmoTasksGateway } from './pmo-tasks.gateway';
 
 /**
@@ -8,6 +9,7 @@ import { PmoTasksGateway } from './pmo-tasks.gateway';
  */
 @Global()
 @Module({
+  controllers: [PmoConfigController],
   providers: [PmoClientService, PmoTasksGateway],
   exports: [PmoClientService, PmoTasksGateway],
 })

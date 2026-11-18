@@ -4,6 +4,7 @@ import { AppShell, PageHeader } from '../../components/AppShell';
 import { FixedHorizontalScrollbar } from '../../components/FixedHorizontalScrollbar';
 import { Icon } from '../../components/Icon';
 import { leadsApi, type LeadListFilters } from '../../lib/leadsApi';
+import { returnHereState } from '../../lib/leadNavigation';
 import { formatCurrency, formatPhone } from '../../lib/formatters';
 import { partnersApi } from '../../lib/partnersApi';
 import {
@@ -146,7 +147,7 @@ export default function LeadsListPage() {
   }
   function openLead(leadId: string) {
     navigate(`/leads/${leadId}`, {
-      state: { returnTo: `${location.pathname}${location.search}` },
+      state: returnHereState(location),
     });
   }
   const sortedLeads = useMemo(
@@ -207,7 +208,10 @@ export default function LeadsListPage() {
               Ver Kanban
             </button>
             {canCreate && (
-              <button className="btn-primary" onClick={() => navigate('/leads/novo')}>
+              <button
+                className="btn-primary"
+                onClick={() => navigate('/leads/novo', { state: returnHereState(location) })}
+              >
                 <Icon name="plus" className="h-4 w-4" />
                 Novo lead
               </button>
@@ -466,7 +470,7 @@ export default function LeadsListPage() {
                         title="Visualizar"
                         onClick={() =>
                           navigate(`/leads/${lead.id}`, {
-                            state: { returnTo: `${location.pathname}${location.search}` },
+                            state: returnHereState(location),
                           })
                         }
                       >
@@ -476,7 +480,11 @@ export default function LeadsListPage() {
                         <button
                           className="icon-button"
                           title="Editar"
-                          onClick={() => navigate(`/leads/${lead.id}/editar`)}
+                          onClick={() =>
+                            navigate(`/leads/${lead.id}/editar`, {
+                              state: returnHereState(location),
+                            })
+                          }
                         >
                           <Icon name="edit" className="h-4 w-4" />
                         </button>

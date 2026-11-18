@@ -12,6 +12,7 @@ import { LeadAttachments } from '../../components/leads/LeadAttachments';
 import { LeadTimeline } from '../../components/leads/LeadTimeline';
 import { TaskDeadline } from '../../components/TaskDeadline';
 import { leadsApi } from '../../lib/leadsApi';
+import { safeLeadReturnTo } from '../../lib/leadNavigation';
 import { tasksApi } from '../../lib/tasksApi';
 import { formatCurrency, formatDate, formatPhone } from '../../lib/formatters';
 import { avatarUrl } from '../../lib/usersApi';
@@ -37,14 +38,8 @@ export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const requestedReturnTo = (location.state as { returnTo?: unknown } | null)?.returnTo;
   const returnTo =
-    typeof requestedReturnTo === 'string' &&
-    (requestedReturnTo === '/leads/kanban' ||
-      requestedReturnTo === '/leads' ||
-      requestedReturnTo.startsWith('/leads?'))
-      ? requestedReturnTo
-      : '/leads';
+    safeLeadReturnTo((location.state as { returnTo?: unknown } | null)?.returnTo) ?? '/leads';
   const user = useAuthStore((s) => s.user);
   const canEdit = user?.permissions.includes('leads.edit') ?? false;
   const canCreate = user?.permissions.includes('leads.create') ?? false;

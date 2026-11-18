@@ -10,6 +10,13 @@ import {
   companyExtrasFrom,
 } from '../../components/LeadPartyExtraFields';
 import { leadsApi, type CustomFieldValueInput, type LeadFormPayload } from '../../lib/leadsApi';
+import { safeLeadReturnTo } from '../../lib/leadNavigation';
+import { PROJECT_CONVERSION_ACTION } from '../../lib/pmoProjectApi';
+import {
+  ConvertToProjectDialog,
+  openPmoNewProject,
+  usePmoConfig,
+} from '../../components/leads/projects/useProjectConversion';
 import {
   stagesApi,
   prioritiesApi,
@@ -71,6 +78,16 @@ export default function LeadFormPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const navigationState = location.state as { returnTo?: string } | null;
+  // Tela de origem (Kanban ou lista): salvar ou cancelar volta para ela.
+  const returnTo = safeLeadReturnTo(navigationState?.returnTo);
+
+  function cancel() {
+    if (returnTo) navigate(returnTo);
+    else
+      navigate(isEditing ? `/leads/${id}` : '/leads', {
+        state: isEditing ? navigationState : undefined,
+      });
+  }
   const user = useAuthStore((s) => s.user);
   const canViewAll = user?.permissions.includes('leads.view.all') ?? false;
   const canCreateSegments = user?.permissions.includes('settings.manage') ?? false;
@@ -89,6 +106,10 @@ export default function LeadFormPage() {
   const [customFieldValues, setCustomFieldValues] = useState<CustomFieldValueInput[]>([]);
   const [selectedStage, setSelectedStage] = useState<Stage | null>(null);
   const [initialStageId, setInitialStageId] = useState<string | null>(null);
+  const [businessCode, setBusinessCode] = useState<string | null>(null);
+  // Etapa de ganho escolhida: pergunta se a oportunidade vira projeto no PMO.
+  const pmoUrl = usePmoConfig();
+  const [conversionStage, setConversionStage] = useState<Stage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditing);
@@ -154,6 +175,7 @@ export default function LeadFormPage() {
           description: lead.description ?? undefined,
         });
         setInitialStageId(lead.stage.id);
+        setBusinessCode(lead.businessCode);
         setCustomFieldValues(
           lead.customFieldValues.map((v) => ({ customFieldId: v.customFieldId, value: v.value })),
         );
@@ -169,6 +191,30 @@ export default function LeadFormPage() {
 
   function updateField<K extends keyof LeadFormPayload>(key: K, value: LeadFormPayload[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function changeStage(stageId: string) {
+    updateField('stageId', stageId);
+    const stage = stages.find((s) => s.id === stageId);
+    if (pmoUrl && stage?.isWonStage && stageId !== initialStageId) setConversionStage(stage);
+  }
+
+  function convertToProject() {
+    if (!pmoUrl) return;
+    openPmoNewProject(pmoUrl, {
+      name: form.name,
+      businessCode,
+      companyName: form.companyName,
+      contactName: form.contactName,
+      description: form.description,
+      projectTypeNames: projectTypes
+        .filter((item) => form.projectTypeIds?.includes(item.id))
+        .map((item) => item.name),
+    });
+    setConversionStage(null);
+    if (isEditing && !form.actionDescription?.trim()) {
+      updateField('actionDescription', PROJECT_CONVERSION_ACTION);
+    }
   }
 
   function openQuickCreate(kind: QuickCreateKind) {
@@ -253,7 +299,8 @@ export default function LeadFormPage() {
     try {
       const payload: LeadFormPayload = { ...form, customFieldValues };
       const lead = isEditing ? await leadsApi.update(id!, payload) : await leadsApi.create(payload);
-      navigate(`/leads/${lead.id}`, { state: navigationState });
+      if (returnTo) navigate(returnTo);
+      else navigate(`/leads/${lead.id}`, { state: navigationState });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar lead.');
     } finally {
@@ -277,15 +324,7 @@ export default function LeadFormPage() {
           title={isEditing ? 'Editar oportunidade' : 'Nova oportunidade'}
           description="Preencha as informações abaixo para manter o funil comercial organizado."
           actions={
-            <button
-              type="button"
-              onClick={() =>
-                navigate(isEditing ? `/leads/${id}` : '/leads', {
-                  state: isEditing ? navigationState : undefined,
-                })
-              }
-              className="btn-secondary"
-            >
+            <button type="button" onClick={cancel} className="btn-secondary">
               <Icon name="x" className="h-4 w-4" />
               Cancelar
             </button>
@@ -544,12 +583,15 @@ export default function LeadFormPage() {
                 <select
                   className={inputClass}
                   value={form.stageId ?? ''}
-                  onChange={(e) => updateField('stageId', e.target.value)}
+                  onChange={(e) => changeStage(e.target.value)}
                 >
                   <option value="">Etapa inicial padrão</option>
                   {/* Etapas ocultas no CRM só aparecem se o lead já estiver nelas (ou para quem vê todas). */}
                   {stages
-                    .filter((s) => canViewAllStages(user) || !s.hiddenInMainCrm || s.id === initialStageId)
+                    .filter(
+                      (s) =>
+                        canViewAllStages(user) || !s.hiddenInMainCrm || s.id === initialStageId,
+                    )
                     .map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name}
@@ -870,15 +912,7 @@ export default function LeadFormPage() {
           )}
 
           <div className="sticky bottom-4 z-20 flex justify-end gap-2 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur">
-            <button
-              type="button"
-              onClick={() =>
-                navigate(isEditing ? `/leads/${id}` : '/leads', {
-                  state: isEditing ? navigationState : undefined,
-                })
-              }
-              className="btn-secondary"
-            >
+            <button type="button" onClick={cancel} className="btn-secondary">
               Cancelar
             </button>
             <button type="submit" disabled={isSubmitting} className="btn-primary min-w-[130px]">
@@ -953,6 +987,14 @@ export default function LeadFormPage() {
               </div>
             </form>
           </div>
+        )}
+        {conversionStage && (
+          <ConvertToProjectDialog
+            leadName={form.name || 'Esta oportunidade'}
+            stageName={conversionStage.name}
+            onSkip={() => setConversionStage(null)}
+            onConvert={convertToProject}
+          />
         )}
       </div>
     </AppShell>

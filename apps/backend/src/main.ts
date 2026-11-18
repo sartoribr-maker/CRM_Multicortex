@@ -9,7 +9,13 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  // Proxies confiáveis à frente do backend: produção tem dois (Nginx de borda + Nginx do app).
+  // Com menos que o real, todos os usuários aparecem com o IP do proxy e dividem o rate limit.
+  const proxyHops = Number(process.env.TRUST_PROXY_HOPS);
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .set('trust proxy', Number.isInteger(proxyHops) && proxyHops >= 0 ? proxyHops : 1);
   app.enableShutdownHooks();
 
   app.use(helmet());

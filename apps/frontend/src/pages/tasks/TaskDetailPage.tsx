@@ -101,7 +101,7 @@ export default function TaskDetailPage() {
   }
   async function extendDeadline() {
     if (!task) return;
-    const nextDate = new Date(task.dueDate);
+    const nextDate = task.dueDate ? new Date(task.dueDate) : new Date();
     nextDate.setDate(nextDate.getDate() + 1);
     const dueDate = window.prompt(
       'Informe o novo prazo (DD/MM/AAAA):',
@@ -193,14 +193,15 @@ export default function TaskDetailPage() {
     );
   if (!task)
     return <div className="flex min-h-screen items-center justify-center">Carregando…</div>;
-  const late = !['DONE', 'CANCELED'].includes(task.status) && new Date(task.dueDate) < new Date();
+  const late =
+    !['DONE', 'CANCELED'].includes(task.status) && !!task.dueDate && new Date(task.dueDate) < new Date();
   return (
     <AppShell>
       <div className="mx-auto max-w-5xl">
         <PageHeader
           eyebrow="Detalhes da tarefa"
           title={task.title}
-          description={`Criada por ${task.createdByUser.name}`}
+          description={`Criada por ${task.createdByUser?.name ?? 'Multicortex Projetos'}`}
           actions={
             <>
               <button className="btn-secondary" onClick={() => nav(returnTo)}>
@@ -213,7 +214,12 @@ export default function TaskDetailPage() {
                   Nova tarefa
                 </button>
               )}
-              {canEdit && (
+              {task.pmoUrl && (
+                <a className="btn-secondary" href={task.pmoUrl} target="_blank" rel="noreferrer">
+                  Abrir no PMO
+                </a>
+              )}
+              {canEdit && task.permissions?.canEdit !== false && (
                 <button
                   className="btn-primary"
                   onClick={() => nav(`/tasks/${task.id}/editar`, { state: { returnTo } })}
@@ -222,7 +228,7 @@ export default function TaskDetailPage() {
                   Editar
                 </button>
               )}
-              {canDeleteRecord(user, 'tasks', task.createdByUser.id) && (
+              {canDeleteRecord(user, 'tasks', task.createdByUser?.id) && (
                 <>
                   <button className="btn-secondary" onClick={archive}>
                     <Icon name="archive" className="h-4 w-4" />
@@ -253,7 +259,28 @@ export default function TaskDetailPage() {
                   Atrasada
                 </span>
               )}
+              {task.code && (
+                <span className="rounded-lg bg-slate-100 px-3 py-1 font-mono text-xs font-bold text-slate-500">
+                  {task.code}
+                </span>
+              )}
+              {task.project && (
+                <span className="rounded-lg bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
+                  Projeto: {task.project.code} · {task.project.name}
+                </span>
+              )}
+              {task.source === 'PMO' && (
+                <span className="rounded-lg bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
+                  Criada no PMO
+                </span>
+              )}
             </div>
+            {task.project && task.permissions && !task.permissions.canEdit && (
+              <p className="mt-3 text-xs text-slate-500">
+                Tarefa de projeto do Multicortex Projetos: aqui você conclui, prorroga ou comenta
+                conforme as regras do projeto; datas e responsáveis ficam com o gerente.
+              </p>
+            )}
             {task.description ? (
               <p className="mt-6 whitespace-pre-wrap text-sm leading-7 text-slate-600">
                 {task.description}
@@ -265,7 +292,7 @@ export default function TaskDetailPage() {
               <div>
                 <dt className="text-xs text-slate-400">Prazo</dt>
                 <dd className={`mt-1 font-semibold ${late ? 'text-red-600' : 'text-slate-700'}`}>
-                  {formatDate(task.dueDate)}
+                  {task.dueDate ? formatDate(task.dueDate) : 'Sem prazo'}
                 </dd>
               </div>
               <div>

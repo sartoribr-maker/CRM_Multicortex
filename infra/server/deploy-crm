@@ -23,6 +23,8 @@ git reset --hard origin/master
 
 echo
 echo "3/7 - Construindo aplicação..."
+# Rede compartilhada PMO × CRM (integração de tarefas); idempotente.
+docker network inspect multicortex-integracao >/dev/null 2>&1 || docker network create multicortex-integracao >/dev/null
 docker compose \
   --env-file "$ENV_FILE" \
   -f "$COMPOSE_FILE" \

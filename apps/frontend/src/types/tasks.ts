@@ -24,12 +24,14 @@ export interface Task {
   description: string | null;
   status: TaskStatus;
   priority: TaskPriority;
-  dueDate: string;
+  /** Tarefas criadas no PMO podem não ter prazo. */
+  dueDate: string | null;
   completedAt: string | null;
   assigneeAssignedAt: string;
-  assignee: { id: string; name: string; email: string };
+  /** `null` em tarefa do PMO sem responsável. Id `pmo:<e-mail>` = pessoa que só existe no PMO. */
+  assignee: { id: string; name: string; email: string } | null;
   assignees: Array<{ user: { id: string; name: string; email: string } }>;
-  createdByUser: { id: string; name: string };
+  createdByUser: { id: string; name: string } | null;
   /** Usuários que vincularam a tarefa ao próprio Google Tasks ("Minhas tarefas"). */
   googleTasks?: Array<{ userId: string; webViewLink: string | null }>;
   /** Resultado da sincronização com o Google Agenda nesta gravação. */
@@ -42,6 +44,17 @@ export interface Task {
   } | null;
   createdAt: string;
   updatedAt: string;
+  // Desde a integração as tarefas moram no Multicortex Projetos (PMO):
+  /** Código no PMO (ex.: TAR00042). */
+  code?: string;
+  /** Plataforma onde a tarefa foi criada. */
+  source?: 'PMO' | 'CRM';
+  /** Projeto do PMO (tarefas de projeto seguem as regras do PMO). */
+  project?: { id: string; code: string; name: string } | null;
+  /** Link para abrir a tarefa no PMO. */
+  pmoUrl?: string;
+  /** O que o usuário pode fazer nesta tarefa (regras do PMO para tarefas de projeto). */
+  permissions?: { canEdit: boolean; canEditLimited: boolean; canDelete: boolean };
 }
 export interface TaskPayload {
   title: string;

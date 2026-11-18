@@ -5,6 +5,7 @@ import {
   OnApplicationBootstrap,
   OnModuleDestroy,
 } from '@nestjs/common';
+import { PmoTasksGateway, type CrmTaskUser } from '../pmo/pmo-tasks.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailNotificationsService } from './email-notifications.service';
 import { EmailSettingsService } from './email-settings.service';
@@ -29,6 +30,7 @@ export class MonitoringService implements OnApplicationBootstrap, OnModuleDestro
     private readonly prisma: PrismaService,
     private readonly email: EmailNotificationsService,
     private readonly emailSettings: EmailSettingsService,
+    private readonly pmoTasks: PmoTasksGateway,
   ) {}
 
   onApplicationBootstrap() {
@@ -137,21 +139,14 @@ export class MonitoringService implements OnApplicationBootstrap, OnModuleDestro
   }
 
   async sendPendingTaskReports() {
-    const tasks = await this.prisma.task.findMany({
-      where: { deletedAt: null, status: { in: ['TODO', 'IN_PROGRESS'] } },
-      include: { assignee: true, assignees: { include: { user: true } }, lead: true },
-      orderBy: [{ dueDate: 'asc' }, { id: 'asc' }],
-    });
-    const recipients = new Map<
-      string,
-      { user: (typeof tasks)[number]['assignee']; tasks: typeof tasks }
-    >();
+    // Tarefas criadas no CRM (moram no PMO); as do PMO têm os avisos do PMO.
+    const tasks = await this.pmoTasks.listAll({ open: true, sortBy: 'dueDate' }, null);
+    const recipients = new Map<string, { user: CrmTaskUser; tasks: typeof tasks }>();
     for (const task of tasks) {
-      const owners = task.assignees.length
-        ? task.assignees.map((item) => item.user)
-        : [task.assignee];
+      const owners = task.assignees.map((item) => item.user);
       for (const user of new Map(owners.map((owner) => [owner.id, owner])).values()) {
-        if (user.status !== 'ACTIVE' || user.deletedAt) continue;
+        // Quem só existe no PMO (id "pmo:") não recebe e-mail do CRM.
+        if (user.status !== 'ACTIVE' || user.deletedAt || user.id.startsWith('pmo:')) continue;
         if (!recipients.has(user.id)) recipients.set(user.id, { user, tasks: [] });
         recipients.get(user.id)!.tasks.push(task);
       }
@@ -164,7 +159,7 @@ export class MonitoringService implements OnApplicationBootstrap, OnModuleDestro
           items.map((task) => ({
             id: task.id,
             title: task.title,
-            detail: `Status: ${task.status === 'TODO' ? 'A Fazer' : 'Em andamento'} | Prazo: ${task.dueDate.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}${task.lead ? ` | Oportunidade: ${task.lead.name}` : ''}`,
+            detail: `Status: ${task.status === 'TODO' ? 'A Fazer' : 'Em andamento'} | Prazo: ${task.dueDate?.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) ?? 'sem prazo'}${task.lead ? ` | Oportunidade: ${task.lead.name}` : ''}`,
           })),
           'tasks',
         ),
@@ -174,7 +169,7 @@ export class MonitoringService implements OnApplicationBootstrap, OnModuleDestro
     if (failure?.status === 'rejected') throw failure.reason;
   }
 
-  async sendReports(monitorUserId: string | null, now: Date) {
+  async sendReports(monitorUserId: string | null, _now: Date) {
     const recipients = await this.prisma.user.findMany({
       where: {
         status: 'ACTIVE',
@@ -185,15 +180,7 @@ export class MonitoringService implements OnApplicationBootstrap, OnModuleDestro
     });
     if (!recipients.some((user) => user.id === monitorUserId))
       throw new Error('Usuário de monitoramento inativo ou excluído.');
-    const tasks = await this.prisma.task.findMany({
-      where: {
-        deletedAt: null,
-        dueDate: { lt: now },
-        status: { notIn: ['DONE', 'CANCELED'] },
-      },
-      include: { assignee: true, assignees: { include: { user: true } }, lead: true },
-      orderBy: { dueDate: 'asc' },
-    });
+    const tasks = await this.pmoTasks.listAll({ overdue: true, sortBy: 'dueDate' }, null);
     const leads = await this.prisma.lead.findMany({
       where: {
         deletedAt: null,
@@ -211,13 +198,12 @@ export class MonitoringService implements OnApplicationBootstrap, OnModuleDestro
     const deliveries: Promise<void>[] = [];
     const taskRecipients = new Map(recipients.map((user) => [user.id, { user, tasks }]));
     for (const task of tasks) {
-      const owners = task.assignees.length
-        ? task.assignees.map((item) => item.user)
-        : [task.assignee];
+      const owners = task.assignees.map((item) => item.user);
       for (const user of owners) {
         if (
           user.status !== 'ACTIVE' ||
           user.deletedAt ||
+          user.id.startsWith('pmo:') ||
           recipients.some((item) => item.id === user.id)
         )
           continue;
@@ -234,7 +220,7 @@ export class MonitoringService implements OnApplicationBootstrap, OnModuleDestro
           items.map((task) => ({
             id: task.id,
             title: task.title,
-            detail: `Prazo: ${task.dueDate.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} | Responsáveis: ${(task.assignees.length ? task.assignees.map((item) => item.user.name) : [task.assignee.name]).join(', ')}${task.lead ? ` | Oportunidade: ${task.lead.name}` : ''}`,
+            detail: `Prazo: ${task.dueDate?.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) ?? 'sem prazo'} | Responsáveis: ${task.assignees.map((item) => item.user.name).join(', ')}${task.lead ? ` | Oportunidade: ${task.lead.name}` : ''}`,
           })),
           'tasks',
         ),

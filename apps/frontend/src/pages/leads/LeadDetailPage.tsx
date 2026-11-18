@@ -433,7 +433,7 @@ function TasksTab({
                         <Icon name="edit" className="h-4 w-4" />
                       </button>
                     )}
-                    {canDeleteRecord(user, 'tasks', task.createdByUser.id) && (
+                    {canDeleteRecord(user, 'tasks', task.createdByUser?.id) && (
                       <button
                         className="icon-button hover:!text-red-600"
                         title="Excluir tarefa"

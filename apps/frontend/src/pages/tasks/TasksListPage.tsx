@@ -265,7 +265,7 @@ export default function TasksListPage() {
     }
   }
   async function extendDeadline(task: Task) {
-    const current = new Date(task.dueDate);
+    const current = task.dueDate ? new Date(task.dueDate) : new Date();
     current.setDate(current.getDate() + 1);
     const suggestedDate = isoToBrazilianDate(current.toISOString());
     const dueDate = window.prompt('Informe o novo prazo (DD/MM/AAAA):', suggestedDate);
@@ -607,6 +607,16 @@ export default function TasksListPage() {
                         >
                           {t.title}
                         </button>
+                        {(t.code || t.project) && (
+                          <p className="text-[11px] text-slate-400">
+                            {t.code}
+                            {t.project && (
+                              <span className="ml-1 font-semibold text-purple-700">
+                                · Projeto {t.project.name}
+                              </span>
+                            )}
+                          </p>
+                        )}
                       </td>
                       <td>
                         <TaskDeadline dueDate={t.dueDate} />
@@ -685,7 +695,7 @@ export default function TasksListPage() {
                               <Icon name="edit" className="h-4 w-4" />
                             </button>
                           )}
-                          {canDeleteRecord(user, 'tasks', t.createdByUser.id) && (
+                          {canDeleteRecord(user, 'tasks', t.createdByUser?.id) && (
                             <button
                               className="icon-button hover:!text-red-600"
                               title="Excluir definitivamente"

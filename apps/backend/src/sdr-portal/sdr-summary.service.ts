@@ -2,27 +2,43 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PERMISSIONS } from '../auth/constants/permissions';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
-import { mandatoryLeadFilter } from '../leads/mandatory-priority';
+import { hiddenMandatoryLeadIds, mandatoryLeadFilter } from '../leads/mandatory-priority';
+import { brasiliaDay, PmoTasksGateway, type CrmTaskFilters } from '../pmo/pmo-tasks.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 import { SdrSummaryLeadsQueryDto, SdrSummaryQueryDto } from './dto/sdr-summary.query.dto';
 import { SdrPortalSettingsService } from './sdr-portal-settings.service';
 import { computeSdrSummary, resolvePeriod } from './sdr-summary';
 
-const TASK_SELECT = {
-  id: true,
-  title: true,
-  dueDate: true,
-  status: true,
-  priority: true,
-  lead: { select: { id: true, name: true } },
-} satisfies Prisma.TaskSelect;
 
 @Injectable()
 export class SdrSummaryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settingsService: SdrPortalSettingsService,
+    private readonly pmoTasks: PmoTasksGateway,
   ) {}
+
+  /** Tarefas do próprio usuário (moram no PMO), no formato dos cards do dashboard SDR. */
+  private async myTasks(filters: CrmTaskFilters, user: JwtPayload) {
+    const page = await this.pmoTasks.list(
+      {
+        ...filters,
+        mine: true,
+        sortBy: 'dueDate',
+        pageSize: 6,
+        hiddenLeadIds: await hiddenMandatoryLeadIds(this.prisma, user),
+      },
+      { email: user.email, name: user.name },
+    );
+    return page.items.map((task) => ({
+      id: task.id,
+      title: task.title,
+      dueDate: task.dueDate,
+      status: task.status,
+      priority: task.priority,
+      lead: task.lead ? { id: task.lead.id, name: task.lead.name } : null,
+    }));
+  }
 
   /**
    * Indicadores do Dashboard SDR sobre os leads do parceiro comercial SDR,
@@ -52,11 +68,6 @@ export class SdrSummaryService {
   async summary(query: SdrSummaryQueryDto, user: JwtPayload, now = new Date()) {
     const { range, settings, sdrLeads, scope, inRange } = await this.context(query, user, now);
     const canViewTasks = user.permissions.includes(PERMISSIONS.TASKS_VIEW);
-    const openTask: Prisma.TaskWhereInput = {
-      deletedAt: null,
-      status: { notIn: ['DONE', 'CANCELED'] },
-      assignees: { some: { userId: user.sub } },
-    };
 
     const [
       visibleStages,
@@ -112,20 +123,10 @@ export class SdrSummaryService {
         select: { fromStageId: true, timeInPreviousStageSeconds: true },
       }),
       canViewTasks
-        ? this.prisma.task.findMany({
-            where: { ...openTask, dueDate: { lt: now } },
-            select: TASK_SELECT,
-            orderBy: { dueDate: 'asc' },
-            take: 6,
-          })
+        ? this.myTasks({ overdue: true }, user)
         : Promise.resolve([]),
       canViewTasks
-        ? this.prisma.task.findMany({
-            where: { ...openTask, dueDate: { gte: now, lte: new Date(now.getTime() + 7 * 86_400_000) } },
-            select: TASK_SELECT,
-            orderBy: { dueDate: 'asc' },
-            take: 6,
-          })
+        ? this.myTasks({ open: true, dueFrom: brasiliaDay(now), dueTo: brasiliaDay(now, 7) }, user)
         : Promise.resolve([]),
       this.prisma.leadActivity.findMany({
         where: { lead: scope },

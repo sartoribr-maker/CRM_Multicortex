@@ -304,7 +304,13 @@ function LeadTasks({ leadId }: { leadId: string }) {
                 <div>
                   <p className="font-semibold text-slate-700">{task.title}</p>
                   <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                    {open ? <TaskDeadline dueDate={task.dueDate} /> : formatDate(task.dueDate)}
+                    {open ? (
+                      <TaskDeadline dueDate={task.dueDate} />
+                    ) : task.dueDate ? (
+                      formatDate(task.dueDate)
+                    ) : (
+                      'Sem prazo'
+                    )}
                     <span>{TASK_STATUS_LABELS[task.status]}</span>
                   </p>
                 </div>

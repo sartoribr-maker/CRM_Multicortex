@@ -20,21 +20,23 @@ test('relatórios separados, responsáveis restritos e cobrador sem duplicidade'
   const now = new Date('2026-09-28T12:00:00Z');
   const prisma = {
     user: { findMany: async () => [monitor, collector] },
-    task: { findMany: async ({ where }) => {
-      assert.deepEqual(where, { deletedAt: null, dueDate: { lt: now }, status: { notIn: ['DONE', 'CANCELED'] } });
-      return [task('a', [owner, collector]), task('b', [other]), task('c', [user('inactive', { status: 'INACTIVE' })])];
-    } },
     lead: { findMany: async ({ where }) => {
       assert.equal(where.deletedAt, null);
       assert.deepEqual(where.stage.OR.map(item => item.name.equals), ['Backlog', 'Leads']);
       return [{ id: 'lead', name: 'Lead', stage: { name: 'Leads' } }];
     } },
   };
-  const service = new MonitoringService(prisma, { monitoringReport: async (recipient, title, items, kind) => sent.push({ id: recipient.id, items: items.map(item => item.id), kind }) }, {});
+  // Tarefas moram no PMO: a listagem de sistema (sem usuário) traz só as criadas no CRM.
+  const pmo = { listAll: async (filters, actor) => {
+    assert.deepEqual(filters, { overdue: true, sortBy: 'dueDate' });
+    assert.equal(actor, null);
+    return [task('a', [owner, collector]), task('b', [other]), task('c', [user('inactive', { status: 'INACTIVE' })]), task('d', [user('pmo:so.no.pmo@x.com')])];
+  } };
+  const service = new MonitoringService(prisma, { monitoringReport: async (recipient, title, items, kind) => sent.push({ id: recipient.id, items: items.map(item => item.id), kind }) }, {}, pmo);
   await service.sendReports('monitor', now);
   assert.deepEqual(sent.filter(item => item.kind === 'tasks'), [
-    { id: 'monitor', items: ['a', 'b', 'c'], kind: 'tasks' },
-    { id: 'collector', items: ['a', 'b', 'c'], kind: 'tasks' },
+    { id: 'monitor', items: ['a', 'b', 'c', 'd'], kind: 'tasks' },
+    { id: 'collector', items: ['a', 'b', 'c', 'd'], kind: 'tasks' },
     { id: 'owner', items: ['a'], kind: 'tasks' },
     { id: 'other', items: ['b'], kind: 'tasks' },
   ]);
@@ -42,7 +44,7 @@ test('relatórios separados, responsáveis restritos e cobrador sem duplicidade'
 });
 
 test('não envia relatórios vazios', async () => {
-  const service = new MonitoringService({ user: { findMany: async () => [monitor] }, task: { findMany: async () => [] }, lead: { findMany: async () => [] } }, { monitoringReport: async () => assert.fail('Envio vazio') }, {});
+  const service = new MonitoringService({ user: { findMany: async () => [monitor] }, lead: { findMany: async () => [] } }, { monitoringReport: async () => assert.fail('Envio vazio') }, {}, { listAll: async () => [] });
   await service.sendReports('monitor', new Date());
 });
 
@@ -94,18 +96,21 @@ test('falha de envio fica registrada sem repetição imediata', async () => {
 
 test('tarefas abertas: filtro exato, ordem de prazo e envio exclusivo aos responsáveis ativos', async () => {
   const sent = [];
-  const legacy = { ...task('futura', [other]), assignees: [], status: 'IN_PROGRESS', dueDate: new Date('2026-10-20T12:00:00Z') };
-  const service = new MonitoringService({ task: { findMany: async ({ where, orderBy }) => {
-    assert.deepEqual(where, { deletedAt: null, status: { in: ['TODO', 'IN_PROGRESS'] } });
-    assert.deepEqual(orderBy, [{ dueDate: 'asc' }, { id: 'asc' }]);
+  const futura = { ...task('futura', [other]), status: 'IN_PROGRESS', dueDate: new Date('2026-10-20T12:00:00Z') };
+  const pmo = { listAll: async (filters, actor) => {
+    assert.deepEqual(filters, { open: true, sortBy: 'dueDate' });
+    assert.equal(actor, null);
     return [
       { ...task('atrasada', [owner, other, owner]), status: 'TODO' },
       { ...task('do-monitor', [monitor]), status: 'TODO' },
       task('inativa', [user('inactive', { status: 'INACTIVE' })]),
       task('excluida', [user('deleted', { deletedAt: new Date() })]),
-      legacy,
+      // Pessoa que só existe no PMO não recebe e-mail do CRM.
+      { ...task('so-pmo', [user('pmo:so.no.pmo@x.com')]), status: 'TODO' },
+      futura,
     ];
-  } } }, { monitoringReport: async (recipient, title, items, kind) => sent.push({ id: recipient.id, title, items, kind }) }, {});
+  } };
+  const service = new MonitoringService({}, { monitoringReport: async (recipient, title, items, kind) => sent.push({ id: recipient.id, title, items, kind }) }, {}, pmo);
   await service.sendPendingTaskReports();
   assert.deepEqual(sent.map(({ id, items }) => ({ id, tasks: items.map(item => item.id) })), [
     { id: 'owner', tasks: ['atrasada'] },
@@ -120,12 +125,12 @@ test('tarefas abertas: filtro exato, ordem de prazo e envio exclusivo aos respon
 test('tarefas abertas: não envia relatório vazio e tenta os demais destinatários após falha', async () => {
   const sent = [];
   let tasks = [];
-  const service = new MonitoringService({ task: { findMany: async () => tasks } }, {
+  const service = new MonitoringService({}, {
     monitoringReport: async (recipient) => {
       sent.push(recipient.id);
       if (recipient.id === owner.id) throw new Error('SMTP falhou');
     },
-  }, {});
+  }, {}, { listAll: async () => tasks });
   await service.sendPendingTaskReports();
   assert.deepEqual(sent, []);
   tasks = [task('a', [owner]), task('b', [other])];

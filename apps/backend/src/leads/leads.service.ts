@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { PmoTasksGateway } from '../pmo/pmo-tasks.gateway';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { CustomFieldType, LeadLine, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeadActivityService } from './lead-activity.service';
@@ -95,6 +96,8 @@ const LEAD_LINE_PREFIX: Record<LeadLine, string> = {
 
 @Injectable()
 export class LeadsService {
+  private readonly logger = new Logger(LeadsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly leadActivityService: LeadActivityService,
@@ -103,6 +106,7 @@ export class LeadsService {
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
     private readonly sdrPortalSettings: SdrPortalSettingsService,
     private readonly companyContacts: CompanyContactService,
+    private readonly pmoTasks: PmoTasksGateway,
   ) {}
 
   private calculateEstimatedValue(
@@ -129,6 +133,11 @@ export class LeadsService {
    * Usuários THIRD_PARTY veem todos os leads do CRM nas etapas visíveis do
    * Portal SDR, independentemente do responsável (fila de prospecção da equipe).
    */
+  /** Filtro de leads visíveis ao usuário (usado também pela integração com o PMO). */
+  visibleLeadsWhere(currentUser: JwtPayload): Promise<Prisma.LeadWhereInput> {
+    return this.visibilityFilter(currentUser);
+  }
+
   private async visibilityFilter(currentUser: JwtPayload): Promise<Prisma.LeadWhereInput> {
     const mandatory = await mandatoryLeadFilter(this.prisma, currentUser);
     if (!isThirdParty(currentUser)) {
@@ -624,7 +633,8 @@ export class LeadsService {
     if (dto.claimLead) dto = { ...dto, ownerId: undefined, ownerIds: [currentUser.sub] };
 
     let stageChangeMessage: string | null = null;
-    const movementTaskIds: string[] = [];
+    // Tarefas da movimentação: criadas no PMO (base única) depois do commit do lead.
+    const movementTasks: { assigneeId: string }[] = [];
     const financialValuesChanged = dto.capexValue !== undefined || dto.opexValue !== undefined;
     const capexValue = dto.capexValue ?? Number(existing.capexValue ?? 0);
     const opexValue = dto.opexValue ?? Number(existing.opexValue ?? 0);
@@ -787,24 +797,7 @@ export class LeadsService {
         const taskOwnerIds = thirdParty
           ? [currentUser.sub]
           : [...new Set(dto.ownerIds?.length ? dto.ownerIds : [existing.ownerId])];
-        for (const assigneeId of taskOwnerIds) {
-          const task = await tx.task.create({
-            data: {
-              title: dto.actionDescription!.trim(),
-              description: `Tarefa criada pela movimentação da oportunidade "${dto.name ?? existing.name}".`,
-              status: 'TODO',
-              priority: dto.taskPriority!,
-              dueDate: new Date(dto.taskDueDate!),
-              leadId: id,
-              assigneeId,
-              createdByUserId: currentUser.sub,
-            },
-          });
-          await tx.taskAssignee.create({
-            data: { taskId: task.id, userId: assigneeId, assignedBy: currentUser.sub },
-          });
-          movementTaskIds.push(task.id);
-        }
+        movementTasks.push(...taskOwnerIds.map((assigneeId) => ({ assigneeId })));
       }
 
       if (dto.customFieldValues?.length) {
@@ -864,33 +857,43 @@ export class LeadsService {
         }),
       );
     }
-    if (movementTaskIds.length) {
-      const tasks = await this.prisma.task.findMany({
-        where: { id: { in: movementTaskIds } },
-        include: {
-          assignee: { select: { name: true, email: true } },
-          lead: {
-            select: { name: true, companyName: true, stage: { select: { name: true } } },
-          },
+    for (const { assigneeId } of movementTasks) {
+      const task = await this.pmoTasks.create(
+        {
+          title: dto.actionDescription!.trim(),
+          description: `Tarefa criada pela movimentação da oportunidade "${dto.name ?? existing.name}".`,
+          status: 'TODO',
+          priority: dto.taskPriority!,
+          dueDate: dto.taskDueDate!,
+          leadId: id,
+          assigneeIds: [assigneeId],
         },
-      });
-      await Promise.all(
-        tasks.map((task) =>
-          this.emailNotifications.taskCreated({
-            id: task.id,
-            title: task.title,
-            dueDate: task.dueDate,
-            status: task.status,
-            priority: task.priority,
-            assignee: task.assignee,
-            leadName: task.lead?.name,
-            description: task.description,
-            createdByName: currentUser.name,
-            leadCompanyName: task.lead?.companyName,
-            leadStageName: task.lead?.stage.name,
-          }),
-        ),
+        // Quem move o lead cria a tarefa para o responsável dele.
+        { email: currentUser.email, name: currentUser.name, seeAll: true },
       );
+      if (task.assignee && task.dueDate) {
+        await this.emailNotifications.taskCreated({
+          id: task.id,
+          title: task.title,
+          dueDate: task.dueDate,
+          status: task.status,
+          priority: task.priority,
+          assignee: task.assignee,
+          leadName: task.lead?.name,
+          description: task.description,
+          createdByName: currentUser.name,
+          leadCompanyName: task.lead?.companyName,
+          leadStageName: task.lead?.stage?.name,
+        });
+      }
+    }
+    // Nome guardado nas tarefas do PMO acompanha o lead (melhor esforço: não desfaz o lead).
+    if (dto.name && dto.name !== existing.name) {
+      await this.pmoTasks
+        .renameLead(id, dto.name)
+        .catch((error) =>
+          this.logger.warn(`Falha ao atualizar o nome do lead ${id} nas tarefas do PMO: ${error}`),
+        );
     }
     return this.presentForUser(result, currentUser);
   }
@@ -964,6 +967,8 @@ export class LeadsService {
       select: { storageKey: true },
     });
 
+    // As tarefas do lead continuam no PMO, sem vínculo (antes: SetNull). Falhando, o lead não sai.
+    await this.pmoTasks.unlinkLead(id);
     await this.prisma.lead.delete({ where: { id } });
     await Promise.all(attachments.map(({ storageKey }) => this.storage.delete(storageKey)));
     await this.audit.record({

@@ -3,6 +3,7 @@ import { PERMISSIONS } from '../auth/constants/permissions';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
 
 type PriorityReader = Pick<PrismaClient, 'priority'>;
+type LeadReader = Pick<PrismaClient, 'priority' | 'lead'>;
 
 export function normalizePriorityName(name: string): string {
   return name
@@ -55,4 +56,22 @@ export async function mandatoryTaskFilter(
       { lead: { priorityId: { notIn: ids } } },
     ],
   };
+}
+
+/**
+ * IDs dos leads Mandatórios que o usuário não pode ver (as tarefas desses leads ficam ocultas).
+ * As tarefas moram no PMO, que não conhece prioridades de lead: o CRM manda a lista.
+ */
+export async function hiddenMandatoryLeadIds(
+  prisma: LeadReader,
+  user: Pick<JwtPayload, 'permissions'>,
+): Promise<string[] | undefined> {
+  if (canViewMandatoryLeads(user)) return undefined;
+  const ids = await mandatoryPriorityIds(prisma);
+  if (!ids.length) return undefined;
+  const leads = await prisma.lead.findMany({
+    where: { priorityId: { in: ids } },
+    select: { id: true },
+  });
+  return leads.map((lead) => lead.id);
 }

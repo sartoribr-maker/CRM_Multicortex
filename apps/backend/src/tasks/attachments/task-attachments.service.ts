@@ -1,62 +1,33 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { JwtPayload } from '../../auth/types/jwt-payload.interface';
-import { PrismaService } from '../../prisma/prisma.service';
-import { STORAGE_PROVIDER, type StorageProvider } from '../../storage/storage-provider.interface';
+import { PmoTasksGateway } from '../../pmo/pmo-tasks.gateway';
 import { TasksService } from '../tasks.service';
 
+/** Anexos de tarefas: ficam no storage do PMO (base única), com a visibilidade da tarefa no CRM. */
 @Injectable()
 export class TaskAttachmentsService {
   constructor(
-    private readonly prisma: PrismaService,
     private readonly tasksService: TasksService,
-    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
+    private readonly pmo: PmoTasksGateway,
   ) {}
 
   async upload(taskId: string, file: Express.Multer.File, user: JwtPayload) {
     await this.tasksService.findOne(taskId, user);
-    const { storageKey, sizeBytes } = await this.storage.save({
-      buffer: file.buffer,
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-    });
-    return this.prisma.taskAttachment.create({
-      data: {
-        taskId,
-        fileName: file.originalname,
-        mimeType: file.mimetype,
-        sizeBytes,
-        storageKey,
-        uploadedByUserId: user.sub,
-      },
-    });
+    return this.pmo.uploadAttachment(taskId, file, this.tasksService.actor(user));
   }
 
   async list(taskId: string, user: JwtPayload) {
     await this.tasksService.findOne(taskId, user);
-    return this.prisma.taskAttachment.findMany({
-      where: { taskId, deletedAt: null },
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.pmo.listAttachments(taskId, this.tasksService.actor(user));
   }
 
   async getForDownload(taskId: string, attachmentId: string, user: JwtPayload) {
     await this.tasksService.findOne(taskId, user);
-    const attachment = await this.prisma.taskAttachment.findFirst({
-      where: { id: attachmentId, taskId, deletedAt: null },
-    });
-    if (!attachment) throw new NotFoundException('Anexo não encontrado.');
-    return { attachment, stream: await this.storage.getStream(attachment.storageKey) };
+    return this.pmo.downloadAttachment(taskId, attachmentId, this.tasksService.actor(user));
   }
 
   async remove(taskId: string, attachmentId: string, user: JwtPayload) {
     await this.tasksService.findOne(taskId, user);
-    const attachment = await this.prisma.taskAttachment.findFirst({
-      where: { id: attachmentId, taskId, deletedAt: null },
-    });
-    if (!attachment) throw new NotFoundException('Anexo não encontrado.');
-    await this.prisma.taskAttachment.update({
-      where: { id: attachmentId },
-      data: { deletedAt: new Date() },
-    });
+    await this.pmo.removeAttachment(taskId, attachmentId, this.tasksService.actor(user));
   }
 }

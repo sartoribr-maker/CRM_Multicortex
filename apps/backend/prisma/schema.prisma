@@ -234,12 +234,12 @@ model PasswordResetToken {
 }
 
 model Stage {
-  id          String  @id @default(uuid())
-  name        String
-  order       Int     @default(0)
-  color       String
-  isWonStage  Boolean @default(false)
-  isLostStage Boolean @default(false)
+  id                 String  @id @default(uuid())
+  name               String
+  order              Int     @default(0)
+  color              String
+  isWonStage         Boolean @default(false)
+  isLostStage        Boolean @default(false)
   /// Exibida como coluna no Kanban do Portal SDR (/terceiro).
   visibleInSdrPortal Boolean @default(false)
   /// Oculta a etapa no CRM principal (Kanban, filtros, relatórios e dashboard).
@@ -355,16 +355,16 @@ model Service {
   tier                   String?
   /// Configuração de hardware (ex.: "RTX PRO 6000 — 96 GB").
   hardwareSpec           String?
-  priceWithoutTax        Decimal? @db.Decimal(14, 2)
+  priceWithoutTax        Decimal?  @db.Decimal(14, 2)
   /// Imposto sobre o preço final, em fração (0.18 = 18%).
-  taxRate                Decimal? @db.Decimal(5, 4)
-  hardwareCost           Decimal? @db.Decimal(14, 2)
-  marginValue            Decimal? @db.Decimal(14, 2)
+  taxRate                Decimal?  @db.Decimal(5, 4)
+  hardwareCost           Decimal?  @db.Decimal(14, 2)
+  marginValue            Decimal?  @db.Decimal(14, 2)
   // Cobranças únicas associadas ao serviço.
-  licenseCost            Decimal? @db.Decimal(14, 2)
-  setupPrivateCloudPrice Decimal? @db.Decimal(14, 2)
-  setupOnPremisesPrice   Decimal? @db.Decimal(14, 2)
-  pocPrice               Decimal? @db.Decimal(14, 2)
+  licenseCost            Decimal?  @db.Decimal(14, 2)
+  setupPrivateCloudPrice Decimal?  @db.Decimal(14, 2)
+  setupOnPremisesPrice   Decimal?  @db.Decimal(14, 2)
+  pocPrice               Decimal?  @db.Decimal(14, 2)
   pocDays                Int?
   /// Data de referência da tabela de preços importada.
   priceReferenceDate     DateTime?
@@ -455,16 +455,16 @@ enum LeadType {
 }
 
 model Lead {
-  id           String    @id @default(uuid())
-  businessCode String?   @unique
-  siteSubmissionId String? @unique
-  line         LeadLine?
-  leadType     LeadType?
-  name         String
+  id               String    @id @default(uuid())
+  businessCode     String?   @unique
+  siteSubmissionId String?   @unique
+  line             LeadLine?
+  leadType         LeadType?
+  name             String
 
-  companyName     String?
-  companyDocument String?
-  companySegment  String?
+  companyName          String?
+  companyDocument      String?
+  companySegment       String?
   companyLocation      String?
   companyLinkedinUrl   String?
   companyWebsite       String?
@@ -474,16 +474,16 @@ model Lead {
   companyRevenue       String?
   companyEmployeeCount String?
   // Vínculos com o cadastro de empresas e contatos, mantidos ao salvar o lead.
-  companyId       String?
-  company         Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  companyId            String?
+  company              Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
-  contactName  String?
-  contactEmail String?
-  contactPhone String?
+  contactName        String?
+  contactEmail       String?
+  contactPhone       String?
   contactPosition    String?
   contactLinkedinUrl String?
-  contactId    String?
-  contact      Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactId          String?
+  contact            Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
   projectTypeId String?
   projectType   ProjectType?      @relation("LeadPrimaryProjectType", fields: [projectTypeId], references: [id])
@@ -593,7 +593,6 @@ model Task {
   assignees          TaskAssignee[]
   attachments        TaskAttachment[]
   history            TaskHistoryEntry[]
-  googleTasks        TaskGoogleTask[]
 
   createdByUserId String
   createdByUser   User   @relation("TaskCreator", fields: [createdByUserId], references: [id])
@@ -608,18 +607,18 @@ model Task {
 
 /// Tarefa do Google Tasks ("Minhas tarefas") vinculada a uma tarefa do CRM, na conta de um usuário.
 model TaskGoogleTask {
-  id           String   @id @default(uuid())
-  taskId       String
-  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  googleEmail  String
-  googleTaskId String
-  webViewLink  String?
+  id              String   @id @default(uuid())
+  /// Id da tarefa no Multicortex Projetos (base única de tarefas desde 2026-11-17; sem FK).
+  taskId          String
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  googleEmail     String
+  googleTaskId    String
+  webViewLink     String?
   /// Evento às 10h do prazo no Google Agenda, com notificação (o Tasks não tem lembrete pela API).
   reminderEventId String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@unique([taskId, userId])
   @@index([userId])
@@ -785,16 +784,16 @@ model AuditLog {
 }
 
 model MonitoringSettings {
-  id String @id @default("default")
-  enabled Boolean @default(false)
-  startTime String @default("08:00")
-  intervalDays Int @default(1)
+  id            String    @id @default("default")
+  enabled       Boolean   @default(false)
+  startTime     String    @default("08:00")
+  intervalDays  Int       @default(1)
   monitorUserId String?
-  nextRunAt DateTime?
-  lastRunAt DateTime?
-  lastError String?
-  updatedAt DateTime @updatedAt
-  updatedBy String?
+  nextRunAt     DateTime?
+  lastRunAt     DateTime?
+  lastError     String?
+  updatedAt     DateTime  @updatedAt
+  updatedBy     String?
 
   @@map("monitoring_settings")
 }
@@ -871,13 +870,13 @@ model Contact {
 /// Registros já apresentados numa importação de planilha Outbound do Portal SDR,
 /// importados ou não. Em importações seguintes eles aparecem desmarcados.
 model LeadImportBlacklist {
-  id          String  @id @default(uuid())
+  id          String          @id @default(uuid())
   /// LinkedIn do contato, e-mail ou nome + empresa, normalizados.
-  key         String  @unique
+  key         String          @unique
   contactName String?
   companyName String?
   /// Se o registro foi marcado e virou oportunidade na última importação.
-  imported    Boolean @default(false)
+  imported    Boolean         @default(false)
   leadId      String?
   fileName    String?
   /// Importação em que o registro entrou na blacklist (ou virou oportunidade).

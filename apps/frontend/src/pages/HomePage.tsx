@@ -92,7 +92,7 @@ export default function HomePage() {
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-slate-700">{task.title}</p>
         <p className="mt-0.5 text-[11px] text-slate-400">
-          {task.assignee.name} · {formatDate(task.dueDate)}
+          {task.assignee?.name ?? 'Sem responsável'} · {formatDate(task.dueDate)}
         </p>
       </div>
       <span

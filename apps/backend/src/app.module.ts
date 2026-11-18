@@ -20,6 +20,7 @@ import { StorageModule } from './storage/storage.module';
 import { LeadsModule } from './leads/leads.module';
 import { AttachmentsModule } from './leads/attachments/attachments.module';
 import { PartnersModule } from './partners/partners.module';
+import { PmoModule } from './pmo/pmo.module';
 import { TasksModule } from './tasks/tasks.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { SdrPortalModule } from './sdr-portal/sdr-portal.module';
@@ -35,6 +36,7 @@ import { WhatsAppSettingsModule } from './notifications/whatsapp-settings.module
     }),
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 60 }]),
     PrismaModule,
+    PmoModule,
     EmailNotificationsModule,
     WhatsAppSettingsModule,
     AuditModule,

@@ -51,6 +51,7 @@ export interface DashboardTask {
   title: string;
   dueDate: string;
   priority: TaskPriority;
-  assignee: { id: string; name: string };
+  /** `null` em tarefa do PMO sem responsável. */
+  assignee: { id: string; name: string } | null;
   lead: { id: string; name: string } | null;
 }

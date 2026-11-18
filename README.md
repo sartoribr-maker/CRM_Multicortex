@@ -208,6 +208,18 @@ Usuários com perfil de portal `THIRD_PARTY` (perfil de sistema **SDR**) entram 
 
 Detalhes, regras e implantação em [`docs/PORTAL_SDR.md`](docs/PORTAL_SDR.md).
 
+## Tarefas na base do Multicortex Projetos (integração)
+
+Desde 2026-11-17 as tarefas do CRM e do Multicortex Projetos (PMO) ficam numa **base única, no banco do PMO**. O CRM lê e grava pela API de integração do PMO (`PMO_API_URL`, chave `PMO_INTEGRATION_KEY`); as pessoas são vinculadas pelo **e-mail**. As telas e regras do CRM continuam as mesmas (visibilidade, atribuição só a si para quem não é administrador, justificativa obrigatória ao concluir, prorrogar/transferir com motivo, lembrete, Google Agenda, e-mails e auditoria).
+
+- A tarefa pode ter lead, ser de um projeto do PMO ou não ter vínculo. Tarefas de projeto aparecem para quem é responsável e seguem as regras do PMO (ex.: datas e responsáveis ficam com o gerente do projeto). Cada tarefa mostra o código do PMO e o link "Abrir no PMO".
+- Movimentar um lead com "criar tarefa" cria a tarefa no PMO; renomear o lead atualiza o nome nas tarefas; excluir o lead só desvincula as tarefas.
+- O dashboard, o Dashboard SDR e o monitoramento leem as tarefas do PMO; o monitoramento avisa só sobre as tarefas criadas no CRM (as do PMO têm os avisos do PMO).
+- O PMO busca leads em `GET /api/v1/integration/pmo/leads` (mesma chave; só os leads que a pessoa vê no CRM).
+- As tabelas antigas de tarefas (`tasks`, `task_assignees`, `task_attachments`, `task_history_entries`) ficam intactas até a migração dos dados para o PMO.
+- Desenvolvimento local: CRM (API 3334) e PMO (API 3333) se alcançam por `host.docker.internal` (`extra_hosts` no compose de desenvolvimento).
+- Produção: rede Docker `multicortex-integracao` (criada pelo `deploy-crm`), alias `crm-backend`; o Nginx público responde 404 em `/api/v1/integration/pmo/`. Publicação e migração das tarefas antigas: roteiro `docs/integracao-crm.md` no repositório do PMO (`migrar-tarefas-crm`).
+
 ## Variáveis de ambiente
 
 Ver `.env.example` na raiz. Nesta fase são utilizadas:
@@ -224,6 +236,7 @@ Ver `.env.example` na raiz. Nesta fase são utilizadas:
 | `JWT_ACCESS_EXPIRES_IN` / `JWT_REFRESH_EXPIRES_IN`    | validade do access token (padrão `15m`) e do refresh token (padrão `7d`)                   |
 | `STORAGE_DRIVER`                                      | driver de armazenamento de anexos (`local` por ora; `s3`/`r2` em produção futura)          |
 | `STORAGE_LOCAL_PATH`                                  | caminho no container onde os anexos ficam gravados (montado como volume `backend_uploads`) |
+| `PMO_API_URL` / `PMO_INTEGRATION_KEY`                 | API do Multicortex Projetos (onde as tarefas moram) e chave compartilhada da integração   |
 
 O refresh token não é um JWT: é um valor aleatório opaco, guardado com hash (SHA-256) no banco, entregue ao navegador em um cookie `httpOnly`. Variáveis de storage e SMTP estão documentadas no `.env.example` para as fases futuras, mas ainda não são utilizadas.
 
@@ -252,3 +265,22 @@ Requer um PostgreSQL local acessível conforme `DATABASE_URL` no `.env`.
 9. ✅ Refino de UX/UI
 10. ✅ Preparação para deploy
 11. ✅ Portal de Terceiros (SDR) — Fase 1
+
+# Comando para subir a plataforma
+docker compose --env-file .env -f infra/docker-compose.yml up -d --build
+
+
+# Derrubar
+docker compose --env-file .env -f infra/docker-compose.yml down
+
+# 1. Na sua máquina, envie o commit:
+
+cd ~/Multicortex/Projetos/CRM && git push origin master
+
+# 2. Conecte no servidor:
+
+ssh ec2-user@52.207.145.100
+
+# 3. Já dentro do servidor, cole este comando separado (sem sudo):
+
+nohup deploy-crm > ~/deploy-$(date +%Y%m%d-%H%M).log 2>&1 & sleep 2; tail -f ~/deploy-*.log

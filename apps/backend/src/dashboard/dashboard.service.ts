@@ -2,12 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PERMISSIONS } from '../auth/constants/permissions';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
-import { mandatoryLeadFilter, mandatoryTaskFilter } from '../leads/mandatory-priority';
+import { hiddenMandatoryLeadIds, mandatoryLeadFilter } from '../leads/mandatory-priority';
+import { brasiliaDay, PmoTasksGateway } from '../pmo/pmo-tasks.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pmoTasks: PmoTasksGateway,
+  ) {}
   async summary(user: JwtPayload) {
     const allLeads = user.permissions.includes(PERMISSIONS.LEADS_VIEW_ALL);
     const allTasks = user.permissions.includes(PERMISSIONS.TASKS_VIEW_ALL);
@@ -20,16 +24,14 @@ export class DashboardService {
         await mandatoryLeadFilter(this.prisma, user),
       ],
     };
-    const taskWhere: Prisma.TaskWhereInput = {
-      deletedAt: null,
-      AND: [
-        allTasks ? {} : { assignees: { some: { userId: user.sub } } },
-        await mandatoryTaskFilter(this.prisma, user),
-      ],
+    // Tarefas moram no PMO (base única): quem não vê todas, vê as atribuídas a si.
+    const taskActor = { email: user.email, name: user.name, seeAll: allTasks };
+    const taskFilters = {
+      mine: allTasks ? undefined : true,
+      hiddenLeadIds: await hiddenMandatoryLeadIds(this.prisma, user),
     };
     const now = new Date();
-    const nextWeek = new Date(now.getTime() + 7 * 86400000);
-    const [leads, stages, overdueTasks, overdueTaskCount, upcomingTasks] = await Promise.all([
+    const [leads, stages, overduePage, upcomingPage] = await Promise.all([
       this.prisma.lead.findMany({
         where: leadWhere,
         select: {
@@ -54,39 +56,21 @@ export class DashboardService {
         },
         orderBy: { order: 'asc' },
       }),
-      this.prisma.task.findMany({
-        where: { ...taskWhere, dueDate: { lt: now }, status: { notIn: ['DONE', 'CANCELED'] } },
-        select: {
-          id: true,
-          title: true,
-          dueDate: true,
-          priority: true,
-          assignee: { select: { id: true, name: true } },
-          lead: { select: { id: true, name: true } },
+      this.pmoTasks.list(
+        { overdue: true, sortBy: 'dueDate', pageSize: 6, ...taskFilters },
+        taskActor,
+      ),
+      this.pmoTasks.list(
+        {
+          open: true,
+          dueFrom: brasiliaDay(now),
+          dueTo: brasiliaDay(now, 7),
+          sortBy: 'dueDate',
+          pageSize: 6,
+          ...taskFilters,
         },
-        orderBy: { dueDate: 'asc' },
-        take: 6,
-      }),
-      this.prisma.task.count({
-        where: { ...taskWhere, dueDate: { lt: now }, status: { notIn: ['DONE', 'CANCELED'] } },
-      }),
-      this.prisma.task.findMany({
-        where: {
-          ...taskWhere,
-          dueDate: { gte: now, lte: nextWeek },
-          status: { notIn: ['DONE', 'CANCELED'] },
-        },
-        select: {
-          id: true,
-          title: true,
-          dueDate: true,
-          priority: true,
-          assignee: { select: { id: true, name: true } },
-          lead: { select: { id: true, name: true } },
-        },
-        orderBy: { dueDate: 'asc' },
-        take: 6,
-      }),
+        taskActor,
+      ),
     ]);
     const value = (items: typeof leads) =>
       items.reduce((sum, item) => sum + Number(item.estimatedValue ?? 0), 0);
@@ -163,14 +147,14 @@ export class DashboardService {
         averageTicket: open.length ? value(open) / open.length : 0,
         conversionRate:
           won.length + lost.length ? (won.length / (won.length + lost.length)) * 100 : 0,
-        overdueTasks: overdueTaskCount,
+        overdueTasks: overduePage.total,
       },
       funnel,
       recentLeads: leads.slice(0, 6),
       mandatoryLeads: mandatoryLeads.slice(0, 6),
       mandatoryPriorityId: mandatoryLeads[0]?.priority?.id ?? null,
-      overdueTasks,
-      upcomingTasks,
+      overdueTasks: overduePage.items,
+      upcomingTasks: upcomingPage.items,
       ownerPerformance: allLeads
         ? [...owners.values()].sort((a, b) => b.wonValue - a.wonValue)
         : [],

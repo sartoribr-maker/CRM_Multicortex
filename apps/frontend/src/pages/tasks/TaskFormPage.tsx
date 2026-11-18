@@ -75,7 +75,7 @@ export default function TaskFormPage() {
           description: t.description ?? undefined,
           status: t.status,
           priority: t.priority,
-          dueDate: localDate(new Date(t.dueDate)),
+          dueDate: t.dueDate ? localDate(new Date(t.dueDate)) : '',
           leadId: t.lead?.id,
           assigneeIds: t.assignees.map(({ user: assignee }) => assignee.id),
         });

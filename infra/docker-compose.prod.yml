@@ -32,6 +32,9 @@ services:
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
       STORAGE_DRIVER: local
       STORAGE_LOCAL_PATH: /app/storage
+      # Tarefas na base do Multicortex Projetos (PMO), pela rede compartilhada `integracao`.
+      PMO_API_URL: ${PMO_API_URL:-http://projetos-backend:3333/api/v1}
+      PMO_INTEGRATION_KEY: ${PMO_INTEGRATION_KEY:-}
     volumes:
       - backend_prod_uploads:/app/storage
     depends_on:
@@ -44,8 +47,11 @@ services:
       start_period: 20s
       retries: 3
     networks:
-    - internal
-    - public
+      internal: {}
+      public: {}
+      # Rede compartilhada com o backend do PMO (nome `crm-backend` lá).
+      integracao:
+        aliases: [crm-backend]
   frontend:
     build:
       context: ..
@@ -70,3 +76,7 @@ networks:
   internal:
     internal: true
   public:
+  # Rede compartilhada com o Multicortex Projetos (mesmo servidor). Criada pelo deploy-crm.
+  integracao:
+    external: true
+    name: multicortex-integracao

@@ -27,6 +27,9 @@ services:
       FRONTEND_URL: ${FRONTEND_URL}
       STORAGE_DRIVER: ${STORAGE_DRIVER}
       STORAGE_LOCAL_PATH: ${STORAGE_LOCAL_PATH}
+    # Integração local PMO × CRM: cada backend alcança o outro pela porta publicada no host.
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     ports:
       - '${BACKEND_PORT}:${BACKEND_PORT}'
     volumes:

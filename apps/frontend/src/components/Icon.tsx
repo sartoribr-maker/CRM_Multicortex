@@ -26,6 +26,7 @@ export type IconName =
   | 'upload'
   | 'user'
   | 'view'
+  | 'viewOff'
   | 'x'
   | 'sun'
   | 'moon'
@@ -162,6 +163,13 @@ const paths: Record<IconName, JSX.Element> = {
     <>
       <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" />
       <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  viewOff: (
+    <>
+      <path d="M10.7 5.1A10.4 10.4 0 0 1 12 5c6 0 10 7 10 7a17.6 17.6 0 0 1-2.2 3M6.6 6.6C3.9 8.4 2 12 2 12s4 7 10 7c1.9 0 3.6-.6 5-1.5" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      <path d="m2 2 20 20" />
     </>
   ),
   x: (

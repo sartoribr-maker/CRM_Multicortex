@@ -78,6 +78,7 @@ export const servicesApi = {
 export const customFieldsApi = makeCrud<CustomField>('/custom-fields');
 export const emailSettingsApi = {
   get: () => apiJson<EmailSettings>('/email-settings'),
+  getPassword: () => apiJson<{ password: string }>('/email-settings/password'),
   update: (payload: EmailSettingsPayload) =>
     apiJson<EmailSettings>('/email-settings', { method: 'PUT', body: JSON.stringify(payload) }),
   test: () =>

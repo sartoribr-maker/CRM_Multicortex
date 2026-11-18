@@ -55,6 +55,11 @@ export class EmailSettingsService {
     return this.getPublic();
   }
 
+  async getPassword() {
+    const settings = await this.ensureSettings();
+    return { password: settings.passwordEncrypted ? this.decrypt(settings.passwordEncrypted) : '' };
+  }
+
   async getRuntimeConfig() {
     const settings = await this.ensureSettings();
     if (!settings.enabled || !settings.passwordEncrypted) return null;

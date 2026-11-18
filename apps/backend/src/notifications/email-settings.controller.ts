@@ -22,6 +22,11 @@ export class EmailSettingsController {
     return this.settings.getPublic();
   }
 
+  @Get('password')
+  getPassword() {
+    return this.settings.getPassword();
+  }
+
   @Put()
   update(@Body() dto: UpdateEmailSettingsDto, @CurrentUser() user: JwtPayload) {
     return this.settings.update(dto, user.sub);

@@ -33,6 +33,8 @@ export function EmailSettingsPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [revealing, setRevealing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -55,6 +57,29 @@ export function EmailSettingsPanel() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  async function togglePassword() {
+    if (showPassword) {
+      setShowPassword(false);
+      return;
+    }
+    if (!form.password && settings?.hasPassword) {
+      setRevealing(true);
+      try {
+        const { password } = await emailSettingsApi.getPassword();
+        update('password', password);
+      } catch (error) {
+        setMessage({
+          type: 'error',
+          text: error instanceof Error ? error.message : 'Erro ao carregar a senha.',
+        });
+        return;
+      } finally {
+        setRevealing(false);
+      }
+    }
+    setShowPassword(true);
+  }
+
   async function save(event: FormEvent) {
     event.preventDefault();
     setSaving(true);
@@ -63,6 +88,7 @@ export function EmailSettingsPanel() {
       const updated = await emailSettingsApi.update(form);
       setSettings(updated);
       setForm(settingsToForm(updated));
+      setShowPassword(false);
       setMessage({ type: 'success', text: 'Configuração de e-mail salva com sucesso.' });
     } catch (error) {
       setMessage({
@@ -159,16 +185,31 @@ export function EmailSettingsPanel() {
               : 'No Gmail, utilize uma senha de aplicativo de 16 caracteres.'
           }
         >
-          <input
-            type="password"
-            autoComplete="new-password"
-            className="form-control"
-            value={form.password ?? ''}
-            onChange={(event) => update('password', event.target.value)}
-            placeholder={
-              settings?.hasPassword ? '••••••••••••••••' : 'Informe a senha de aplicativo'
-            }
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              className="form-control pr-11"
+              value={form.password ?? ''}
+              onChange={(event) => update('password', event.target.value)}
+              placeholder={
+                settings?.hasPassword ? '••••••••••••••••' : 'Informe a senha de aplicativo'
+              }
+            />
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                void togglePassword();
+              }}
+              disabled={revealing}
+              aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+              title={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+              className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 transition hover:text-brand-purple disabled:opacity-50"
+            >
+              <Icon name={showPassword ? 'viewOff' : 'view'} className="h-5 w-5" />
+            </button>
+          </div>
         </Field>
         <Field label="E-mail remetente">
           <input

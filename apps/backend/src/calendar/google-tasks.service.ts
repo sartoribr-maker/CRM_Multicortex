@@ -102,6 +102,8 @@ export class GoogleTasksService {
     const existing = await this.prisma.taskGoogleTask.findUnique({
       where: { taskId_userId: { taskId: task.id, userId: user.sub } },
     });
+    // Já está no Google pela integração automática do cadastro do usuário: ela é quem cuida.
+    if (existing?.auto) return { synced: true, webViewLink: existing.webViewLink };
     try {
       // Se o e-mail do usuário mudou, o que foi criado está na conta anterior: apaga lá.
       const sameAccount = existing?.googleEmail === googleEmail;
@@ -140,7 +142,7 @@ export class GoogleTasksService {
     const existing = await this.prisma.taskGoogleTask.findUnique({
       where: { taskId_userId: { taskId, userId: user.sub } },
     });
-    if (!existing) return { synced: true };
+    if (!existing || existing.auto) return { synced: true };
     const runtime = await this.settings.getRuntime();
     let message: string | undefined;
     if (runtime) {
@@ -154,8 +156,9 @@ export class GoogleTasksService {
 
   /** Propaga alterações da tarefa para os vínculos de todos os usuários (melhor esforço). */
   async refresh(task: TaskForGoogle, exceptUserId?: string) {
+    // Os vínculos automáticos são atualizados pelo GoogleTasksAutoSyncService.
     const links = await this.prisma.taskGoogleTask.findMany({
-      where: { taskId: task.id, ...(exceptUserId ? { userId: { not: exceptUserId } } : {}) },
+      where: { taskId: task.id, auto: false, ...(exceptUserId ? { userId: { not: exceptUserId } } : {}) },
     });
     if (!links.length) return;
     const runtime = await this.settings.getRuntime();

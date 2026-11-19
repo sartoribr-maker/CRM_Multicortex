@@ -83,3 +83,23 @@ test('exclusão aceita tarefa já removida', async () => {
   assert.equal(requests.at(-1).method, 'DELETE');
   await client.deleteGoogleTask('tk', 'sumiu');
 });
+
+test('sem prazo e com detalhes do CRM nas notas', () => {
+  const body = client.buildGoogleTaskBody({
+    ...TASK,
+    dueDate: null,
+    details: ['Prioridade: Alta', '', 'Projeto: PRJ-1 – Site'],
+  });
+  assert.equal(body.due, null);
+  assert.equal(
+    body.notes,
+    'Proposta revisada\n\nPrioridade: Alta\nProjeto: PRJ-1 – Site\n\nTarefa no CRM: https://crm.multicortex.ai/tasks/t1',
+  );
+});
+
+test('lê a situação da tarefa no Google (aberta, concluída, excluída)', async () => {
+  assert.equal(await client.getGoogleTaskState('tk', 'g42'), 'open');
+  assert.equal(requests.at(-1).method, 'GET');
+  assert.equal(await client.getGoogleTaskState('tk', 'sumiu'), 'deleted');
+  assert.equal(await client.getGoogleTaskState('tk', 'excluida'), 'deleted');
+});

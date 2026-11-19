@@ -12,6 +12,8 @@ export interface UserRecord extends UserOption {
   status: 'ACTIVE' | 'INACTIVE';
   mustChangePassword: boolean;
   isCollector: boolean;
+  /** "Integrar Tarefas com Calendar do Google". */
+  googleTasksAutoSync: boolean;
   roleId: string;
   role: { id: string; name: string };
   createdAt: string;
@@ -26,6 +28,7 @@ export interface UserPayload {
   phone?: string;
   mustChangePassword?: boolean;
   isCollector?: boolean;
+  googleTasksAutoSync?: boolean;
 }
 export interface UsersFilters {
   page?: number;

@@ -11,10 +11,12 @@ const DEFAULT_LIST = '@default';
 export interface GoogleTaskInput {
   title: string;
   description?: string | null;
-  /** Prazo da tarefa; o Google Tasks guarda só a data (local de São Paulo). */
-  dueDate: Date;
+  /** Prazo da tarefa; o Google Tasks guarda só a data (local de São Paulo). Sem prazo: `null`. */
+  dueDate: Date | null;
   done: boolean;
   crmUrl?: string | null;
+  /** Linhas extras nas notas (prioridade, oportunidade, projeto...). */
+  details?: string[];
 }
 
 /** Data (AAAA-MM-DD) do instante no fuso de São Paulo. */
@@ -28,14 +30,19 @@ export function localDateInTimeZone(value: Date, timeZone = MEETING_TIME_ZONE): 
 }
 
 export function buildGoogleTaskBody(input: GoogleTaskInput) {
-  const notes = [input.description?.trim(), input.crmUrl ? `Tarefa no CRM: ${input.crmUrl}` : null]
+  const details = input.details?.filter(Boolean).join('\n');
+  const notes = [
+    input.description?.trim(),
+    details,
+    input.crmUrl ? `Tarefa no CRM: ${input.crmUrl}` : null,
+  ]
     .filter(Boolean)
     .join('\n\n');
   return {
     title: input.title,
     notes,
     // O Google descarta o horário: a meia-noite UTC preserva a data local.
-    due: `${localDateInTimeZone(input.dueDate)}T00:00:00.000Z`,
+    due: input.dueDate ? `${localDateInTimeZone(input.dueDate)}T00:00:00.000Z` : null,
     status: input.done ? 'completed' : 'needsAction',
     // Reabrir no Google exige limpar a data de conclusão.
     ...(input.done ? {} : { completed: null }),
@@ -51,12 +58,13 @@ interface GoogleTaskResponse {
   id?: string;
   webViewLink?: string;
   deleted?: boolean;
+  status?: 'needsAction' | 'completed';
   error?: { message?: string };
 }
 
 async function tasksRequest(
   accessToken: string,
-  method: 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
   taskId?: string,
   payload?: unknown,
 ) {
@@ -109,4 +117,19 @@ export async function deleteGoogleTask(accessToken: string, googleTaskId: string
   if (!response.ok && response.status !== 404 && response.status !== 410) {
     throw failure('a exclusão da tarefa', response.status, body);
   }
+}
+
+/** Situação da tarefa no Google, para refletir no CRM o que o usuário fez por lá. */
+export type GoogleTaskState = 'open' | 'completed' | 'deleted';
+
+/** Lê a tarefa; excluída (404/410 ou marcada como excluída) volta como `deleted`. */
+export async function getGoogleTaskState(
+  accessToken: string,
+  googleTaskId: string,
+): Promise<GoogleTaskState> {
+  const { response, body } = await tasksRequest(accessToken, 'GET', googleTaskId);
+  if (response.status === 404 || response.status === 410) return 'deleted';
+  if (!response.ok) throw failure('a leitura da tarefa', response.status, body);
+  if (body.deleted) return 'deleted';
+  return body.status === 'completed' ? 'completed' : 'open';
 }

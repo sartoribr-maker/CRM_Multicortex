@@ -1,10 +1,11 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { Readable } from 'stream';
 import { extname } from 'path';
 import * as bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { GoogleTasksAutoSyncService } from '../calendar/google-tasks-auto-sync.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ListUsersQueryDto } from './dto/list-users.query.dto';
@@ -20,6 +21,7 @@ const SAFE_USER_SELECT = {
   status: true,
   mustChangePassword: true,
   isCollector: true,
+  googleTasksAutoSync: true,
   roleId: true,
   role: { select: { id: true, name: true } },
   createdAt: true,
@@ -34,7 +36,29 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
+    private readonly googleTasksAutoSync: GoogleTasksAutoSyncService,
   ) {}
+
+  /**
+   * "Integrar Tarefas com Calendar do Google" age na conta Google do próprio usuário (delegação em
+   * todo o domínio): exige a integração ativa e e-mail do domínio do Workspace.
+   */
+  private async assertCanAutoSyncGoogle(email: string) {
+    const settings = await this.prisma.googleCalendarSettings.findUnique({
+      where: { id: 'default' },
+    });
+    if (!settings?.enabled || !settings.serviceAccountKeyEncrypted) {
+      throw new BadRequestException(
+        'Para integrar as tarefas com o Google, configure e ative antes a integração em Configurações → Google Agenda.',
+      );
+    }
+    const domain = settings.workspaceDomain.trim().toLowerCase().replace(/^@/, '');
+    if (!domain || !email.trim().toLowerCase().endsWith(`@${domain}`)) {
+      throw new BadRequestException(
+        `Para integrar as tarefas com o Google, o e-mail do usuário precisa ser @${domain}.`,
+      );
+    }
+  }
 
   options() {
     return this.prisma.user.findMany({
@@ -96,6 +120,8 @@ export class UsersService {
       throw new NotFoundException('Perfil (role) não encontrado.');
     }
 
+    if (dto.googleTasksAutoSync) await this.assertCanAutoSyncGoogle(dto.email);
+
     const passwordHash = await bcrypt.hash(
       dto.mustChangePassword ? DEFAULT_TEMPORARY_PASSWORD : dto.password,
       10,
@@ -112,6 +138,7 @@ export class UsersService {
           phone: dto.phone,
           mustChangePassword: dto.mustChangePassword ?? false,
           isCollector: dto.isCollector ?? false,
+          googleTasksAutoSync: dto.googleTasksAutoSync ?? false,
           createdBy: actorUserId,
         },
         select: SAFE_USER_SELECT,
@@ -124,6 +151,7 @@ export class UsersService {
         targetId: user.id,
       });
 
+      if (user.googleTasksAutoSync) this.googleTasksAutoSync.requestUsers([user.id]);
       return user;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -143,6 +171,11 @@ export class UsersService {
       if (!role) {
         throw new NotFoundException('Perfil (role) não encontrado.');
       }
+    }
+
+    const autoSync = dto.googleTasksAutoSync ?? existingUser.googleTasksAutoSync;
+    if (autoSync && (dto.googleTasksAutoSync || (dto.email && dto.email !== existingUser.email))) {
+      await this.assertCanAutoSyncGoogle(dto.email ?? existingUser.email);
     }
 
     try {
@@ -176,6 +209,13 @@ export class UsersService {
           : undefined,
       });
 
+      // Liga/desliga ou troca de e-mail: sincroniza na hora (inclui tirar do Google ao desligar).
+      if (
+        user.googleTasksAutoSync !== existingUser.googleTasksAutoSync ||
+        (user.googleTasksAutoSync && user.email !== existingUser.email)
+      ) {
+        this.googleTasksAutoSync.requestUsers([user.id]);
+      }
       return user;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

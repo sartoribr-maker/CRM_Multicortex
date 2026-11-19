@@ -8,6 +8,7 @@ import { AuditService } from '../audit/audit.service';
 import { PERMISSIONS } from '../auth/constants/permissions';
 import { assertCanDeleteRecord } from '../auth/delete-ownership';
 import type { JwtPayload } from '../auth/types/jwt-payload.interface';
+import { GoogleTasksAutoSyncService } from '../calendar/google-tasks-auto-sync.service';
 import { GoogleTasksService } from '../calendar/google-tasks.service';
 import { hiddenMandatoryLeadIds } from '../leads/mandatory-priority';
 import { EmailNotificationsService } from '../notifications/email-notifications.service';
@@ -36,7 +37,19 @@ export class TasksService {
     private readonly emailNotifications: EmailNotificationsService,
     private readonly calendar: GoogleTasksService,
     private readonly pmo: PmoTasksGateway,
+    private readonly autoSync: GoogleTasksAutoSyncService,
   ) {}
+
+  /**
+   * Integração automática do cadastro do usuário ("Integrar Tarefas com Calendar do Google"):
+   * sincroniza na hora os responsáveis (atuais e anteriores), sem atrasar a resposta.
+   */
+  private syncAutoCalendar(task: CrmTask, previous?: CrmTask) {
+    const ids = [task, previous].flatMap((item) =>
+      item ? item.assignees.map(({ user: assignee }) => assignee.id) : [],
+    );
+    void this.autoSync.requestForTask(task.id, ids).catch(() => undefined);
+  }
 
   googleCalendarConfig(user: JwtPayload) {
     return this.calendar.config(user);
@@ -179,6 +192,7 @@ export class TasksService {
     });
     const data = this.emailData(task);
     if (data) await this.emailNotifications.taskCreated(data);
+    this.syncAutoCalendar(task);
     return this.syncCalendar(task, dto.syncGoogleCalendar || undefined, user);
   }
 
@@ -251,6 +265,7 @@ export class TasksService {
     });
     const data = this.emailData(task);
     if (data) await this.emailNotifications.taskUpdated(data);
+    this.syncAutoCalendar(task, existing);
     return this.syncCalendar(task, dto.syncGoogleCalendar, user);
   }
 
@@ -271,6 +286,7 @@ export class TasksService {
     if (data) await this.emailNotifications.taskUpdated(data);
     const forGoogle = this.googleTask(task);
     if (forGoogle) await this.calendar.refresh(forGoogle);
+    this.syncAutoCalendar(task, existing);
     return task;
   }
 
@@ -322,11 +338,12 @@ export class TasksService {
     });
     const forGoogle = this.googleTask(task);
     if (forGoogle) await this.calendar.refresh(forGoogle);
+    this.syncAutoCalendar(task, existing);
     return task;
   }
 
   async transfer(id: string, dto: TransferTaskDto, user: JwtPayload) {
-    await this.findOne(id, user);
+    const existing = await this.findOne(id, user);
     const task = await this.pmo.transfer(id, dto.assigneeId, dto.reason.trim(), this.actor(user));
     await this.audit.record({
       action: 'TASK_TRANSFERRED',
@@ -335,6 +352,7 @@ export class TasksService {
       targetId: id,
       metadata: { reason: dto.reason, newAssigneeId: dto.assigneeId },
     });
+    this.syncAutoCalendar(task, existing);
     return task;
   }
 

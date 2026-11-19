@@ -113,16 +113,18 @@ model RolePermission {
 }
 
 model User {
-  id                 String     @id @default(uuid())
-  name               String
-  email              String     @unique
-  passwordHash       String
-  mustChangePassword Boolean    @default(false)
-  isCollector        Boolean    @default(false)
-  avatarUrl          String?
-  position           String?
-  phone              String?
-  status             UserStatus @default(ACTIVE)
+  id                  String     @id @default(uuid())
+  name                String
+  email               String     @unique
+  passwordHash        String
+  mustChangePassword  Boolean    @default(false)
+  isCollector         Boolean    @default(false)
+  /// Tarefas "Em andamento" sob responsabilidade do usuário vão automaticamente para o Google Tasks.
+  googleTasksAutoSync Boolean    @default(false)
+  avatarUrl           String?
+  position            String?
+  phone               String?
+  status              UserStatus @default(ACTIVE)
 
   roleId String
   role   Role   @relation(fields: [roleId], references: [id])
@@ -607,18 +609,24 @@ model Task {
 
 /// Tarefa do Google Tasks ("Minhas tarefas") vinculada a uma tarefa do CRM, na conta de um usuário.
 model TaskGoogleTask {
-  id              String   @id @default(uuid())
+  id              String      @id @default(uuid())
   /// Id da tarefa no Multicortex Projetos (base única de tarefas desde 2026-11-17; sem FK).
   taskId          String
   userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   googleEmail     String
   googleTaskId    String
   webViewLink     String?
   /// Evento às 10h do prazo no Google Agenda, com notificação (o Tasks não tem lembrete pela API).
   reminderEventId String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  /// Criado pela integração automática do usuário ("Integrar Tarefas com Calendar do Google").
+  auto            Boolean     @default(false)
+  /// Status do CRM na última sincronização automática.
+  crmStatus       TaskStatus?
+  /// Assinatura dos campos enviados ao Google, para só atualizar quando algo mudar.
+  syncedHash      String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   @@unique([taskId, userId])
   @@index([userId])

@@ -32,8 +32,11 @@ export interface Task {
   assignee: { id: string; name: string; email: string } | null;
   assignees: Array<{ user: { id: string; name: string; email: string } }>;
   createdByUser: { id: string; name: string } | null;
-  /** Usuários que vincularam a tarefa ao próprio Google Tasks ("Minhas tarefas"). */
-  googleTasks?: Array<{ userId: string; webViewLink: string | null }>;
+  /**
+   * Usuários com a tarefa no próprio Google Tasks ("Minhas tarefas"). `auto`: pela integração do
+   * cadastro do usuário ("Integrar Tarefas com Calendar do Google"), não pelo checkbox da tarefa.
+   */
+  googleTasks?: Array<{ userId: string; webViewLink: string | null; auto?: boolean }>;
   /** Resultado da sincronização com o Google Agenda nesta gravação. */
   googleCalendar?: { synced: boolean; message?: string; webViewLink?: string | null };
   lead: {

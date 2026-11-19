@@ -423,7 +423,15 @@ function UserForm({
   const isNew = user === 'new';
   const [form, setForm] = useState<UserPayload>(
     isNew
-      ? { name: '', email: '', password: '', roleId: '', mustChangePassword: false, isCollector: false }
+      ? {
+          name: '',
+          email: '',
+          password: '',
+          roleId: '',
+          mustChangePassword: false,
+          isCollector: false,
+          googleTasksAutoSync: false,
+        }
       : {
           name: user.name,
           email: user.email,
@@ -432,6 +440,7 @@ function UserForm({
           phone: user.phone ?? undefined,
           mustChangePassword: user.mustChangePassword,
           isCollector: user.isCollector ?? false,
+          googleTasksAutoSync: user.googleTasksAutoSync ?? false,
         },
   );
   const [error, setError] = useState<string | null>(null);
@@ -600,6 +609,29 @@ function UserForm({
             <span className="mt-1 block text-xs text-slate-400">
               Ao salvar, a senha temporária será Senha@123. O usuário só poderá acessar o CRM
               depois de definir uma nova senha.
+            </span>
+          </span>
+        </label>
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-4 md:col-span-2">
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4 accent-brand-purple"
+            checked={form.googleTasksAutoSync ?? false}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, googleTasksAutoSync: e.target.checked }))
+            }
+          />
+          <span>
+            <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+              <Icon name="calendar" className="h-4 w-4 text-brand-purple" />
+              Integrar Tarefas com Calendar do Google
+            </span>
+            <span className="mt-1 block text-xs text-slate-400">
+              As tarefas sob responsabilidade deste usuário que estiverem "Em andamento" entram em
+              "Minhas tarefas" do Google Agenda de {form.email || 'seu e-mail'}. Concluída no CRM é
+              marcada como feita no Google; "A Fazer" ou "Cancelada" sai do Google. No Google,
+              concluir conclui a tarefa no CRM e excluir a cancela. Requer e-mail do domínio do
+              Workspace e a integração com o Google Agenda ativa.
             </span>
           </span>
         </label>

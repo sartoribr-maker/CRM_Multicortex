@@ -158,7 +158,7 @@ export class PmoTasksGateway {
       }),
       this.prisma.taskGoogleTask.findMany({
         where: { taskId: { in: taskIds } },
-        select: { taskId: true, userId: true, webViewLink: true },
+        select: { taskId: true, userId: true, webViewLink: true, auto: true },
       }),
     ]);
     const person = (p: PmoPerson): CrmTaskUser =>
@@ -197,7 +197,7 @@ export class PmoTasksGateway {
             : null),
         googleTasks: google
           .filter((g) => g.taskId === t.id)
-          .map((g) => ({ userId: g.userId, webViewLink: g.webViewLink })),
+          .map((g) => ({ userId: g.userId, webViewLink: g.webViewLink, auto: g.auto })),
         // Do PMO:
         source: t.source,
         project: t.project,

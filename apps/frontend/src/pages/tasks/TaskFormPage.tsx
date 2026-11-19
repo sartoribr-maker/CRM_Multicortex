@@ -51,6 +51,8 @@ export default function TaskFormPage() {
   const [calendarConfig, setCalendarConfig] = useState<TaskGoogleCalendarConfig | null>(null);
   const [syncCalendar, setSyncCalendar] = useState(false);
   const [calendarLinked, setCalendarLinked] = useState(false);
+  /** Já está no Google pela integração automática do cadastro do usuário. */
+  const [calendarAuto, setCalendarAuto] = useState(false);
   const [calendarLink, setCalendarLink] = useState<string | null>(null);
   useEffect(() => {
     leadsApi.list({ pageSize: 100 }).then((r) => setLeads(r.items));
@@ -67,8 +69,9 @@ export default function TaskFormPage() {
       .then((t) => {
         setOriginalStatus(t.status);
         const ownEvent = t.googleTasks?.find((linked) => linked.userId === user?.id);
-        setCalendarLinked(Boolean(ownEvent));
-        setSyncCalendar(Boolean(ownEvent));
+        setCalendarAuto(Boolean(ownEvent?.auto));
+        setCalendarLinked(Boolean(ownEvent) && !ownEvent?.auto);
+        setSyncCalendar(Boolean(ownEvent) && !ownEvent?.auto);
         setCalendarLink(ownEvent?.webViewLink ?? null);
         setForm({
           title: t.title,
@@ -92,7 +95,8 @@ export default function TaskFormPage() {
       ...form,
       dueDate: new Date(`${form.dueDate}T12:00:00`).toISOString(),
       // Só envia quando há algo a fazer: vincular/atualizar ou desfazer um vínculo existente.
-      syncGoogleCalendar: syncCalendar || calendarLinked ? syncCalendar : undefined,
+      syncGoogleCalendar:
+        !calendarAuto && (syncCalendar || calendarLinked) ? syncCalendar : undefined,
     };
     const completing = form.status === 'DONE' && (!editing || originalStatus !== 'DONE');
     if (completing) {
@@ -244,7 +248,7 @@ export default function TaskFormPage() {
                 <div className="md:col-span-2">
                   <label
                     className={`flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm ${
-                      calendarConfig.eligible
+                      calendarConfig.eligible && !calendarAuto
                         ? 'cursor-pointer hover:bg-purple-50'
                         : 'cursor-not-allowed opacity-60'
                     }`}
@@ -252,8 +256,8 @@ export default function TaskFormPage() {
                     <input
                       type="checkbox"
                       className="mt-0.5"
-                      disabled={!calendarConfig.eligible}
-                      checked={syncCalendar}
+                      disabled={!calendarConfig.eligible || calendarAuto}
+                      checked={syncCalendar || calendarAuto}
                       onChange={(event) => setSyncCalendar(event.target.checked)}
                     />
                     <span>
@@ -262,14 +266,16 @@ export default function TaskFormPage() {
                         Vincular com o Google Agenda
                       </span>
                       <span className="mt-0.5 block text-xs text-slate-500">
-                        {!calendarConfig.eligible
+                        {calendarAuto
+                          ? 'No seu Google Agenda pela integração automática do seu cadastro: acompanha a tarefa enquanto ela estiver "Em andamento".'
+                          : !calendarConfig.eligible
                           ? `Disponível apenas para usuários com e-mail @${calendarConfig.workspaceDomain}.`
                           : calendarLinked && !syncCalendar
                             ? 'Ao salvar, a tarefa será removida do seu Google Agenda.'
                             : calendarLinked
                               ? 'Já vinculada: ao salvar, ela e o lembrete das 10h serão atualizados no seu Google Agenda.'
                               : `Ao salvar, a tarefa entra em "Minhas tarefas" do Google Agenda de ${user?.email}, com lembrete às 10h do dia do prazo.`}
-                        {calendarLinked && calendarLink && (
+                        {(calendarLinked || calendarAuto) && calendarLink && (
                           <>
                             {' '}
                             <a

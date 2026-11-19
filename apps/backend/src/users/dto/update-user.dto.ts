@@ -37,4 +37,9 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   isCollector?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Integrar Tarefas com Calendar do Google' })
+  @IsOptional()
+  @IsBoolean()
+  googleTasksAutoSync?: boolean;
 }

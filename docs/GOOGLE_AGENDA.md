@@ -51,6 +51,33 @@ No formulário de inclusão/alteração de tarefas há o checkbox **Vincular com
 1. No Google Cloud, no projeto da conta de serviço, ative a **Google Tasks API**.
 2. No Admin Console (Segurança → Controles de API → Delegação em todo o domínio), edite o client ID da conta de serviço e acrescente o escopo `https://www.googleapis.com/auth/tasks` aos que já existem (`calendar.events` e `calendar.freebusy`).
 
+## Integração automática de tarefas (cadastro do usuário)
+
+No cadastro do usuário (Acessos → Usuários) há o checkbox **Integrar Tarefas com Calendar do Google**. Ele só pode ser marcado com a integração ativa e e-mail do domínio do Workspace (ex.: `@multicortex.ai`), porque as tarefas vão para a conta Google do próprio usuário.
+
+Com a opção marcada, valem estas regras para as tarefas sob responsabilidade do usuário (responsável ou corresponsável, criadas no CRM ou no PMO):
+
+| No CRM/PMO | No Google ("Minhas tarefas") |
+| --- | --- |
+| Entra em **Em andamento** | A tarefa é criada |
+| Muda título, descrição, prazo, prioridade etc. | A tarefa é atualizada |
+| Vai para **Concluída** | É marcada como feita |
+| Vai para **A Fazer** ou **Cancelada**, é arquivada/excluída ou sai da responsabilidade do usuário | É excluída |
+
+| No Google | No CRM/PMO |
+| --- | --- |
+| Marcar como concluída | A tarefa vai para **Concluída** (justificativa: "Concluída pelo usuário no Google Agenda (Tarefas).") |
+| Excluir a tarefa | A tarefa vai para **Cancelada** |
+
+- **Campos:** título `[código] título`; notas com a descrição, prioridade, oportunidade (e empresa), etapa da oportunidade, projeto, responsáveis, quem criou e o link da tarefa no CRM; prazo como data (o Google Tasks não guarda horário). Não há lembrete das 10h nessas tarefas.
+- **Quando sincroniza:** na hora, quando a tarefa é alterada pelo CRM; e a cada 2 minutos (`GOOGLE_TASKS_AUTO_SYNC_INTERVAL_SECONDS`, mínimo 30), que pega as mudanças feitas no PMO e no Google. O Google Tasks não avisa alterações, por isso o que é feito lá aparece no CRM em até um intervalo.
+- **Conflito:** se a tarefa mudou no CRM (ex.: voltou para "A Fazer") antes de a ação feita no Google ser lida, vale a do CRM.
+- Depois de concluída, a tarefa deixa de ser acompanhada: reabri-la no Google não muda o CRM. Se ela voltar para "Em andamento" no CRM, uma nova tarefa é criada no Google.
+- Mover a tarefa para outra lista do Google conta como exclusão (a integração usa "Minhas tarefas").
+- **Desmarcar a opção** (ou inativar o usuário, ou trocar o e-mail) exclui do Google as tarefas em andamento criadas pela integração. As concluídas ficam.
+- Com a opção marcada, as tarefas **Em andamento** que o usuário já tinha vinculado pelo checkbox da tarefa (**Vincular com o Google Agenda**) passam para a integração automática: a mesma tarefa do Google é reaproveitada, o lembrete das 10h é apagado e, se ela já tinha sido concluída/excluída no Google, isso é aplicado no CRM. Vínculos manuais de tarefas em outras situações continuam com as regras do vínculo manual. Numa tarefa que está no Google pela integração automática, o checkbox da tarefa aparece marcado e bloqueado.
+- Escopo usado: `https://www.googleapis.com/auth/tasks` (o mesmo do vínculo manual; nenhuma configuração nova no Google).
+
 ## API
 
 - `GET /calendar/config`: integração ativa, etapa de reunião e duração padrão.
@@ -58,6 +85,7 @@ No formulário de inclusão/alteração de tarefas há o checkbox **Vincular com
 - `GET /calendar/availability?emails=a,b&from=&to=`: intervalos ocupados (até 45 dias), apenas de e-mails do domínio.
 - `GET /leads/:id/meetings` e `POST /leads/:id/meetings`: o POST recebe `title`, `description`, `startAt`, `endAt`, `attendees[]` e `withMeet`.
 - `GET /tasks/google-calendar`: integração ativa e se o usuário logado pode vincular. `POST /tasks` e `PATCH /tasks/:id` aceitam `syncGoogleCalendar` (`true` vincula/atualiza no Google Tasks, `false` remove).
+- `POST /users` e `PATCH /users/:id` aceitam `googleTasksAutoSync` (integração automática de tarefas).
 - `GET`/`PUT /google-calendar-settings` e `POST /google-calendar-settings/test`: exigem `settings.manage`.
 
 ## Limitações atuais
